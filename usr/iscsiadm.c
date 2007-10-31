@@ -43,10 +43,7 @@
 
 struct iscsi_ipc *ipc = NULL; /* dummy */
 static char program_name[] = "iscsiadm";
-
-char initiator_name[TARGET_NAME_MAXLEN];
-char initiator_alias[TARGET_NAME_MAXLEN];
-char config_file[TARGET_NAME_MAXLEN];
+static char config_file[TARGET_NAME_MAXLEN];
 
 enum iscsiadm_mode {
 	MODE_DISCOVERY,
@@ -82,13 +79,14 @@ static struct option const long_options[] =
 	{"logout", no_argument, NULL, 'u'},
 	{"logoutall", required_argument, NULL, 'U'},
 	{"stats", no_argument, NULL, 's'},
+	{"killiscsid", required_argument, NULL, 'k'},
 	{"debug", required_argument, NULL, 'g'},
 	{"show", no_argument, NULL, 'S'},
 	{"version", no_argument, NULL, 'V'},
 	{"help", no_argument, NULL, 'h'},
 	{NULL, 0, NULL, 0},
 };
-static char *short_options = "RlVhm:p:P:T:H:I:U:L:d:r:n:v:o:sSt:u";
+static char *short_options = "RlVhm:p:P:T:H:I:U:k:L:d:r:n:v:o:sSt:u";
 
 static void usage(int status)
 {
@@ -102,7 +100,8 @@ iscsiadm -m discovery [ -hV ] [ -d debug_level ] [-P printlevel] [ -t type -p ip
 iscsiadm -m node [ -hV ] [ -d debug_level ] [ -P printlevel ] [ -L all,manual,automatic ] [ -U all,manual,automatic ] [ -S ] [ [ -T targetname -p ip:port -I ifaceN ] [ -l | -u | -R | -s] ] \
 [ [ -o  operation  ] [ -n name ] [ -v value ] ]\n\
 iscsiadm -m session [ -hV ] [ -d debug_level ] [ -P  printlevel] [ -r sessionid | sysfsdir [ -R | -u | -s ] [ -o operation ] [ -n name ] [ -v value ] ]\n\
-iscsiadm -m iface [ -hV ] [ -d debug_level ] [ -P printlevel ] [ -I ifacename ] [ [ -o  operation  ] [ -n name ] [ -v value ] ]\n");
+iscsiadm -m iface [ -hV ] [ -d debug_level ] [ -P printlevel ] [ -I ifacename ] [ [ -o  operation  ] [ -n name ] [ -v value ] ]\n\
+iscsiadm -k priority\n");
 	}
 	exit(status == 0 ? 0 : -1);
 }
@@ -165,6 +164,36 @@ str_to_type(char *str)
 		type = -1;
 
 	return type;
+}
+
+static void kill_iscsid(int priority)
+{
+	iscsiadm_req_t req;
+	iscsiadm_rsp_t rsp;
+	int rc;
+
+	/*
+	 * We only support SIGTERM like stoppage of iscsid for now.
+	 * In the future we can do something where we try go finish
+	 * up operations like login, error handling, etc, before
+	 * iscsid is stopped, and we can add different values to indicate
+	 * that the user wants iscsid to log out existing sessions before
+	 * exiting.
+	 */
+	if (priority != 0) {
+		log_error("Invalid iscsid priority %d. Priority must be 0.",
+			  priority);
+		return;
+	}
+
+	memset(&req, 0, sizeof(req));
+	req.command = MGMT_IPC_IMMEDIATE_STOP;
+	rc = do_iscsid(&req, &rsp);
+	if (rc) {
+		iscsid_handle_error(rc);
+		log_error("Could not stop iscsid. Trying sending iscsid "
+			  "SIGTERM or SIGKILL signals manually\n");
+	}
 }
 
 /*
@@ -825,47 +854,25 @@ static int print_nodes(idbm_t *db, int info_level, struct node_rec *rec)
 	return rc;
 }
 
-static int
-config_init(void)
+static char *get_config_file(void)
 {
 	int rc;
 	iscsiadm_req_t req;
 	iscsiadm_rsp_t rsp;
 
 	memset(&req, 0, sizeof(req));
-	req.command = MGMT_IPC_CONFIG_INAME;
-
-	rc = do_iscsid(&req, &rsp);
-	if (rc)
-		return EIO;
-
-	if (rsp.u.config.var[0] != '\0') {
-		strcpy(initiator_name, rsp.u.config.var);
-	}
-
-	memset(&req, 0, sizeof(req));
-	req.command = MGMT_IPC_CONFIG_IALIAS;
-
-	rc = do_iscsid(&req, &rsp);
-	if (rc)
-		return EIO;
-
-	if (rsp.u.config.var[0] != '\0') {
-		strcpy(initiator_alias, rsp.u.config.var);
-	}
-
-	memset(&req, 0, sizeof(req));
 	req.command = MGMT_IPC_CONFIG_FILE;
 
 	rc = do_iscsid(&req, &rsp);
 	if (rc)
-		return EIO;
+		return NULL;
 
 	if (rsp.u.config.var[0] != '\0') {
 		strcpy(config_file, rsp.u.config.var);
+		return config_file;
 	}
 
-	return 0;
+	return NULL;
 }
 
 static int print_session_flat(void *data, struct session_info *info)
@@ -1950,7 +1957,7 @@ main(int argc, char **argv)
 	int ch, longindex, mode=-1, port=-1, do_login=0, do_rescan=0;
 	int rc=0, sid=-1, op=-1, type=-1, do_logout=0, do_stats=0, do_show=0;
 	int do_login_all=0, do_logout_all=0, info_level=-1, num_ifaces = 0;
-	int tpgt = PORTAL_GROUP_TAG_UNKNOWN;
+	int tpgt = PORTAL_GROUP_TAG_UNKNOWN, killiscsid=-1;
 	idbm_t *db = NULL;
 	struct sigaction sa_old;
 	struct sigaction sa_new;
@@ -1979,6 +1986,15 @@ main(int argc, char **argv)
 	while ((ch = getopt_long(argc, argv, short_options,
 				 long_options, &longindex)) >= 0) {
 		switch (ch) {
+		case 'k':
+			killiscsid = atoi(optarg);
+			if (killiscsid < 0) {
+				log_error("Invalid killiscsid priority %d "
+					  "Priority must be greater than or "
+					  "equal to zero.", killiscsid);
+				exit(-1);
+			}
+			break;
 		case 't':
 			type = str_to_type(optarg);
 			break;
@@ -2073,6 +2089,11 @@ main(int argc, char **argv)
 		return -1;
 	}
 
+	if (killiscsid >= 0) {
+		kill_iscsid(killiscsid);
+		goto free_ifaces;
+	}
+
 	if (mode < 0)
 		usage(0);
 
@@ -2088,10 +2109,8 @@ main(int argc, char **argv)
 		goto out;
 	}
 
-
-	config_init();
-
-	db = idbm_init(config_file);
+	increase_max_files();
+	db = idbm_init(get_config_file);
 	if (!db) {
 		log_warning("exiting due to idbm configuration error");
 		return -1;

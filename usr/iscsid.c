@@ -240,33 +240,57 @@ static int sync_session(void *data, struct session_info *info)
 	return 0;
 }
 
+static char *iscsid_get_config_file(void)
+{
+	return daemon_config.config_file;
+}
+
 static void sync_sessions(void)
 {
 	idbm_t *db;
 	int nr_found = 0;
 
-	db = idbm_init(daemon_config.config_file);
+	db = idbm_init(iscsid_get_config_file);
 	if (!db)
 		return;
 	sysfs_for_each_session(db, &nr_found, sync_session);
 	idbm_terminate(db);
 }
 
-static void catch_signal(int signo)
-{
-	log_warning("caught signal -%d, ignoring...", signo);
-}
-
 static void iscsid_exit(void)
 {
-	log_debug(1, "iscsid_exit");
+	isns_exit();
+	ipc->ctldev_close();
+	mgmt_ipc_close(mgmt_ipc_fd);
 	if (daemon_config.initiator_name)
 		free(daemon_config.initiator_name);
 	if (daemon_config.initiator_alias)
 		free(daemon_config.initiator_alias);
 	free_initiator();
-	mgmt_ipc_close(mgmt_ipc_fd);
-	ipc->ctldev_close();
+}
+
+static void iscsid_shutdown(void)
+{
+	log_warning("iscsid shutting down.");
+	if (log_daemon && log_pid >= 0) {
+		log_debug(1, "daemon stopping");
+		log_close(log_pid);
+		fprintf(stderr, "done done\n");
+	}
+	exit(0);
+}
+
+static void catch_signal(int signo)
+{
+	log_debug(1, "%d caught signal -%d...", signo, getpid());
+
+	switch (signo) {
+	case SIGTERM:
+		iscsid_shutdown();
+		break;
+	default:
+		break;
+	}
 }
 
 static void missing_iname_warn(char *initiatorname_file)
@@ -447,11 +471,10 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
+	increase_max_files();
 	actor_init();
 	isns_fd = isns_init();
 	event_loop(ipc, control_fd, mgmt_ipc_fd, isns_fd);
-	isns_exit();
-
-	log_debug(1, "daemon stopping");
+	iscsid_shutdown();
 	return 0;
 }
