@@ -365,6 +365,11 @@ iscsi_copy_operational_params(iscsi_conn_t *conn)
 	session->initial_r2t_en = rec->session.iscsi.InitialR2T;
 	session->imm_data_en = rec->session.iscsi.ImmediateData;
 	session->first_burst = __padding(rec->session.iscsi.FirstBurstLength);
+	/*
+	 * some targets like netapp fail the login if sent bad first_burst
+	 * and max_burst lens, even when immediate data=no and
+	 * initial r2t = Yes, so we always check the user values.
+	 */
 	if (session->first_burst < ISCSI_MIN_FIRST_BURST_LEN ||
 	    session->first_burst > ISCSI_MAX_FIRST_BURST_LEN) {
 		log_error("Invalid iscsi.FirstBurstLength of %u. Must be "
@@ -386,6 +391,14 @@ iscsi_copy_operational_params(iscsi_conn_t *conn)
 			   ISCSI_MAX_MAX_BURST_LEN, DEF_INI_MAX_BURST_LEN);
 		rec->session.iscsi.MaxBurstLength = DEF_INI_MAX_BURST_LEN;
 		session->max_burst = DEF_INI_MAX_BURST_LEN;
+	}
+
+	if (session->first_burst > session->max_burst) {
+		log_error("Invalid iscsi.FirstBurstLength of %u. Must be "
+			  "less than iscsi.MaxBurstLength. Setting to %u\n",
+			   session->first_burst, session->max_burst);
+		rec->session.iscsi.FirstBurstLength = session->max_burst;
+		session->first_burst = session->max_burst;
 	}
 
 	session->def_time2wait = rec->session.iscsi.DefaultTime2Wait;

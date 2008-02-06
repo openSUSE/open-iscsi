@@ -629,6 +629,13 @@ free_info:
 	return rc;
 }
 
+int get_session_state(char *state, int sid)
+{
+	memset(sysfs_file, 0, PATH_MAX);
+	sprintf(sysfs_file, ISCSI_SESSION_DIR"/session%d/state", sid);
+	return read_sysfs_file(sysfs_file, state, "%s\n");
+}
+
 int get_host_state(char *state, int host_no)
 {
 	memset(sysfs_file, 0, PATH_MAX);
@@ -917,7 +924,7 @@ int get_iscsi_kernel_version(char *buf)
 		return 0;
 }
 
-void check_class_version(void)
+int check_class_version(void)
 {
 	char version[20];
 	int i;
@@ -943,12 +950,12 @@ void check_class_version(void)
 	if (!strncmp(version, ISCSI_VERSION_STR, i) ||
 	   /* support 2.6.18 */
 	    !strncmp(version, "1.1", 3))
-		return;
+		return 0;
 
 fail:
 	log_error( "Missing or Invalid version from %s. Make sure a up "
 		"to date scsi_transport_iscsi module is loaded and a up to"
 		"date version of iscsid is running. Exiting...",
 		ISCSI_VERSION_FILE);
-	exit(1);
+	return -1;
 }
