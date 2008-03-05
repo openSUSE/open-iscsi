@@ -75,10 +75,9 @@ enum iscsi_login_status {
 	LOGIN_VERSION_MISMATCH		= 3,
 	LOGIN_NEGOTIATION_FAILED	= 4,
 	LOGIN_AUTHENTICATION_FAILED	= 5,
-	LOGIN_WRONG_PORTAL_GROUP	= 6,
-	LOGIN_REDIRECTION_FAILED	= 7,
-	LOGIN_INVALID_PDU		= 8,
-	LOGIN_REDIRECT			= 9,
+	LOGIN_REDIRECTION_FAILED	= 6,
+	LOGIN_INVALID_PDU		= 7,
+	LOGIN_REDIRECT			= 8,
 };
 
 typedef enum iscsi_event_e {
@@ -117,7 +116,6 @@ struct iscsi_conn_context;
 /* daemon's connection structure */
 typedef struct iscsi_conn {
 	uint32_t id;
-	int ksetup;
 	struct iscsi_session *session;
 	iscsi_login_context_t login_context;
 	struct iscsi_conn_context *recv_context;

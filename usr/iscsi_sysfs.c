@@ -38,10 +38,40 @@
 
 #define ISCSI_MAX_SYSFS_BUFFER NI_MAXHOST
 
+/*
+ * TODO: make this into a real API and check inputs better and add doc.
+ * We should also use a common lib and search sysfs according to the sysfs
+ * doc in the kernel documetnation.
+ */
+
 /* tmp buffer used by sysfs functions */
 static char sysfs_file[PATH_MAX];
 int num_transports = 0;
 LIST_HEAD(transports);
+
+/* mini implementation of versionsort for uclibc compatility */
+int direntcmp(const void *d1, const void *d2)
+{
+	const char *a = (*(const struct dirent **)d1)->d_name;
+	const char *b = (*(const struct dirent **)d2)->d_name;
+	while (*a && *b) {
+		int mask = (isdigit(*a) != 0) |  ((isdigit(*b) != 0) << 1);
+		switch (mask) {
+		case 0: /* none are digit */
+			if (*a == *b)
+				break;
+			return (*a - *b);
+		case 1: /* a is digit but not b */
+			return -1;
+		case 2: /* b is digit but not a */
+			return 1;
+		case 3: /* both ar digits */
+			return atoi(a) - atoi(b);
+		}
+		a++; b++;
+	}
+	return *a - *b;
+}
 
 int read_sysfs_file(char *filename, void *value, char *format)
 {
@@ -91,7 +121,7 @@ static int read_transports(void)
 	log_debug(7, "in %s", __FUNCTION__);
 
 	n = scandir(ISCSI_TRANSPORT_DIR, &namelist, trans_filter,
-		    versionsort);
+		    direntcmp);
 	if (n < 0) {
 		log_error("Could not scan %s.", ISCSI_TRANSPORT_DIR);
 		return n;
@@ -373,7 +403,7 @@ int sysfs_for_each_host(void *data, int *nr_found, sysfs_host_op_fn *fn)
 		return ENOMEM;
 
 	n = scandir(ISCSI_HOST_DIR, &namelist, trans_filter,
-		    versionsort);
+		    direntcmp);
 	if (n <= 0)
 		goto free_info;
 
@@ -437,6 +467,24 @@ int sysfs_for_each_host(void *data, int *nr_found, sysfs_host_op_fn *fn)
 free_info:
 	free(info);
 	return rc;
+}
+
+/**
+ * sysfs_session_has_leadconn - checks if session has lead conn in kernel
+ * @sid: session id
+ *
+ * return 1 if session has lead conn and 0 if not.
+ */
+int sysfs_session_has_leadconn(uint32_t sid)
+{
+	struct stat statb;
+
+	memset(sysfs_file, 0, PATH_MAX);
+	sprintf(sysfs_file, ISCSI_CONN_DIR"/connection%u:0", sid);
+	if (!stat(sysfs_file, &statb))
+		return 1;
+	else
+		return 0;
 }
 
 int get_sessioninfo_by_sysfs_id(struct session_info *info, char *session)
@@ -598,7 +646,7 @@ int sysfs_for_each_session(void *data, int *nr_found, sysfs_session_op_fn *fn)
 
 	sprintf(sysfs_file, ISCSI_SESSION_DIR);
 	n = scandir(sysfs_file, &namelist, trans_filter,
-		    versionsort);
+		    direntcmp);
 	if (n <= 0)
 		goto free_info;
 
@@ -805,7 +853,7 @@ int sysfs_for_each_device(int host_no, uint32_t sid,
 	sprintf(sysfs_file, ISCSI_SESSION_DIR"/session%d/device/target%d:0:%d",
 		sid, host_no, target);
 	n = scandir(sysfs_file, &namelist, trans_filter,
-		    versionsort);
+		    direntcmp);
 	if (n <= 0)
 		return 0;
 

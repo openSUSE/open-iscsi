@@ -286,7 +286,10 @@ static void add_new_target_node(char *targetname, uint8_t *ip, int port,
 	char dst[INET6_ADDRSTRLEN];
 
 	memset(dst, 0, sizeof(dst));
-	if (!memcmp(ip, dst, 10) && ip[10] == 0xff && ip[11] == 0xff)
+	/*
+	 * some servers are sending compat instead of mapped
+	 */
+	if (IN6_IS_ADDR_V4MAPPED(ip) || IN6_IS_ADDR_V4COMPAT(ip))
 		inet_ntop(AF_INET, ip + 12, dst, sizeof(dst));
 	else
 		inet_ntop(AF_INET6, ip, dst, sizeof(dst));
@@ -309,7 +312,7 @@ static void add_new_target_node(char *targetname, uint8_t *ip, int port,
 	/* TODO?: shoudl we set the address and port of the server ? */
 	memset(&drec, 0, sizeof(discovery_rec_t));
 	drec.type = DISCOVERY_TYPE_ISNS;
-	err = idbm_add_nodes(db, &rec, &drec, NULL);
+	err = idbm_add_nodes(db, &rec, &drec, NULL, 0);
 	if (err)
 		log_error("Could not add new target node:%s %s,%d",
 			  targetname, dst, port);

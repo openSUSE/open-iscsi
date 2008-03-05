@@ -50,6 +50,12 @@ typedef struct recinfo {
 	int		visible;
 	char*		opts[OPTS_MAXVAL];
 	int		numopts;
+	/*
+	 * bool indicating if we can change it or not.
+	 * TODO: make it a enum that can indicate wheter it also requires
+	 * a relogin to pick up if a session is running.
+	 */
+	int		can_modify;
 } recinfo_t;
 
 typedef char *(idbm_get_config_file_fn)(void);
@@ -73,7 +79,7 @@ typedef struct idbm {
 struct db_set_param {
 	char *name;
 	char *value;
-	struct idbm  *db;
+	struct idbm *db;
 };
 
 typedef int (idbm_iface_op_fn)(idbm_t *db, void *data, node_rec_t *rec);
@@ -100,6 +106,8 @@ extern idbm_t *idbm_init(idbm_get_config_file_fn *fn);
 
 extern void idbm_node_setup_from_conf(idbm_t *db, node_rec_t *rec);
 extern void idbm_terminate(idbm_t *db);
+extern int idbm_print_iface_info(idbm_t *db, void *data,
+				 struct iface_rec *iface);
 extern int idbm_print_node_info(idbm_t *db, void *data, node_rec_t *rec);
 extern int idbm_print_node_flat(idbm_t *db, void *data, node_rec_t *rec);
 extern int idbm_print_node_tree(idbm_t *db, void *data, node_rec_t *rec);
@@ -110,13 +118,18 @@ extern int idbm_print_discovered(idbm_t *db, discovery_rec_t *drec,
 				 int info_level);
 extern int idbm_delete_discovery(idbm_t *db, discovery_rec_t *rec);
 extern void idbm_node_setup_defaults(node_rec_t *rec);
-extern int idbm_delete_node(idbm_t *db, void *data, node_rec_t *rec);
-extern int idbm_add_node(idbm_t *db, node_rec_t *newrec, discovery_rec_t *drec);
-
+extern int idbm_delete_node(idbm_t *db, node_rec_t *rec);
+extern int idbm_add_node(idbm_t *db, node_rec_t *newrec, discovery_rec_t *drec,
+			 int overwrite);
 struct list_head;
+extern int idbm_bind_ifaces_to_node(idbm_t *db, struct node_rec *new_rec,
+				    struct list_head *ifaces,
+				    struct list_head *bound_recs);
 extern int idbm_add_nodes(idbm_t *db, node_rec_t *newrec,
-			  discovery_rec_t *drec, struct list_head *ifaces);
-extern void idbm_new_discovery(idbm_t *db, discovery_rec_t *drec);
+			  discovery_rec_t *drec, struct list_head *ifaces,
+			  int overwrite);
+extern int idbm_add_discovery(idbm_t *db, discovery_rec_t *newrec,
+			      int overwrite);
 extern void idbm_sendtargets_defaults(idbm_t *db,
 		      struct iscsi_sendtargets_config *cfg);
 extern void idbm_slp_defaults(idbm_t *db, struct iscsi_slp_config *cfg);
@@ -143,6 +156,7 @@ typedef int (iface_op_fn)(void *data, struct iface_rec *iface);
 extern int iface_for_each_iface(idbm_t *db, void *data, int *nr_found,
 				 iface_op_fn *fn);
 extern int iface_print_flat(void *data, struct iface_rec *iface);
+extern int iface_print_tree(void *data, struct iface_rec *iface);
 extern void iface_setup_host_bindings(idbm_t *db);
 extern int iface_get_by_bind_info(idbm_t *db, struct iface_rec *pattern,
 				 struct iface_rec *out_rec);
