@@ -48,6 +48,39 @@ iscsi_logout_all_nodes()
 	return ${RETVAL:-0}
 }
 
+iscsi_umount_all_luns()
+{
+    local d m dev p s
+
+    cat /proc/mounts | sed -ne '/^\/dev\/.*/p' | while read d m t o x; do 
+	if [ "$m" = "/" ] ; then 
+	    continue;
+	fi
+	if [ -L "$d" ] ; then
+	    d=$(readlink -f $d)
+	fi
+	dev=${d##/dev}
+
+	if [ "${dev##/sd}" = "$dev" ] ; then
+	    continue;
+	fi
+	p="/sys/block${dev%%[0-9]*}"
+
+	if [ ! -d ${p} ] && [ ! -d ${p}/device ] ; then
+	    continue;
+	fi
+
+	s=$(cd -P ${p}/device && echo $PWD)
+
+	case "$s" in
+	    */session[0-9]*/*)
+		# This is an iSCSI device
+		umount "$m"
+	    ;;
+	esac
+    done
+}
+
 iscsi_list_all_nodes()
 {
     # Check for active sessions
@@ -79,6 +112,7 @@ case "$1" in
 	fi
 	;;
     stop)
+	iscsi_umount_all_luns
 	if iscsi_logout_all_nodes ; then
 	    killproc -KILL $DAEMON
 	    RETVAL=$?
