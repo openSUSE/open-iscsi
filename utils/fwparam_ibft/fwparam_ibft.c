@@ -34,6 +34,8 @@
 #include "fwparam_ibft.h"
 #include "fw_context.h"
 
+char ID_ROMEXT[]={0x55, 0xaa, 0}; /* extended rom magic */
+
 char *progname = "fwparam_ibft";
 int debug;
 int dev_count;
@@ -406,34 +408,67 @@ dump_ibft(void *ibft_loc, struct boot_context *context)
 	return 0;
 }
 
-char *search_ibft(unsigned char *start, int length)
+char *search_ibft(unsigned char *start, int start_addr, int length)
 {
-	unsigned char *cur_ptr;
+	unsigned char *cur_ptr, *rom_end;
 	struct ibft_table_hdr *ibft_hdr;
-	unsigned char check_sum;
+	unsigned char check_sum, csize;
 	uint32_t i;
 
 	cur_ptr = (unsigned char *)start;
-	for (cur_ptr = (unsigned char *)start;
-	     cur_ptr < (start + length);
-	     cur_ptr++) {
-		if (memcmp(cur_ptr, iBFTSTR,strlen(iBFTSTR)))
+	while (cur_ptr < (start + length)) {
+
+		if (!memcmp(cur_ptr, ID_ROMEXT, strlen(ID_ROMEXT))) {
+			cur_ptr += 512;
 			continue;
-
-		ibft_hdr = (struct ibft_table_hdr *)cur_ptr;
-		/* Make sure it's correct version. */
-		if (ibft_hdr->revision != iBFT_REV)
-			continue;
-
-		/* Make sure that length is valid. */
-		if ((cur_ptr + ibft_hdr->length) <= (start + length)) {
-			/* Let verify the checksum */
-			for (i = 0, check_sum = 0; i < ibft_hdr->length; i++)
-				check_sum += cur_ptr[i];
-
-			if (check_sum == 0)
-				return (char *)cur_ptr;
 		}
+
+		memcpy(&csize, cur_ptr + 2, 1);
+
+		if (debug > 1)
+			fprintf(stderr, "Found rom at %x of size %d\n",
+				((int)(cur_ptr - start) + start_addr),
+				csize * 512);
+
+		if (csize == 0) {
+			/* Skip empty rom areas */
+			cur_ptr += 512;
+			continue;
+		}
+
+		/* Don't search past the end of rom area */
+		rom_end = (cur_ptr + (csize * 512)) - strlen(iBFTSTR);
+
+		while (cur_ptr < rom_end) {
+			if (memcmp(cur_ptr, iBFTSTR,strlen(iBFTSTR))) {
+				cur_ptr++;
+				continue;
+			}
+
+			if (debug > 1)
+				fprintf(stderr, "Found iBFT table at %x\n",
+					(int)(cur_ptr - start) + start_addr);
+
+			ibft_hdr = (struct ibft_table_hdr *)cur_ptr;
+
+			/* Make sure it's correct version. */
+			if (ibft_hdr->revision != iBFT_REV) {
+				cur_ptr = rom_end;
+				continue;
+			}
+
+			/* Make sure that length is valid. */
+			if ((cur_ptr + ibft_hdr->length) <= (start + length)) {
+				/* Let verify the checksum */
+				for (i = 0, check_sum = 0; i < ibft_hdr->length; i++)
+					check_sum += cur_ptr[i];
+
+				if (check_sum == 0)
+					return (char *)cur_ptr;
+			}
+			cur_ptr = rom_end;
+		}
+		cur_ptr += strlen(iBFTSTR);
 	}
 	return NULL;
 }
@@ -484,7 +519,7 @@ fwparam_ibft(struct boot_context *context, const char *filepath)
 		goto done;
 	}
 
-	ibft_loc = search_ibft((unsigned char *)filebuf, end_search);
+	ibft_loc = search_ibft((unsigned char *)filebuf, start, end_search);
 	if (ibft_loc)
 		ret = dump_ibft(ibft_loc, context);
 	else {
