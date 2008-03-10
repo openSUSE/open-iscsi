@@ -32,19 +32,17 @@ V ?= 0
 # eg to compile for a kernel that you aren't currently running
 KERNELRELEASE ?= $(shell uname -r)
 KSRC ?= /lib/modules/$(KERNELRELEASE)/build
+KSRC := $(shell test -f $(KSRC)/Makefile || echo "")
 KBUILD_OUTPUT ?= 
 # this is the basic Kbuild invocation, just append your make target
 KBUILD_BASE = +$(MAKE) -C $(KSRC) M=`pwd` KBUILD_OUTPUT=$(KBUILD_OUTPUT) $(KARCH) V=$(V)
 
 all: kernel_src
 
-KERNEL_SRC=$(shell if test -f $(KSRC)/Makefile ; then echo has_kernel_src; else echo no_kernel_src; fi)
-kernel_src: $(KERNEL_SRC)
+kernel_src: $(shell test -n "$(KSRC)" && echo has_kernel_src)
 
 has_kernel_src: kernel_check
 	$(KBUILD_BASE) modules
-
-no_kernel_src:
 
 # ============ BEGIN code for kernel_check and source patching ================
 # We calculate the Linux version for compilation. Than according to version,
@@ -68,7 +66,7 @@ unpatch_code=$(shell test -e $(cur_patched) && echo do_unpatch_code )
 KSUBLEVEL = $(shell cat $(KSRC)/Makefile 2> /dev/null | awk -F= '/^SUBLEVEL =/ {print $$2}' | \
 		sed 's/^[ \t]*//;s/[ \t]*$$//')
 
-KSUBLEVEL?=$(shell echo $OSNAME | sed -n 's/.\..\.\([[:digit:]]*\)\..*/\1/p')
+KSUBLEVEL?=$(shell echo $(KERNELRELEASE) | sed -n 's/.\..\.\([[:digit:]]*\)\..*/\1/p')
 
 KERNEL_TARGET=linux_2_6_$(KSUBLEVEL)
 kernel_check: $(KERNEL_TARGET)
@@ -123,7 +121,11 @@ has_20to21_patch: $(20to21_patch)
 
 # ============ END code for kernel_check and source patching =================
 
-clean: $(unpatch_code)
+clean: clean_kernel_src
+
+clean_kernel_src: $(shell test -n "$(KSRC)" && echo has_clean_kernel_src)
+
+has_clean_kernel_src: $(unpatch_code)
 	$(KBUILD_BASE) clean
 	rm -f Module.symvers
 
@@ -162,7 +164,9 @@ ko = $(patsubst %.o,%.ko,$(obj-m))
 $(ko): all
 
 # now the actual command
-install_kernel: $(ko)
+install_kernel: $(shell test -n "$(KSRC)" && echo install_kernel_obj);
+
+install_kernel_obj: $(ko)
 	$(KBUILD_BASE) modules_install INSTALL_MOD_DIR=$(INSTALL_MOD_DIR) INSTALL_MOD_PATH=$(INSTALL_MOD_PATH)
 
 # vim: ft=make tw=72 sw=4 ts=4:

@@ -15,7 +15,7 @@ etcdir = /etc
 initddir = $(etcdir)/init.d
 
 MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8
-PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi_discovery utils/iscsi-iname
+PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi_discovery utils/iscsi-iname utils/fwparam_ibft/fwparam_ibft
 INSTALL = install
 ETCFILES = etc/iscsid.conf
 IFACEFILES = etc/iface.example
@@ -54,7 +54,7 @@ clean:
 	install_etc install_iface install_doc install_kernel install_iname
 
 install: install_kernel install_programs install_doc install_etc \
-	install_initd install_iname install_iface
+	install_initd
 
 install_usr: install_programs install_doc install_etc \
 	install_initd install_iname install_iface
