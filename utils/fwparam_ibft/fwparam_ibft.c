@@ -319,7 +319,7 @@ dump_ibft(void *ibft_loc, struct boot_context *context)
 	struct ibft_initiator *initiator = NULL;
 	struct ibft_nic *nic0 = NULL, *nic1 = NULL;
 	struct ibft_tgt *tgt0 = NULL, *tgt1 = NULL;
-	char ipbuf[32];
+	char buf[32];
 
 	control = ibft_loc + sizeof(*ibft_hdr);
 	CHECK_HDR(control, control);
@@ -359,6 +359,28 @@ dump_ibft(void *ibft_loc, struct boot_context *context)
 		CHECK_HDR(tgt1, target);
 	}
 
+	if (!context) {
+		snprintf(buf, sizeof(buf), "iSCSI_INITIATOR_");
+
+		if (initiator && (initiator->hdr.flags &
+				  INIT_FLAG_FW_SEL_BOOT))
+			dump_initiator_prefix(ibft_loc, initiator, buf);
+
+		if (nic0 && (nic0->hdr.flags & INIT_FLAG_FW_SEL_BOOT))
+			dump_nic_prefix(ibft_loc, nic0, buf);
+		else if (nic1 && (nic1->hdr.flags & INIT_FLAG_FW_SEL_BOOT))
+			dump_nic_prefix(ibft_loc, nic1, buf);
+
+		snprintf(buf, sizeof(buf), "iSCSI_TARGET_");
+
+		if (tgt0 && (tgt0->hdr.flags & INIT_FLAG_FW_SEL_BOOT))
+			dump_tgt_prefix(ibft_loc, tgt0, buf);
+		else if (tgt1 && (tgt1->hdr.flags & INIT_FLAG_FW_SEL_BOOT))
+			dump_tgt_prefix(ibft_loc, tgt1, buf);
+
+		return 0;
+	}
+
 	strncpy(context->initiatorname,
 		(char *)ibft_loc+initiator->initiator_name_off,
 		initiator->initiator_name_len + 1);
@@ -367,10 +389,10 @@ dump_ibft(void *ibft_loc, struct boot_context *context)
 		strncpy((char *)context->targetname,
 			(char *)(ibft_loc+tgt0->tgt_name_off),
 			tgt0->tgt_name_len);
-		format_ipaddr(ipbuf, sizeof(ipbuf),
+		format_ipaddr(buf, sizeof(buf),
 			      tgt0->ip_addr);
-		strncpy((char *)context->target_ipaddr, ipbuf,
-			sizeof(ipbuf));
+		strncpy((char *)context->target_ipaddr, buf,
+			sizeof(buf));
 		context->target_port = tgt0->port;
 		strncpy(context->chap_name,
 			(char *)(ibft_loc + tgt0->chap_name_off),
@@ -389,10 +411,10 @@ dump_ibft(void *ibft_loc, struct boot_context *context)
 		strncpy((char *)context->targetname,
 			(char *)(ibft_loc+tgt1->tgt_name_off),
 			tgt1->tgt_name_len);
-		format_ipaddr(ipbuf, sizeof(ipbuf),
+		format_ipaddr(buf, sizeof(buf),
 			      tgt1->ip_addr);
-		strncpy((char *)context->target_ipaddr,ipbuf,
-			sizeof(ipbuf));
+		strncpy((char *)context->target_ipaddr,buf,
+			sizeof(buf));
 		context->target_port = tgt1->port;
 		strncpy(context->chap_name,
 			(char *)(ibft_loc + tgt1->chap_name_off),
@@ -415,32 +437,31 @@ char *search_ibft(unsigned char *start, int start_addr, int length)
 {
 	unsigned char *cur_ptr, *rom_end;
 	struct ibft_table_hdr *ibft_hdr;
-	unsigned char check_sum, csize;
+	unsigned char check_sum, rom_size;
 	uint32_t i;
 
 	cur_ptr = (unsigned char *)start;
 	while (cur_ptr < (start + length)) {
-
-		if (!memcmp(cur_ptr, ID_ROMEXT, strlen(ID_ROMEXT))) {
+		if (memcmp(cur_ptr, ID_ROMEXT, strlen(ID_ROMEXT)) != 0) {
+			/* Skip this block */
 			cur_ptr += 512;
 			continue;
 		}
-
-		memcpy(&csize, cur_ptr + 2, 1);
+		memcpy(&rom_size, cur_ptr + 2, 1);
 
 		if (debug > 1)
 			fprintf(stderr, "Found rom at %x of size %d\n",
 				((int)(cur_ptr - start) + start_addr),
-				csize * 512);
+				rom_size * 512);
 
-		if (csize == 0) {
+		if (rom_size == 0) {
 			/* Skip empty rom areas */
 			cur_ptr += 512;
 			continue;
 		}
 
 		/* Don't search past the end of rom area */
-		rom_end = (cur_ptr + (csize * 512)) - strlen(iBFTSTR);
+		rom_end = (cur_ptr + (rom_size * 512)) - strlen(iBFTSTR);
 
 		while (cur_ptr < rom_end) {
 			if (memcmp(cur_ptr, iBFTSTR,strlen(iBFTSTR))) {

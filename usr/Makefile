@@ -42,19 +42,19 @@ COMMON_SRCS =  $(ISCSI_LIB_SRCS)
 # core initiator files
 INITIATOR_SRCS = initiator.o scsi.o actor.o mgmt_ipc.o isns.o transport.o
 # fw boot files
-FW_BOOT_SRCS = $(wildcard ../utils/fwparam_ibft/*.o)
+FWPARAM_LIB = ../utils/fwparam_ibft/libfwparam.a
 
 all: $(PROGRAMS)
 
 iscsid: $(COMMON_SRCS) $(IPC_OBJ) $(INITIATOR_SRCS) iscsid.o
 	$(CC) $(CFLAGS) $^ -o $@
 
-iscsiadm: $(COMMON_SRCS) $(FW_BOOT_SRCS) strings.o discovery.o iscsiadm.o
-	$(CC) $(CFLAGS) $^ -o $@
+iscsiadm: $(COMMON_SRCS) strings.o discovery.o iscsiadm.o
+	$(CC) $(CFLAGS) $^ -o $@ $(FWPARAM_LIB)
 
-iscsistart: $(IPC_OBJ) $(ISCSI_LIB_SRCS) $(INITIATOR_SRCS) $(FW_BOOT_SRCS) \
+iscsistart: $(COMMON_SRCS) $(IPC_OBJ) $(INITIATOR_SRCS) \
 		iscsistart.o statics.o
-	$(CC) $(CFLAGS) -static $^ -o $@
+	$(CC) $(CFLAGS) -static $^ -o $@ $(FWPARAM_LIB)
 
 clean:
 	rm -f *.o $(PROGRAMS) .depend

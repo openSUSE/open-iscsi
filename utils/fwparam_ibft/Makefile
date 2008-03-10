@@ -21,6 +21,9 @@
 #	    "Prasanna Mumbai" <mumbai.prasanna@gmail.com>
 #
 
+PROG = fwparam_ibft
+MAIN = fwparam_main.o
+LIB = libfwparam.a
 OBJS := fwparam_ibft.o fw_entry.o
 OBJS += prom_lex.o prom_parse.tab.o fwparam_ppc.o
 CLEANFILES = $(OBJS) *.output *~
@@ -29,12 +32,18 @@ OPTFLAGS ?= -O2 -g -fPIC
 WARNFLAGS ?= -Wall -Wstrict-prototypes
 CFLAGS += $(OPTFLAGS) $(WARNFLAGS) -I../../include
 
-all: $(OBJS)
+all: $(LIB) $(PROG)
+
+$(LIB): $(OBJS)
+	$(AR) rcv $(LIB) $(OBJS)
 
 clean:
 	rm -f *.o $(CLEANFILES) .depend
 
 $(OBJS): prom_parse.tab.h prom_parse.h fwparam_ibft.h
+
+$(PROG): $(MAIN) $(LIB)
+	gcc $(CFLAGS) -o $@ $< libfwparam.a
 
 depend:
 	gcc $(CFLAGS) -M `ls *.c` > .depend
