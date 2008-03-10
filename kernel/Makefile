@@ -36,8 +36,15 @@ KBUILD_OUTPUT ?=
 # this is the basic Kbuild invocation, just append your make target
 KBUILD_BASE = +$(MAKE) -C $(KSRC) M=`pwd` KBUILD_OUTPUT=$(KBUILD_OUTPUT) $(KARCH) V=$(V)
 
-all: kernel_check
+all: kernel_src
+
+KERNEL_SRC=$(shell if test -f $(KSRC)/Makefile ; then echo has_kernel_src; else echo no_kernel_src; fi)
+kernel_src: $(KERNEL_SRC)
+
+has_kernel_src: kernel_check
 	$(KBUILD_BASE) modules
+
+no_kernel_src:
 
 # ============ BEGIN code for kernel_check and source patching ================
 # We calculate the Linux version for compilation. Than according to version,
@@ -58,8 +65,10 @@ cur_patched=cur_patched
 # check to see if code is unpatched 
 unpatch_code=$(shell test -e $(cur_patched) && echo do_unpatch_code )
 
-KSUBLEVEL = $(shell cat $(KSRC)/Makefile | awk -F= '/^SUBLEVEL =/ {print $$2}' | \
+KSUBLEVEL = $(shell cat $(KSRC)/Makefile 2> /dev/null | awk -F= '/^SUBLEVEL =/ {print $$2}' | \
 		sed 's/^[ \t]*//;s/[ \t]*$$//')
+
+KSUBLEVEL?=$(shell echo $OSNAME | sed -n 's/.\..\.\([[:digit:]]*\)\..*/\1/p')
 
 KERNEL_TARGET=linux_2_6_$(KSUBLEVEL)
 kernel_check: $(KERNEL_TARGET)

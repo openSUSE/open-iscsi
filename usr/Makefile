@@ -7,8 +7,10 @@ OSNAME=$(shell uname -s)
 KERNELRELEASE ?= $(shell uname -r)
 KSRC ?= /lib/modules/$(KERNELRELEASE)/build
 
-KSUBLEVEL=$(shell cat $(KSRC)/Makefile | awk -F= '/^SUBLEVEL =/ {print $$2}' | \
+KSUBLEVEL=$(shell cat $(KSRC)/Makefile 2> /dev/null | awk -F= '/^SUBLEVEL =/ {print $$2}' | \
 			sed 's/^[ \t]*//;s/[ \t]*$$//')
+
+KSUBLEVEL?=$(shell echo $OSNAME | sed -n 's/.\..\.\([[:digit:]]*\)\..*/\1/p')
 
 ifeq ($(OSNAME),Linux)
 	ifeq ($(KSUBLEVEL),11)
