@@ -81,8 +81,11 @@ format_lun(char *buf, size_t size, uint8_t *lun)
 {
 	int i;
 
-	for (i = 0; i < 8; i++)
-		snprintf(buf++, size--, "%x", lun[i]);
+	for (i = 0; i < 8; i++) {
+		snprintf(buf, size, "%02x", lun[i]);
+		buf += 2;
+		size -= 2;
+	}
 }
 
 void
