@@ -27,22 +27,56 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 #include "fwparam_ibft.h"
 #include "fw_context.h"
 
 extern int debug;
 
+int get_ifnum_from_mac(char *mac)
+{
+	int ifnum = -1, fd;
+	DIR *d;
+	struct dirent *dent;
+	char buf[20], attr[64];
+
+	d = opendir("/sys/class/net");
+	while ((dent = readdir(d))) {
+		if (dent->d_name[0] == '.')
+			continue;
+
+		sprintf(attr,"/sys/class/net/%s/address", dent->d_name);
+		fd = open(attr,O_RDONLY);
+		if (!fd)
+			continue;
+
+		read(fd, buf, 18);
+		close(fd);
+
+		if (strncmp(mac, buf, strlen(mac)))
+			continue;
+
+		if (sscanf(dent->d_name,"eth%d", &ifnum) == 1)
+			break;
+	}
+	closedir(d);
+
+	return ifnum;
+}
+
 int
 main (int argc, char **argv)
 {
-	int option, ret;
+	int option, ret, do_ipconfig = 0;
 	char *progname, *filebuf = NULL;
+	struct boot_context ctxt;
 
 	progname = argv[0];
 
 	while (1) {
-		option = getopt(argc, argv, "f:vhb");
+		option = getopt(argc, argv, "f:ivhb");
 		if (option == -1)
 			break;
 		switch (option) {
@@ -51,6 +85,9 @@ main (int argc, char **argv)
 			break;
 		case 'f':
 			filebuf = optarg;
+			break;
+		case 'i':
+			do_ipconfig = 1;
 			break;
 		case 'v':
 			debug++;
@@ -67,7 +104,18 @@ main (int argc, char **argv)
 		}
 	}
 
-	ret = fwparam_ibft(NULL, filebuf);
-
+	if (!do_ipconfig)
+		ret = fwparam_ibft(NULL, filebuf);
+	else {
+		ret = fwparam_ibft(&ctxt, filebuf);
+		if (!ret)
+			/*
+			 * Format is:
+			 * ipaddr:peeraddr:gwaddr:mask:hostname:iface:none
+			 */
+			printf("%s::%s:%s::eth%d:ibft\n",
+			       ctxt.ipaddr, ctxt.gwaddr,
+			       ctxt.mask, get_ifnum_from_mac(ctxt.mac));
+	}
 	exit(ret);
 }
