@@ -33,8 +33,9 @@ struct boot_context {
 	char chap_password_in[16];
 	char iface[42];
 	char mac[18];
-	char ipaddr[18];
-	char mask[18];
+	char ipaddr[32];
+	char mask[19];
+	char gwaddr[32];
 	char lun[17];
 	char vlan[15];
 	char isid[10];

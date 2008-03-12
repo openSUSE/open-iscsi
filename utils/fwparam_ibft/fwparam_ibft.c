@@ -150,6 +150,32 @@ format_ipaddr(char *buf, size_t size, uint8_t *ip)
 
 }
 
+void
+format_netmask(char *buf, size_t size, uint8_t mask)
+{
+	uint32_t tmp;
+
+	tmp = 0xffffffff << (32 - mask);
+	sprintf(buf,"%02x.%02x.%02x.%02x",
+		(tmp >> 24) & 0xff,
+		(tmp >> 16) & 0xff,
+		(tmp >>  8) & 0xff,
+		tmp & 0xff);
+}
+
+void
+format_mac(char *buf, size_t size, uint8_t *mac)
+{
+	int i;
+
+	for (i = 0; i < 5; i++) {
+		sprintf(buf, "%02x:", mac[i]);
+		buf += 3;
+	}
+	sprintf(buf, "%02x", mac[i]);
+}
+
+
 /*
  * Dump the 16 byte ipaddr, as IPV6 or IPV4.
  */
@@ -384,6 +410,45 @@ dump_ibft(void *ibft_loc, struct boot_context *context)
 	strncpy(context->initiatorname,
 		(char *)ibft_loc+initiator->initiator_name_off,
 		initiator->initiator_name_len + 1);
+
+	if (nic0 && (nic0->hdr.flags & INIT_FLAG_FW_SEL_BOOT)) {
+		format_ipaddr(buf, sizeof(buf),
+			      nic0->ip_addr);
+		strcpy((char *)context->ipaddr, buf);
+
+		format_ipaddr(buf, sizeof(buf),
+			      nic0->gateway);
+		strcpy((char *)context->gwaddr, buf);
+
+		format_mac(buf, sizeof(buf),
+			   nic0->mac);
+		strcpy((char *)context->mac, buf);
+
+		format_netmask(buf, sizeof(buf),
+			       nic0->subnet_mask_prefix);
+		strcpy((char *)context->mask, buf);
+	}
+
+	if (nic1 && (nic1->hdr.flags & INIT_FLAG_FW_SEL_BOOT)) {
+		format_ipaddr(buf, sizeof(buf),
+			      nic1->ip_addr);
+		strncpy((char *)context->ipaddr, buf,
+			sizeof(buf));
+		format_ipaddr(buf, sizeof(buf),
+			      nic1->gateway);
+		strncpy((char *)context->gwaddr, buf,
+			sizeof(buf));
+
+		format_mac(buf, sizeof(buf),
+			   nic1->mac);
+		strncpy((char *)context->mac, buf,
+			sizeof(buf));
+
+		format_netmask(buf, sizeof(buf),
+			       nic1->subnet_mask_prefix);
+		strncpy((char *)context->mask, buf,
+			sizeof(buf));
+	}
 
 	if (tgt0 && (tgt0->hdr.flags & INIT_FLAG_FW_SEL_BOOT)) {
 		strncpy((char *)context->targetname,
