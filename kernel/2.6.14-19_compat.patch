@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000..965157a
 --- /dev/null
 +++ b/iscsi_compat.h
-@@ -0,0 +1,192 @@
+@@ -0,0 +1,195 @@
 +#include <linux/version.h>
 +#include <linux/kernel.h>
 +#include <scsi/scsi.h>
@@ -74,6 +74,7 @@ index 0000000..965157a
 +
 +#include "linux/crypto.h"
 +
++#if CONFIG_SLE_SP < 2
 +#define CRYPTO_ALG_ASYNC		0x00000080
 +struct hash_desc
 +{
@@ -120,6 +121,8 @@ index 0000000..965157a
 +{
 +	crypto_free_tfm(tfm);
 +}
++
++#endif
 +
 +int kernel_getsockname(struct socket *sock, struct sockaddr *addr,
 +			int *addrlen)
@@ -280,7 +283,7 @@ index 20fa67e..2bc9bb2 100644
  	shost->max_cmd_len = iscsit->max_cmd_len;
  	shost->transportt = scsit;
  	shost->transportt->create_work_queue = 1;
-+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,16)
++#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,16) || CONFIG_SLE_SP > 1
  	shost->transportt->eh_timed_out = iscsi_eh_cmd_timed_out;
 +#endif
  	*hostno = shost->host_no;
@@ -366,12 +369,24 @@ index 22c947d..a5aa8a4 100644
  	unsigned long flags;
  
  	iscsi_cls_session_printk(KERN_INFO, session,
-@@ -396,10 +397,12 @@ void iscsi_unblock_session(struct iscsi_cls_session *session)
+@@ -382,8 +383,6 @@ void __iscsi_unblock_session(struct iscs
+ 
+ void iscsi_unblock_session(struct iscsi_cls_session *session)
+ {
+-	struct Scsi_Host *shost = iscsi_session_to_shost(session);
+-	struct iscsi_host *ihost = shost->shost_data;
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&session->lock, flags);
+@@ -396,10 +395,15 @@ void iscsi_unblock_session(struct iscsi_
  	 * the async scanning code (drivers like iscsi_tcp do login and
  	 * scanning from userspace).
  	 */
 +#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,19)
  	if (shost->hostt->scan_finished) {
++		struct Scsi_Host *shost = iscsi_session_to_shost(session);
++		struct iscsi_host *ihost = shost->shost_data;
++
  		if (queue_work(ihost->scan_workq, &session->scan_work))
  			atomic_inc(&ihost->nr_scans);
  	}
