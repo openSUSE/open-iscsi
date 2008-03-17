@@ -176,7 +176,7 @@ case "$1" in
             fi
 	    rc_failed $status
 	else
-	    rc_failed 1
+	    rc_failed $RETVAL
 	fi
 	rc_status -v
 	;;
