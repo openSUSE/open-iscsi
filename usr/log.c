@@ -196,7 +196,7 @@ int log_dequeue (void * buff)
 	int len;
 
 	if (la->empty)
-		return 1;
+		return 0;
 
 	len = strlen((char *)&src->str) * sizeof(char) +
 	      sizeof(struct logmsg) + 1;
@@ -215,7 +215,7 @@ int log_dequeue (void * buff)
 
 	memset((void *)src, 0, len);
 
-	return la->empty;
+	return len;
 }
 
 /*
@@ -314,19 +314,22 @@ static void __dump_char(int level, unsigned char *buf, int *cp, int ch)
 
 static void log_flush(void)
 {
+	int msglen;
+
 	while (!la->empty) {
 		la->ops[0].sem_op = -1;
 		if (semop(la->semid, la->ops, 1) < 0) {
 			syslog(LOG_ERR, "semop up failed %d", errno);
 			exit(1);
 		}
-		log_dequeue(la->buff);
+		msglen = log_dequeue(la->buff);
 		la->ops[0].sem_op = 1;
 		if (semop(la->semid, la->ops, 1) < 0) {
 			syslog(LOG_ERR, "semop down failed");
 			exit(1);
 		}
-		log_syslog(la->buff);
+		if (msglen)
+			log_syslog(la->buff);
 	}
 }
 
