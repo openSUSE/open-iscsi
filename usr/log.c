@@ -37,6 +37,33 @@ int log_level = 0;
 
 static int log_stop_daemon = 0;
 
+static void free_logarea (void)
+{
+	int shmid;
+
+	if (!la)
+		return;
+
+	if (la->semid != -1)
+		semctl(la->semid, 0, IPC_RMID, la->semarg);
+	if (la->buff) {
+		shmdt(la->buff);
+		shmctl(la->shmid_buff, IPC_RMID, NULL);
+		la->buff = NULL;
+		la->shmid_buff = -1;
+	}
+	if (la->start) {
+		shmdt(la->start);
+		shmctl(la->shmid_msg, IPC_RMID, NULL);
+		la->start = NULL;
+		la->shmid_msg = -1;
+	}
+	shmid = la->shmid;
+	shmdt(la);
+	shmctl(shmid, IPC_RMID, NULL);
+	la = NULL;
+}
+
 static int logarea_init (int size)
 {
 	int shmid;
@@ -48,21 +75,28 @@ static int logarea_init (int size)
 		return 1;
 
 	la = shmat(shmid, NULL, 0);
-	if (!la)
+	if (!la) {
+		shmctl(shmid, IPC_RMID, NULL);
 		return 1;
+	}
+	la->shmid = shmid;
+	la->start = NULL;
+	la->buff = NULL;
+	la->semid = -1;
 
 	if (size < MAX_MSG_SIZE)
 		size = DEFAULT_AREA_SIZE;
 
 	if ((shmid = shmget(IPC_PRIVATE, size,
 			    0644 | IPC_CREAT | IPC_EXCL)) == -1) {
-		shmdt(la);
+		free_logarea();
 		return 1;
 	}
+	la->shmid_msg = shmid;
 
-	la->start = shmat(shmid, NULL, 0);
+	la->start = shmat(la->shmid_msg, NULL, 0);
 	if (!la->start) {
-		shmdt(la);
+		free_logarea();
 		return 1;
 	}
 	memset(la->start, 0, size);
@@ -74,45 +108,32 @@ static int logarea_init (int size)
 
 	if ((shmid = shmget(IPC_PRIVATE, MAX_MSG_SIZE + sizeof(struct logmsg),
 			    0644 | IPC_CREAT | IPC_EXCL)) == -1) {
-		shmdt(la->start);
-		shmdt(la);
+		free_logarea();
 		return 1;
 	}
 	la->buff = shmat(shmid, NULL, 0);
 	if (!la->buff) {
-		shmdt(la->start);
-		shmdt(la);
+		free_logarea();
 		return 1;
 	}
 
 	if ((la->semid = semget(SEMKEY, 1, 0600 | IPC_CREAT)) < 0) {
-		shmdt(la->buff);
-		shmdt(la->start);
-		shmdt(la);
+		free_logarea();
 		return 1;
 	}
 
 	la->semarg.val=1;
 	if (semctl(la->semid, 0, SETVAL, la->semarg) < 0) {
-		shmdt(la->buff);
-		shmdt(la->start);
-		shmdt(la);
+		free_logarea();
 		return 1;
 	}
 
+	la->shmid_buff = shmid;
 	la->ops[0].sem_num = 0;
 	la->ops[0].sem_flg = 0;
 
 	return 0;
 
-}
-
-static void free_logarea (void)
-{
-	shmdt(la->buff);
-	shmdt(la->start);
-	shmdt(la);
-	semctl(la->semid, 0, IPC_RMID, la->semarg);
 }
 
 #if LOGDBG
