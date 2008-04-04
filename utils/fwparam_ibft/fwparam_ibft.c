@@ -612,7 +612,7 @@ fwparam_ibft(struct boot_context *context, const char *filepath)
 	if (ibft_loc)
 		ret = dump_ibft(ibft_loc, context);
 	else {
-		printf("Could not find iBFT.\n");
+		fprintf(stderr, "Could not find iBFT.\n");
 		ret = -1;
 	}
 	munmap(filebuf, end_search);
