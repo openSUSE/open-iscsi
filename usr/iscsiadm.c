@@ -642,10 +642,17 @@ create_node_record(idbm_t *db, char *targetname, int tpgt, char *ip, int port,
 	memset(&rec->iface, 0, sizeof(struct iface_rec));
 	if (iface) {
 		if (!strlen(iface->name)) {
-			if (iface_get_by_bind_info(db, iface, &rec->iface)) {
-				if (verbose)
-					log_error("Could not find iface info.");
-				goto free_rec;
+			if (!iface_is_bound(iface))
+				/* copy transport name */
+				iface_copy(&rec->iface, iface);
+			else {
+				if (iface_get_by_bind_info(db, iface,
+							   &rec->iface)) {
+					if (verbose)
+						log_error("Could not find "
+							  "iface info.");
+					goto free_rec;
+				}
 			}
 		} else if (!strcmp(iface->name, DEFAULT_IFACENAME))
 			/*
@@ -1106,7 +1113,12 @@ static void print_sessions_tree(idbm_t *db, struct list_head *list, int level)
 		printf("\t\tIface Initiatorname: %s\n",
 		       strlen(curr->iface.iname) ? curr->iface.iname :
 								UNKNOWN_VALUE);
-		printf("\t\tIface IPaddress: %s\n", curr->iface.ipaddress);
+		if (strchr(curr->address, '.'))
+			printf("\t\tIface IPaddress: %s\n",
+			       curr->iface.ipaddress);
+		else
+			printf("\t\tIface IPaddress: [%s]\n",
+			       curr->iface.ipaddress);
 		printf("\t\tIface HWaddress: %s\n", curr->iface.hwaddress);
 		printf("\t\tIface Netdev: %s\n", curr->iface.netdev);
 		printf("\t\tSID: %d\n", curr->sid);
@@ -1450,29 +1462,19 @@ static int delete_node(struct idbm *db, void *data, struct node_rec *rec)
 {
 	if (check_for_session_through_iface(rec)) {
 		/*
-		 * perf is not important in this path, so do not worry
-		 * about doing a async logout
+ 		 * We could log out the session for the user, but if
+ 		 * the session is being used the user may get something
+ 		 * they were not expecting (FS errors and a read only
+ 		 * remount).
 		 */
-		log_warning("Found running session using record. Logging "
-			    "out session [iface: %s, target: %s, "
-			    "portal: %s,%d] before deleting record.",
-			    rec->iface.name, rec->name,
-			    rec->conn[0].address, rec->conn[0].port);
-		switch (iscsid_req(MGMT_IPC_SESSION_LOGOUT, rec)) {
-		case MGMT_IPC_ERR_NOT_FOUND:
-		case MGMT_IPC_OK:
-			break;
-		default:
-			log_error("Could not remove record, because there "
-				  "is a session to the portal that cannot "
-				  "stopped. Please log out session: "
-				  "[iface: %s, target: %s, portal: %s,%d]"
-				  "and then remove record.",
-				  rec->iface.name, rec->name,
-				  rec->conn[0].address, rec->conn[0].port);
-			return EINVAL;
-		}
+		log_error("This command will remove the record [iface: %s, "
+			  "target: %s, portal: %s,%d], but a session is "
+			  "using it. Logout session then rerun command to "
+			  "remove record.", rec->iface.name, rec->name,
+			  rec->conn[0].address, rec->conn[0].port);
+		return EINVAL;
 	}
+
 	return idbm_delete_node(db, rec);
 }
 
@@ -1495,11 +1497,6 @@ static int delete_stale_recs(struct idbm *db, void *data, struct node_rec *rec)
 			 */
 			return 0;
 
-		/*
-		 * we only care if the target endpoint matches, because
-		 * it is gone and we want to logout all sessions with
-		 * that endpoint, so we pass in null for the iface.
- 		 */
 		if (__iscsi_match_session(rec,
 					  new_rec->name,
 					  new_rec->conn[0].address,
@@ -1540,24 +1537,7 @@ update_discovery_recs(idbm_t *db, discovery_rec_t *drec,
 	if (op & OP_NEW || op & OP_UPDATE) {
 		/* now add/update records */
 		list_for_each_entry(new_rec, &bound_rec_list, list) {
-			int update = op & OP_UPDATE;
-
-			if (update &&
-			    check_for_session_through_iface(new_rec)) {
-				log_warning("Could not update record for "
-					    "[iface: %s, target: %s, portal: "
-					    "%s,%d], because session is "
-					    "logged in. Log out session "
-					    "then retry operation, or run "
-					    "discovery without the 'update' "
-					    "option.",
-					    new_rec->iface.name, new_rec->name,
-					    new_rec->conn[0].address,
-					    new_rec->conn[0].port);
-				continue;
-			}
-
-			rc = idbm_add_node(db, new_rec, drec, update);
+			rc = idbm_add_node(db, new_rec, drec, op & OP_UPDATE);
 			if (rc)
 				log_error("Could not add/update "
 					  "[%s:" iface_fmt " %s,%d,%d %s]",
@@ -2483,7 +2463,6 @@ main(int argc, char **argv)
 		}
 		if (sid >= 0) {
 			char session[64];
-			struct iscsi_transport *t;
 			struct session_info *info;
 
 			snprintf(session, 63, "session%d", sid);
@@ -2502,8 +2481,12 @@ main(int argc, char **argv)
 				goto free_info;
 			}
 
-			t = get_transport_by_sid(sid);
-			if (!t)
+			/*
+			 * We should be able to go on, but for now
+			 * we only support session mode ops if the module
+			 * is loaded and we support that module.
+			 */
+			if (!get_transport_by_sid(sid))
 				goto free_info;
 
 			if (!do_logout && !do_rescan && !do_stats &&
