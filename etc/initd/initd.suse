@@ -26,6 +26,148 @@ ARGS="-c $CONFIG_FILE -p $PID_FILE"
 # Reset status of this service
 rc_reset
 
+dm_major()
+{
+    local maj
+
+    [ -f /proc/devices ] || echo 0
+    maj=$(sed -n 's/\([0-9]*\) device-mapper/\1/p' /proc/devices)
+    echo $maj
+}
+
+umount_lun()
+{
+    local dev=$1
+    local d m t l
+
+    cat /proc/mounts | sed -ne '/^\/dev\/.*/p' | while read d m t o x; do 
+	if [ "$m" = "/" ] ; then 
+	    continue;
+	fi
+	l=$d
+	[ -L "$d" ] && l=$(readlink -f $d)
+
+	if [ "${d##/dev/mapper}" != "$d" ] ; then
+	    t=$(dmsetup info -c --noheadings -o minor ${d##/dev/mapper/})
+	    l="/dev/dm-$t"
+	fi
+
+	if [ "$l" != "$dev" ] ; then
+	    continue;
+	fi
+
+	umount $d
+	break;
+    done
+}
+
+teardown_md()
+{
+    local dev=${1##/dev/}
+    local md_minor
+
+    md_minor=$(cat /proc/mdstat | sed -n "s/\(md[0-9]*\) : .* $dev.*/\1/p")
+
+    if [ "$md_minor" ] ; then
+	teardown_iscsi /dev/${md_minor}
+	mdadm -S /dev/${md_minor}
+	return 0
+    fi
+
+    return 1
+}
+
+teardown_dm()
+{
+    local dev=${1##/dev/}
+    local dm_maj=$(dm_major)
+    local dm_min
+    local retval=1
+    local tblname
+
+    read dev_t < /sys/block/$dev/dev
+
+    dmsetup table | sed -n "s/\(.*\): .* $dev_t .*/\1/p" | while read tblname; do
+	tbluuid=$(dmsetup info -c --noheadings -o uuid $tblname)
+	[ -z "$tbluuid" ] && continue
+	dm_min=$(dmsetup info -c --noheadings -o minor $tblname)
+	if [ ${tbluuid##mpath-} != "$tbluuid" ] ; then
+	    teardown_iscsi /dev/dm-$dm_min
+	    dmsetup remove $tblname
+	    retval=0
+	elif [ ${tbluuid##part} != "$tbluuid" ] ; then
+	    teardown_iscsi /dev/dm-$dm_min
+	    dmsetup remove $tblname
+	    retval=0
+	elif [ ${tbluuid##LVM-} != "$tbluuid" ] ; then
+	    # We don't support stacking atop of LVM devices
+	    umount_lun /dev/dm-$dm_min
+	    dmsetup remove $tblname
+	    retval=0
+	fi
+    done
+    return $retval
+}
+
+teardown_block()
+{
+    local dev=${1##/dev}
+    local s
+    local p
+
+    if [ ${dev##/sd} == $dev ] ; then
+	return 1
+    fi
+
+    p="/sys/block${dev%%[0-9]*}"
+
+    if [ ! -d ${p} ] && [ ! -d ${p}/device ] ; then
+	continue;
+    fi
+
+    s=$(cd -P ${p}/device && echo $PWD)
+
+    case "$s" in
+	*/session[0-9]*/*)
+	    # This is an iSCSI device
+            umount_lun $dev
+	    return 0
+	    ;;
+    esac
+    return 1
+}
+
+teardown_iscsi()
+{
+    local dev=$1
+
+    teardown_md $dev && return
+
+    teardown_dm $dev && return
+
+    teardown_block $dev && return
+
+    umount_lun $dev
+}
+
+iscsi_umount_all_luns()
+{
+    local d m dev p s
+
+    for target in /sys/class/iscsi_session/session*/device/target* ; do
+	[ -L $target ] || continue;
+	cd -P $target;
+	for lun in *:*:*:*; do
+	    cd -P /sys/class/scsi_device/$lun/device
+	    for l in block:* ; do
+		[ -L $l ] || continue
+		dev=${l##block:}
+		teardown_iscsi /dev/$dev
+	    done
+	done
+    done
+}
+
 iscsi_login_all_nodes()
 {
 	echo -n "Setting up iSCSI targets: "
@@ -53,39 +195,6 @@ iscsi_logout_all_nodes()
 	# Not sure whether this is still needed
 	sleep 1
 	return ${RETVAL:-0}
-}
-
-iscsi_umount_all_luns()
-{
-    local d m dev p s
-
-    cat /proc/mounts | sed -ne '/^\/dev\/.*/p' | while read d m t o x; do 
-	if [ "$m" = "/" ] ; then 
-	    continue;
-	fi
-	if [ -L "$d" ] ; then
-	    d=$(readlink -f $d)
-	fi
-	dev=${d##/dev}
-
-	if [ "${dev##/sd}" = "$dev" ] ; then
-	    continue;
-	fi
-	p="/sys/block${dev%%[0-9]*}"
-
-	if [ ! -d ${p} ] && [ ! -d ${p}/device ] ; then
-	    continue;
-	fi
-
-	s=$(cd -P ${p}/device && echo $PWD)
-
-	case "$s" in
-	    */session[0-9]*/*)
-		# This is an iSCSI device
-		umount "$m"
-	    ;;
-	esac
-    done
 }
 
 iscsi_list_all_nodes()
