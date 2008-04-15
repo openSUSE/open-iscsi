@@ -47,8 +47,8 @@ umount_lun()
 	l=$d
 	[ -L "$d" ] && l=$(readlink -f $d)
 
-	if [ "${d##/dev/mapper}" != "$d" ] ; then
-	    t=$(dmsetup info -c --noheadings -o minor ${d##/dev/mapper/})
+	if [ "${l##/dev/mapper}" != "$l" ] ; then
+	    t=$(dmsetup info -c --noheadings -o minor ${l##/dev/mapper/})
 	    l="/dev/dm-$t"
 	fi
 
@@ -155,12 +155,12 @@ iscsi_umount_all_luns()
     local d m dev p s
 
     for target in /sys/class/iscsi_session/session*/device/target* ; do
-	[ -L $target ] || continue;
+	[ -e $target ] || continue;
 	cd -P $target;
 	for lun in *:*:*:*; do
 	    cd -P /sys/class/scsi_device/$lun/device
 	    for l in block:* ; do
-		[ -L $l ] || continue
+		[ -e $l ] || continue
 		dev=${l##block:}
 		teardown_iscsi /dev/$dev
 	    done
