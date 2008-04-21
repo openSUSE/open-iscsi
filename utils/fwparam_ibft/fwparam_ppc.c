@@ -313,8 +313,10 @@ static int find_nics(const char *fpath, const struct stat *sb, int tflag,
 	return 0;
 }
 
-int nic_cmp(const char **a, const char **b)
+int nic_cmp(const void *av, const void *bv)
 {
+	const char *a = (const char **)av, *b = (const char **)bv;
+
 	return strcmp(*a, *b);
 }
 
@@ -436,10 +438,14 @@ int fwparam_ppc(struct boot_context *context, const char *filepath)
 	 * the appropriate FCODE with a load method.
 	 */
 	if (filepath) {
-		strncat(filename, filepath, FILENAMESZ);
+		strncat(filename, filepath, FILENAMESZ - 1);
+		filename[FILENAMESZ - 1] = '\0';
 		fplen = strlen(filename);
-	} else
-		strncat(filename, DT_TOP, FILENAMESZ);
+	} else {
+		strncat(filename, DT_TOP, FILENAMESZ - 1);
+		filename[FILENAMESZ - 1] = '\0';
+		fplen = strlen(filename);
+	}
 
 	strncat(filename + fplen, BOOTPATH, FILENAMESZ - fplen);
 
