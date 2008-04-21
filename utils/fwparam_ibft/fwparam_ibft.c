@@ -502,18 +502,24 @@ char *search_ibft(unsigned char *start, int start_addr, int length)
 {
 	unsigned char *cur_ptr, *rom_end;
 	struct ibft_table_hdr *ibft_hdr;
-	unsigned char check_sum, rom_size;
+	unsigned char check_sum;
+	short rom_size = -1;
 	uint32_t i;
 
 	cur_ptr = (unsigned char *)start;
 	while (cur_ptr < (start + length)) {
-		if (memcmp(cur_ptr, ID_ROMEXT, strlen(ID_ROMEXT)) != 0) {
-			/* Skip this block */
-			cur_ptr += 512;
-			continue;
+		if (rom_size < 0) {
+			/* Scan the upper memory area */
+			rom_size = 256;
+		} else {
+			/* Scan extenions in the ROM area */
+			if (memcmp(cur_ptr, ID_ROMEXT, strlen(ID_ROMEXT)) != 0) {
+				/* Skip this block */
+				cur_ptr += 512;
+				continue;
+			}
+			memcpy(&rom_size, cur_ptr + 2, 1);
 		}
-		memcpy(&rom_size, cur_ptr + 2, 1);
-
 		if (debug > 1)
 			fprintf(stderr, "Found rom at %x of size %d\n",
 				((int)(cur_ptr - start) + start_addr),
