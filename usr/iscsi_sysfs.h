@@ -19,6 +19,10 @@
 
 #include <sys/types.h>
 
+#include "types.h"
+#include "iscsi_proto.h"
+#include "config.h"
+
 struct iscsi_session;
 struct iscsi_conn;
 struct iscsi_session_operational_config;
@@ -43,7 +47,6 @@ struct session_info {
 };
 
 struct host_info {
-	char iname[TARGET_NAME_MAXLEN + 1];
 	struct iface_rec iface;
 	int host_no;
 };
@@ -90,8 +93,8 @@ extern struct iscsi_transport *get_transport_by_hba(long host_no);
 extern struct iscsi_transport *get_transport_by_session(char *sys_session);
 extern struct iscsi_transport *get_transport_by_sid(uint32_t sid);
 extern struct iscsi_transport *get_transport_by_name(char *transport_name);
+extern int free_transport_by_handle(uint64_t handle);
 
 extern struct list_head transports;
-extern int num_transports;
 
 #endif

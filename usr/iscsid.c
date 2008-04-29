@@ -40,6 +40,7 @@
 #include "idbm.h"
 #include "version.h"
 #include "iscsi_sysfs.h"
+#include "iface.h"
 
 /* global config info */
 struct iscsi_daemon_config daemon_config;
@@ -88,14 +89,13 @@ Open-iSCSI initiator daemon.\n\
 }
 
 static void
-setup_rec_from_negotiated_values(idbm_t *db, node_rec_t *rec,
-				struct session_info *info)
+setup_rec_from_negotiated_values(node_rec_t *rec, struct session_info *info)
 {
 	struct iscsi_session_operational_config session_conf;
 	struct iscsi_conn_operational_config conn_conf;
 	struct iscsi_auth_config auth_conf;
 
-	idbm_node_setup_from_conf(db, rec);
+	idbm_node_setup_from_conf(rec);
 	strncpy(rec->name, info->targetname, TARGET_NAME_MAXLEN);
 	rec->conn[0].port = info->persistent_port;
 	strncpy(rec->conn[0].address, info->persistent_address, NI_MAXHOST);
@@ -176,7 +176,6 @@ setup_rec_from_negotiated_values(idbm_t *db, node_rec_t *rec,
 
 static int sync_session(void *data, struct session_info *info)
 {
-	idbm_t *db = data;
 	node_rec_t rec, sysfsrec;
 	iscsiadm_req_t req;
 	iscsiadm_rsp_t rsp;
@@ -209,16 +208,12 @@ static int sync_session(void *data, struct session_info *info)
 	}
 
 	memset(&rec, 0, sizeof(node_rec_t));
-	if (iface_get_by_bind_info(db, &info->iface, &rec.iface)) {
-		log_warning("Could not read data from db. Using default and "
-			    "currently negotiated values\n");
-		setup_rec_from_negotiated_values(db, &rec, info);
-	} else if (idbm_rec_read(db, &rec, info->targetname, info->tpgt,
+	if (idbm_rec_read(&rec, info->targetname, info->tpgt,
 			  info->persistent_address, info->persistent_port,
-			  &rec.iface)) {
+			  &info->iface)) {
 		log_warning("Could not read data from db. Using default and "
 			    "currently negotiated values\n");
-		setup_rec_from_negotiated_values(db, &rec, info);
+		setup_rec_from_negotiated_values(&rec, info);
 	} else {
 		/*
 		 * we have a valid record and iface so lets merge
@@ -232,7 +227,7 @@ static int sync_session(void *data, struct session_info *info)
 		 * those values from sysfs.
 		 */
 		memset(&sysfsrec, 0, sizeof(node_rec_t));
-		setup_rec_from_negotiated_values(db, &sysfsrec, info);
+		setup_rec_from_negotiated_values(&sysfsrec, info);
 		/*
 		 * target and portal values have to be the same or
 		 * we would not have found the record, so just copy
@@ -268,14 +263,12 @@ static char *iscsid_get_config_file(void)
 
 static void sync_sessions(void)
 {
-	idbm_t *db;
 	int nr_found = 0;
 
-	db = idbm_init(iscsid_get_config_file);
-	if (!db)
+	if (idbm_init(iscsid_get_config_file))
 		return;
-	sysfs_for_each_session(db, &nr_found, sync_session);
-	idbm_terminate(db);
+	sysfs_for_each_session(NULL, &nr_found, sync_session);
+	idbm_terminate();
 }
 
 static void iscsid_exit(void)

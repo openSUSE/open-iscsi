@@ -546,16 +546,16 @@ __session_create(node_rec_t *rec, struct iscsi_transport *t)
 	/* setup authentication variables for the session*/
 	__setup_authentication(session, &rec->session.auth);
 
-	session->param_mask = 0xFFFFFFFF;
+	session->param_mask = ~0ULL;
 	if (!(t->caps & CAP_MULTI_R2T))
-		session->param_mask &= ~(1 << ISCSI_PARAM_MAX_R2T);
+		session->param_mask &= ~ISCSI_MAX_R2T;
 	if (!(t->caps & CAP_HDRDGST))
-		session->param_mask &= ~(1 << ISCSI_PARAM_HDRDGST_EN);
+		session->param_mask &= ~ISCSI_HDRDGST_EN;
 	if (!(t->caps & CAP_DATADGST))
-		session->param_mask &= ~(1 << ISCSI_PARAM_DATADGST_EN);
+		session->param_mask &= ~ISCSI_DATADGST_EN;
 	if (!(t->caps & CAP_MARKERS)) {
-		session->param_mask &= ~(1 << ISCSI_PARAM_IFMARKER_EN);
-		session->param_mask &= ~(1 << ISCSI_PARAM_OFMARKER_EN);
+		session->param_mask &= ~ISCSI_IFMARKER_EN;
+		session->param_mask &= ~ISCSI_OFMARKER_EN;
 	}
 
 	list_add_tail(&session->list, &t->sessions);
@@ -1132,7 +1132,7 @@ mgmt_ipc_err_e iscsi_host_set_param(int host_no, int param, char *value)
         return MGMT_IPC_OK;
 }
 
-#define MAX_SESSION_PARAMS 29
+#define MAX_SESSION_PARAMS 30
 #define MAX_HOST_PARAMS 3
 
 static void
@@ -1312,6 +1312,10 @@ setup_full_feature_phase(iscsi_conn_t *conn)
 			.value = &conn->noop_out_interval,
 			.type = ISCSI_INT,
 			.conn_only = 1,
+		}, {
+			.param = ISCSI_PARAM_IFACE_NAME,
+			.value = session->nrec.iface.name,
+			.type = ISCSI_STRING,
 		},
 	};
 
@@ -1320,7 +1324,8 @@ setup_full_feature_phase(iscsi_conn_t *conn)
 	for (i = 0; i < MAX_SESSION_PARAMS; i++) {
 		if (conn->id != 0 && !conntbl[i].conn_only)
 			continue;
-		if (!(session->param_mask & (1 << conntbl[i].param)))
+		
+		if (!(session->param_mask & (1ULL << conntbl[i].param)))
 			continue;
 
 		rc = ipc->set_param(session->t->handle, session->id,
@@ -1832,8 +1837,7 @@ session_find_by_sid(int sid)
 	return NULL;
 }
 
-iscsi_session_t*
-session_find_by_rec(node_rec_t *rec)
+static iscsi_session_t* session_find_by_rec(node_rec_t *rec)
 {
 	struct iscsi_transport *t;
 	iscsi_session_t *session;
@@ -1873,6 +1877,12 @@ session_login_task(node_rec_t *rec, queue_task_t *qtask)
 	iscsi_session_t *session;
 	iscsi_conn_t *conn;
 	struct iscsi_transport *t;
+
+	if (session_is_running(rec)) {
+		log_error("session [%s,%s,%d] already running.", rec->name,
+			  rec->conn[0].address, rec->conn[0].port);
+		return MGMT_IPC_ERR_EXISTS;
+	}
 
 	t = get_transport_by_name(rec->iface.transport_name);
 	if (!t)
@@ -2025,11 +2035,17 @@ static int session_unbind(struct iscsi_session *session)
 }
 
 int
-session_logout_task(iscsi_session_t *session, queue_task_t *qtask)
+session_logout_task(int sid, queue_task_t *qtask)
 {
+	iscsi_session_t *session;
 	iscsi_conn_t *conn;
 	mgmt_ipc_err_e rc = MGMT_IPC_OK;
 
+	session = session_find_by_sid(sid);
+	if (!session) {
+                log_debug(1, "session sid %d not found.\n", sid);
+		return MGMT_IPC_ERR_NOT_FOUND;
+	}
 	conn = &session->conn[0];
 	/*
 	 * If syncing up or if this is the initial login and mgmt_ipc

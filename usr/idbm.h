@@ -27,7 +27,6 @@
 #include "config.h"
 
 #define NODE_CONFIG_DIR		ISCSI_CONFIG_ROOT"nodes"
-#define IFACE_CONFIG_DIR	ISCSI_CONFIG_ROOT"ifaces"
 #define SLP_CONFIG_DIR		ISCSI_CONFIG_ROOT"slp"
 #define ISNS_CONFIG_DIR		ISCSI_CONFIG_ROOT"isns"
 #define STATIC_CONFIG_DIR	ISCSI_CONFIG_ROOT"static"
@@ -79,13 +78,12 @@ typedef struct idbm {
 struct db_set_param {
 	char *name;
 	char *value;
-	struct idbm *db;
 };
 
-typedef int (idbm_iface_op_fn)(idbm_t *db, void *data, node_rec_t *rec);
-typedef int (idbm_portal_op_fn)(idbm_t *db,int *found,  void *data,
+typedef int (idbm_iface_op_fn)(void *data, node_rec_t *rec);
+typedef int (idbm_portal_op_fn)(int *found,  void *data,
 				char *targetname, int tpgt, char *ip, int port);
-typedef int (idbm_node_op_fn)(idbm_t *db, int *found, void *data,
+typedef int (idbm_node_op_fn)(int *found, void *data,
 			      char *targetname);
 
 struct rec_op_data {
@@ -93,81 +91,64 @@ struct rec_op_data {
 	node_rec_t *match_rec;
 	idbm_iface_op_fn *fn;
 };
-extern int idbm_for_each_portal(idbm_t *db, int *found, void *data,
+extern int idbm_for_each_portal(int *found, void *data,
 				idbm_portal_op_fn *fn, char *targetname);
-extern int idbm_for_each_node(idbm_t *db, int *found, void *data,
+extern int idbm_for_each_node(int *found, void *data,
 			      idbm_node_op_fn *fn);
-extern int idbm_for_each_rec(idbm_t *db, int *found, void *data,
+extern int idbm_for_each_rec(int *found, void *data,
 			     idbm_iface_op_fn *fn);
 
 extern char* get_iscsi_initiatorname(char *pathname);
 extern char* get_iscsi_initiatoralias(char *pathname);
-extern idbm_t *idbm_init(idbm_get_config_file_fn *fn);
+extern int idbm_init(idbm_get_config_file_fn *fn);
 
-extern void idbm_node_setup_from_conf(idbm_t *db, node_rec_t *rec);
-extern void idbm_terminate(idbm_t *db);
-extern int idbm_print_iface_info(idbm_t *db, void *data,
-				 struct iface_rec *iface);
-extern int idbm_print_node_info(idbm_t *db, void *data, node_rec_t *rec);
-extern int idbm_print_node_flat(idbm_t *db, void *data, node_rec_t *rec);
-extern int idbm_print_node_tree(idbm_t *db, void *data, node_rec_t *rec);
-extern int idbm_print_discovery_info(idbm_t *db, discovery_rec_t *rec,
-				     int show);
-extern int idbm_print_all_discovery(idbm_t *db, int info_level);
-extern int idbm_print_discovered(idbm_t *db, discovery_rec_t *drec,
-				 int info_level);
-extern int idbm_delete_discovery(idbm_t *db, discovery_rec_t *rec);
+extern void idbm_node_setup_from_conf(node_rec_t *rec);
+extern void idbm_terminate(void);
+extern int idbm_print_iface_info(void *data, struct iface_rec *iface);
+extern int idbm_print_node_info(void *data, node_rec_t *rec);
+extern int idbm_print_node_flat(void *data, node_rec_t *rec);
+extern int idbm_print_node_tree(void *data, node_rec_t *rec);
+extern int idbm_print_discovery_info(discovery_rec_t *rec, int show);
+extern int idbm_print_all_discovery(int info_level);
+extern int idbm_print_discovered(discovery_rec_t *drec, int info_level);
+extern int idbm_delete_discovery(discovery_rec_t *rec);
 extern void idbm_node_setup_defaults(node_rec_t *rec);
-extern int idbm_delete_node(idbm_t *db, node_rec_t *rec);
-extern int idbm_add_node(idbm_t *db, node_rec_t *newrec, discovery_rec_t *drec,
+extern int idbm_delete_node(node_rec_t *rec);
+extern int idbm_add_node(node_rec_t *newrec, discovery_rec_t *drec,
 			 int overwrite);
 struct list_head;
-extern int idbm_bind_ifaces_to_node(idbm_t *db, struct node_rec *new_rec,
+extern int idbm_bind_ifaces_to_node(struct node_rec *new_rec,
 				    struct list_head *ifaces,
 				    struct list_head *bound_recs);
-extern int idbm_add_nodes(idbm_t *db, node_rec_t *newrec,
+extern int idbm_add_nodes(node_rec_t *newrec,
 			  discovery_rec_t *drec, struct list_head *ifaces,
 			  int overwrite);
-extern int idbm_add_discovery(idbm_t *db, discovery_rec_t *newrec,
-			      int overwrite);
-extern void idbm_sendtargets_defaults(idbm_t *db,
-		      struct iscsi_sendtargets_config *cfg);
-extern void idbm_slp_defaults(idbm_t *db, struct iscsi_slp_config *cfg);
-extern int idbm_discovery_read(idbm_t *db, discovery_rec_t *rec, char *addr,
+extern int idbm_add_discovery(discovery_rec_t *newrec, int overwrite);
+extern void idbm_sendtargets_defaults(struct iscsi_sendtargets_config *cfg);
+extern void idbm_slp_defaults(struct iscsi_slp_config *cfg);
+extern int idbm_discovery_read(discovery_rec_t *rec, char *addr,
 				int port);
-extern int idbm_rec_read(idbm_t *db, node_rec_t *out_rec, char *target_name,
+extern int idbm_rec_read(node_rec_t *out_rec, char *target_name,
 			 int tpgt, char *addr, int port,
 			 struct iface_rec *iface);
-extern int idbm_node_set_param(idbm_t *db, void *data, node_rec_t *rec);
+extern int idbm_node_set_param(void *data, node_rec_t *rec);
 
-/* TODO: seperate iface, node and core idbm code */
-extern int iface_id_is_mac(char *iface_id);
-extern void iface_copy(struct iface_rec *dst, struct iface_rec *src);
-extern int iface_is_bound(struct iface_rec *iface);
-extern int iface_match_bind_info(struct iface_rec *pattern,
-				  struct iface_rec *iface);
-extern struct iface_rec *iface_alloc(char *ifname, int *err);
-extern int iface_conf_read(idbm_t *db, struct iface_rec *iface);
-extern void iface_init(struct iface_rec *iface);
-extern int iface_is_bound_by_hwaddr(struct iface_rec *iface);
-extern int iface_is_bound_by_netdev(struct iface_rec *iface);
-extern int iface_is_bound_by_ipaddr(struct iface_rec *iface);
-typedef int (iface_op_fn)(void *data, struct iface_rec *iface);
-extern int iface_for_each_iface(idbm_t *db, void *data, int *nr_found,
-				 iface_op_fn *fn);
-extern int iface_print_flat(void *data, struct iface_rec *iface);
-extern int iface_print_tree(void *data, struct iface_rec *iface);
-extern void iface_setup_host_bindings(idbm_t *db);
-extern int iface_get_by_bind_info(idbm_t *db, struct iface_rec *pattern,
-				 struct iface_rec *out_rec);
-extern int iface_conf_update(idbm_t *db, struct db_set_param *set_param,
-			     struct iface_rec *iface);
-extern int iface_conf_write(idbm_t *db, struct iface_rec *iface);
-extern int iface_conf_delete(idbm_t *db, struct iface_rec *iface);
+/* lower level idbm functions for use by iface.c */
+extern void idbm_recinfo_config(recinfo_t *info, FILE *f);
+extern void idbm_recinfo_iface(struct iface_rec *r, recinfo_t *ri);
+extern int idbm_lock(void);
+extern void idbm_unlock(void);
+extern recinfo_t *idbm_recinfo_alloc(int max_keys);
+extern int idbm_verify_param(recinfo_t *info, char *name);
+extern int idbm_rec_update_param(recinfo_t *info, char *name, char *value,
+				 int line_number);
 
-#define iface_fmt "[hw=%s,ip=%s,net_if=%s,iscsi_if=%s]"
-#define iface_str(_iface) \
-	(_iface)->hwaddress, (_iface)->ipaddress, (_iface)->netdev, \
-	(_iface)->name
+enum {
+	IDBM_PRINT_TYPE_DISCOVERY,
+	IDBM_PRINT_TYPE_NODE,
+	IDBM_PRINT_TYPE_IFACE,
+};
+
+extern void idbm_print(int type, void *rec, int show, FILE *f);
 
 #endif /* IDBM_H */

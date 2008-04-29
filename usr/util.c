@@ -20,6 +20,7 @@
 #include "iscsi_proto.h"
 #include "transport.h"
 #include "idbm.h"
+#include "iface.h"
 
 void daemon_init(void)
 {
@@ -203,6 +204,56 @@ mgmt_ipc_err_e do_iscsid(iscsiadm_req_t *req, iscsiadm_rsp_t *rsp)
 	return iscsid_response(fd, req->command, rsp);
 }
 
+int iscsid_req_wait(iscsiadm_cmd_e cmd, int fd)
+{
+	iscsiadm_rsp_t rsp;
+
+	memset(&rsp, 0, sizeof(iscsiadm_rsp_t));
+	return iscsid_response(fd, cmd, &rsp);
+}
+
+int iscsid_req_by_rec_async(iscsiadm_cmd_e cmd, node_rec_t *rec, int *fd)
+{
+	iscsiadm_req_t req;
+
+	memset(&req, 0, sizeof(iscsiadm_req_t));
+	req.command = cmd;
+	memcpy(&req.u.session.rec, rec, sizeof(node_rec_t));
+
+	return iscsid_request(fd, &req);
+}
+
+int iscsid_req_by_rec(iscsiadm_cmd_e cmd, node_rec_t *rec)
+{
+	int err, fd;
+
+	err = iscsid_req_by_rec_async(cmd, rec, &fd);
+	if (err)
+		return err;
+	return iscsid_req_wait(cmd, fd);
+}
+
+int iscsid_req_by_sid_async(iscsiadm_cmd_e cmd, int sid, int *fd)
+{
+	iscsiadm_req_t req;
+
+	memset(&req, 0, sizeof(iscsiadm_req_t));
+	req.command = cmd;
+	req.u.session.sid = sid;
+
+	return iscsid_request(fd, &req);
+}
+
+int iscsid_req_by_sid(iscsiadm_cmd_e cmd, int sid)
+{
+	int err, fd;
+
+	err = iscsid_req_by_sid_async(cmd, sid, &fd);
+	if (err)
+		return err;
+	return iscsid_req_wait(cmd, fd);
+}
+
 void idbm_node_setup_defaults(node_rec_t *rec)
 {
 	int i;
@@ -235,7 +286,7 @@ void idbm_node_setup_defaults(node_rec_t *rec)
 	rec->session.iscsi.FastAbort = 1;
 
 	for (i=0; i<ISCSI_CONN_MAX; i++) {
-		rec->conn[i].startup = 0;
+		rec->conn[i].startup = ISCSI_STARTUP_MANUAL;
 		rec->conn[i].port = ISCSI_LISTEN_PORT;
 		rec->conn[i].tcp.window_size = TCP_WINDOW_SIZE;
 		rec->conn[i].tcp.type_of_service = 0;
@@ -248,13 +299,13 @@ void idbm_node_setup_defaults(node_rec_t *rec)
 
 		rec->conn[i].iscsi.MaxRecvDataSegmentLength =
 						DEF_INI_MAX_RECV_SEG_LEN;
-		rec->conn[i].iscsi.HeaderDigest = CONFIG_DIGEST_PREFER_OFF;
+		rec->conn[i].iscsi.HeaderDigest = CONFIG_DIGEST_NEVER;
 		rec->conn[i].iscsi.DataDigest = CONFIG_DIGEST_NEVER;
 		rec->conn[i].iscsi.IFMarker = 0;
 		rec->conn[i].iscsi.OFMarker = 0;
 	}
 
-	iface_init(&rec->iface);
+	iface_setup_defaults(&rec->iface);
 }
 
 void iscsid_handle_error(mgmt_ipc_err_e err)
@@ -313,11 +364,7 @@ int __iscsi_match_session(node_rec_t *rec, char *targetname,
 	if (rec->conn[0].port != -1 && port != rec->conn[0].port)
 		return 0;
 
-	if (iface && strlen(rec->iface.transport_name) &&
-	    strcmp(rec->iface.transport_name, iface->transport_name))
-		return 0;
-
-	if (!iface_match_bind_info(&rec->iface, iface))
+	if (!iface_match(&rec->iface, iface))
 		return 0;
 
 	return 1;
