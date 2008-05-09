@@ -1,3 +1,12 @@
 open-iscsi-2.0-869.1
 - Fix nop out timer. If the timer wakes up at the exact same time we were
 supposed to check the transport we mistakenly drop the connection.
+
+open-iscsi-2.0-869.2
+- Fix nop out interval. If we send a ping to test the connection, we set
+the next timer for the ping timeout. If we get a response quickly and
+the ping timeout is long we will miss recv tmo test intervals.
+
+This is not fatal. It will only cause detection of connection errors to take
+up to (2 * noop_timeout + noop_interval) seconds to detect problems instead of
+(noop_timeout + noop_interval) seconds.
