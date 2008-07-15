@@ -235,8 +235,6 @@ iscsi_discover_all_targets()
 		iscsiadm -m discovery -t st -p "$TARGET_ADDR" > /dev/null 2>&1
 		if [ "$?" -ne 0 ]; then
 			rc_failed 1
-			rc_status -v
-			return 1
 		fi
 		rc_status -v
 	done
@@ -257,9 +255,6 @@ case "$1" in
 	fi
 	if [ "$RETVAL" == "0" ]; then
 	    iscsi_discover_all_targets
-	    RETVAL=$?
-	fi
-	if [ "$RETVAL" == "0" ]; then
 	    iscsi_login_all_nodes
 	fi
 	;;
