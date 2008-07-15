@@ -412,42 +412,64 @@ dump_ibft(void *ibft_loc, struct boot_context *context)
 		initiator->initiator_name_len + 1);
 
 	if (nic0 && (nic0->hdr.flags & INIT_FLAG_FW_SEL_BOOT)) {
-		format_ipaddr(buf, sizeof(buf),
-			      nic0->ip_addr);
-		strcpy((char *)context->ipaddr, buf);
+		if (memcmp(nic0->dhcp, nulls, sizeof(nic0->dhcp))) {
+			format_ipaddr(buf, sizeof(buf),
+				      nic0->ip_addr);
+			strncpy((char *)context->ipaddr, buf,
+				sizeof(buf));
+			context->gwaddr[0] = '\0';
+			context->mask[0] = '\0';
+			strcpy(context->iftype,"dhcp");
+		} else {
+			format_ipaddr(buf, sizeof(buf),
+				      nic0->ip_addr);
+			strncpy((char *)context->ipaddr, buf,
+				sizeof(buf));
+			format_netmask(buf, sizeof(buf),
+				       nic0->subnet_mask_prefix);
+			strncpy((char *)context->mask, buf,
+				sizeof(buf));
 
-		format_ipaddr(buf, sizeof(buf),
-			      nic0->gateway);
-		strcpy((char *)context->gwaddr, buf);
-
+			format_ipaddr(buf, sizeof(buf),
+				      nic0->gateway);
+			strncpy((char *)context->gwaddr, buf,
+				sizeof(buf));
+			strcpy(context->iftype,"ibft");
+		}
 		format_mac(buf, sizeof(buf),
 			   nic0->mac);
 		strcpy((char *)context->mac, buf);
-
-		format_netmask(buf, sizeof(buf),
-			       nic0->subnet_mask_prefix);
-		strcpy((char *)context->mask, buf);
 	}
 
 	if (nic1 && (nic1->hdr.flags & INIT_FLAG_FW_SEL_BOOT)) {
-		format_ipaddr(buf, sizeof(buf),
-			      nic1->ip_addr);
-		strncpy((char *)context->ipaddr, buf,
-			sizeof(buf));
-		format_ipaddr(buf, sizeof(buf),
-			      nic1->gateway);
-		strncpy((char *)context->gwaddr, buf,
-			sizeof(buf));
-
+		if (memcmp(nic1->dhcp, nulls, sizeof(nic1->dhcp))) {
+			format_ipaddr(buf, sizeof(buf),
+				      nic1->ip_addr);
+			strncpy((char *)context->ipaddr, buf,
+				sizeof(buf));
+			context->gwaddr[0] = '\0';
+			context->mask[0] = '\0';
+			strcpy(context->iftype,"dhcp");
+		} else {
+			format_ipaddr(buf, sizeof(buf),
+				      nic1->ip_addr);
+			strncpy((char *)context->ipaddr, buf,
+				sizeof(buf));
+			format_ipaddr(buf, sizeof(buf),
+				      nic1->gateway);
+			strncpy((char *)context->gwaddr, buf,
+				sizeof(buf));
+			format_netmask(buf, sizeof(buf),
+				       nic1->subnet_mask_prefix);
+			strncpy((char *)context->mask, buf,
+				sizeof(buf));
+			strcpy(context->iftype,"ibft");
+		}
 		format_mac(buf, sizeof(buf),
 			   nic1->mac);
 		strncpy((char *)context->mac, buf,
 			sizeof(buf));
 
-		format_netmask(buf, sizeof(buf),
-			       nic1->subnet_mask_prefix);
-		strncpy((char *)context->mask, buf,
-			sizeof(buf));
 	}
 
 	if (tgt0 && (tgt0->hdr.flags & INIT_FLAG_FW_SEL_BOOT)) {

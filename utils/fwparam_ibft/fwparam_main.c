@@ -111,11 +111,12 @@ main (int argc, char **argv)
 		if (!ret)
 			/*
 			 * Format is:
-			 * ipaddr:peeraddr:gwaddr:mask:hostname:iface:none
+			 * ipaddr:peeraddr:gwaddr:mask:hostname:iface:iftype
 			 */
-			printf("%s::%s:%s::eth%d:ibft\n",
+			printf("%s::%s:%s::eth%d:%s\n",
 			       ctxt.ipaddr, ctxt.gwaddr,
-			       ctxt.mask, get_ifnum_from_mac(ctxt.mac));
+			       ctxt.mask, get_ifnum_from_mac(ctxt.mac),
+			       ctxt.iftype);
 	}
 	exit(ret);
 }

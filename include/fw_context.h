@@ -39,6 +39,7 @@ struct boot_context {
 	char lun[17];
 	char vlan[15];
 	char isid[10];
+	char iftype[16];
 };
 
 extern int fw_get_entry(struct boot_context *context, const char *filepath);
