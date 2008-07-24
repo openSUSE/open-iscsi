@@ -87,7 +87,9 @@ linux_2_6_23: has_20to21_patch
 
 linux_2_6_24: has_24_patch
 
-linux_2_6_25: $(unpatch_code)
+linux_2_6_25: has_24_patch
+
+linux_2_6_26: $(unpatch_code)
 
 do_unpatch_code:
 	echo "Un-patching source code for use with linux-2.6.14 and up ..."

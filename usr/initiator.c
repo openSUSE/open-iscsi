@@ -134,8 +134,8 @@ void iscsi_conn_context_put(struct iscsi_conn_context *conn_context)
 
 static void session_online_devs(int host_no, int sid)
 {
-	sysfs_for_each_device(host_no, sid,
-			      set_device_online);
+	iscsi_sysfs_for_each_device(host_no, sid,
+				    iscsi_sysfs_set_device_online);
 }
 
 static conn_login_status_e
@@ -419,7 +419,14 @@ __session_conn_create(iscsi_session_t *session, int cid)
 
 	conn->state = STATE_FREE;
 	conn->session = session;
+	/*
+	 * TODO: we must export the socket_fd/transport_eph from sysfs
+	 * so if iscsid is resyncing up we can pick that up and cleanup up
+	 * the old connection. Right now we leak a connection.
+	 * We can also probably merge these two fields.
+	 */
 	conn->socket_fd = -1;
+	conn->transport_ep_handle = -1;
 	/* connection's timeouts */
 	conn->id = cid;
 	conn->logout_timeout = conn_rec->timeo.logout_timeout;
@@ -602,11 +609,15 @@ session_conn_shutdown(iscsi_conn_t *conn, queue_task_t *qtask,
 {
 	iscsi_session_t *session = conn->session;
 
-	if (session->id == -1)
-		goto disconnect_conn;
+	log_debug(2, "disconnect conn");
+	/* this will check for a valid interconnect connection */
+	conn->session->t->template->ep_disconnect(conn);
 
-	if (!sysfs_session_has_leadconn(session->id))
-		goto disconnect_conn;
+	if (session->id == -1)
+		goto cleanup;
+
+	if (!iscsi_sysfs_session_has_leadconn(session->id))
+		goto cleanup;
 
 	if (conn->state == STATE_IN_LOGIN ||
 	    conn->state == STATE_IN_LOGOUT ||
@@ -627,11 +638,7 @@ session_conn_shutdown(iscsi_conn_t *conn, queue_task_t *qtask,
 		return MGMT_IPC_ERR_INTERNAL;
 	}
 
-disconnect_conn:
-	log_debug(2, "disconnect conn");
-	/* this will check for a valid interconnect connection */
-	conn->session->t->template->ep_disconnect(conn);
-
+cleanup:
 	if (session->id != -1) {
 		log_debug(2, "kdestroy session %u", session->id);
 		if (ipc->destroy_session(session->t->handle, session->id)) {
@@ -686,8 +693,8 @@ static int iscsi_conn_connect(struct iscsi_conn *conn, queue_task_t *qtask)
 			    conn->host, sizeof(conn->host), serv, sizeof(serv),
 			    NI_NUMERICHOST|NI_NUMERICSERV);
 
-		log_error("cannot make a connection to %s:%s (%d)",
-			  conn->host, serv, errno);
+		log_error("cannot make a connection to %s:%s (%d,%d)",
+			  conn->host, serv, rc, errno);
 		iscsi_conn_context_put(conn_context);
 		return ENOTCONN;
 	}
@@ -717,6 +724,7 @@ __session_conn_reopen(iscsi_conn_t *conn, queue_task_t *qtask, int do_stop,
 	conn_delete_timers(conn);
 	conn->state = STATE_XPT_WAIT;
 
+	conn->session->t->template->ep_disconnect(conn);
 	if (do_stop) {
 		/* state: STATE_CLEANUP_WAIT */
 		if (ipc->stop_conn(session->t->handle, session->id,
@@ -729,7 +737,6 @@ __session_conn_reopen(iscsi_conn_t *conn, queue_task_t *qtask, int do_stop,
 		log_debug(3, "connection %d:%d is stopped for recovery",
 			  session->id, conn->id);
 	}
-	conn->session->t->template->ep_disconnect(conn);
 
 	if (!redirected) {
 		delay = session->def_time2wait;
@@ -1089,7 +1096,7 @@ static void session_scan_host(int hostno, queue_task_t *qtask)
 {
 	pid_t pid;
 
-	pid = scan_host(hostno, 1);
+	pid = iscsi_sysfs_scan_host(hostno, 1);
 	if (pid == 0) {
 		mgmt_ipc_write_rsp(qtask, MGMT_IPC_OK);
 		exit(0);
@@ -1124,7 +1131,7 @@ mgmt_ipc_err_e iscsi_host_set_param(int host_no, int param, char *value)
 {
 	struct iscsi_transport *t;
 
-	t = get_transport_by_hba(host_no);
+	t = iscsi_sysfs_get_transport_by_hba(host_no);
 	if (!t)
 		return MGMT_IPC_ERR_TRANS_FAILURE;
 	if (__iscsi_host_set_param(t, host_no, param, value, ISCSI_STRING))
@@ -1612,8 +1619,13 @@ static void iscsi_recv_login_rsp(struct iscsi_conn *conn)
 
 	return;
 retry:
-	/* force retry */
-	session->r_stage = R_STAGE_SESSION_REOPEN;
+	/*
+	 * If this is not the initial login attempt force a retry. If this
+	 * is the initial attempt we follow the login_retry count.
+	 */
+	if (session->r_stage != R_STAGE_NO_CHANGE &&
+	    session->r_stage != R_STAGE_SESSION_REDIRECT)
+		session->r_stage = R_STAGE_SESSION_REOPEN;
 	iscsi_login_eh(conn, c->qtask, MGMT_IPC_ERR_LOGIN_FAILURE);
 	return;
 failed:
@@ -1677,6 +1689,37 @@ static void session_conn_recv_pdu(void *data)
 	}
 }
 
+static int session_ipc_create(struct iscsi_session *session)
+{
+	struct iscsi_conn *conn = &session->conn[0];
+	int err = 0, pass_ep = 1;
+	uint32_t host_no = -1;
+
+	if (session->t->template->ep_connect != ktransport_ep_connect)
+		pass_ep = 0;
+retry_create:
+	err = ipc->create_session(session->t->handle,
+				  pass_ep ? conn->transport_ep_handle : 0,
+				  session->nrec.session.initial_cmdsn,
+				  session->nrec.session.cmds_max,
+				  session->nrec.session.queue_depth,
+				  &session->id, &host_no);
+	/*
+	 * Older kernels were not passed the sessions's leading conn ep,
+	 * so we will get -EINVAL || -ENOSYS for iser.
+	 *
+	 * 2.6.22 and earlier would send -EINVAL instead of -ENOSYS.
+	 */
+	if (pass_ep && (err == -ENOSYS || err == -EINVAL)) {
+		pass_ep = 0;
+		goto retry_create;
+	}
+
+	if (!err)
+		session->hostno = host_no;
+	return err;
+}
+
 static void session_conn_poll(void *data)
 {
 	struct iscsi_conn_context *conn_context = data;
@@ -1712,18 +1755,13 @@ static void session_conn_poll(void *data)
 
 		/* do not allocate new connection in case of reopen */
 		if (session->id == -1) {
-			if (conn->id == 0 &&
-			    ipc->create_session(session->t->handle,
-					session->nrec.session.initial_cmdsn,
-					session->nrec.session.cmds_max,
-					session->nrec.session.queue_depth,
-					&session->id, &session->hostno)) {
+			if (conn->id == 0 && session_ipc_create(session)) {
 				log_error("can't create session (%d)", errno);
 				err = MGMT_IPC_ERR_INTERNAL;
 				goto cleanup;
 			}
-			log_debug(3, "created new iSCSI session %d",
-				  session->id);
+			log_debug(3, "created new iSCSI session sid %d host "
+				  "no %u", session->id, session->hostno);
 
 			if (ipc->create_conn(session->t->handle,
 					session->id, conn->id, &conn->id)) {
@@ -1760,7 +1798,7 @@ static void session_conn_poll(void *data)
 		c->buffer = conn->data;
 		c->bufsize = sizeof(conn->data);
 
-		set_exp_statsn(conn);
+		conn->exp_statsn = iscsi_sysfs_get_exp_statsn(session->id);
 
 		if (iscsi_login_begin(session, c)) {
 			iscsi_login_eh(conn, qtask, MGMT_IPC_ERR_LOGIN_FAILURE);
@@ -1865,7 +1903,7 @@ int session_is_running(node_rec_t *rec)
 	if (session_find_by_rec(rec))
 		return 1;
 
-	if (sysfs_for_each_session(rec, &nr_found, iscsi_match_session))
+	if (iscsi_sysfs_for_each_session(rec, &nr_found, iscsi_match_session))
 		return 1;
 
 	return 0;
@@ -1884,7 +1922,7 @@ session_login_task(node_rec_t *rec, queue_task_t *qtask)
 		return MGMT_IPC_ERR_EXISTS;
 	}
 
-	t = get_transport_by_name(rec->iface.transport_name);
+	t = iscsi_sysfs_get_transport_by_name(rec->iface.transport_name);
 	if (!t)
 		return MGMT_IPC_ERR_TRANS_NOT_FOUND;
 	if (set_transport_template(t))
@@ -1981,7 +2019,7 @@ iscsi_sync_session(node_rec_t *rec, queue_task_t *qtask, uint32_t sid)
 	struct iscsi_transport *t;
 	int err;
 
-	t = get_transport_by_name(rec->iface.transport_name);
+	t = iscsi_sysfs_get_transport_by_name(rec->iface.transport_name);
 	if (!t)
 		return MGMT_IPC_ERR_TRANS_NOT_FOUND;
 	if (set_transport_template(t))
@@ -1992,7 +2030,7 @@ iscsi_sync_session(node_rec_t *rec, queue_task_t *qtask, uint32_t sid)
 		return MGMT_IPC_ERR_LOGIN_FAILURE;
 
 	session->id = sid;
-	session->hostno = get_host_no_from_sid(sid, &err);
+	session->hostno = iscsi_sysfs_get_host_no_from_sid(sid, &err);
 	if (err) {
 		log_error("Could not get hostno for session %d\n", sid);
 		err = MGMT_IPC_ERR_NOT_FOUND;
@@ -2096,7 +2134,7 @@ iscsi_host_send_targets(queue_task_t *qtask, int host_no, int do_login,
 {
 	struct iscsi_transport *t;
 
-	t = get_transport_by_hba(host_no);
+	t = iscsi_sysfs_get_transport_by_hba(host_no);
 	if (!t || set_transport_template(t)) {
 		log_error("Invalid host no %d for sendtargets\n", host_no);
 		return MGMT_IPC_ERR_TRANS_FAILURE;
@@ -2121,7 +2159,7 @@ void iscsi_async_session_creation(uint32_t host_no, uint32_t sid)
 {
 	struct iscsi_transport *transport;
 
-	transport = get_transport_by_hba(host_no);
+	transport = iscsi_sysfs_get_transport_by_hba(host_no);
 	if (!transport)
 		return;
 

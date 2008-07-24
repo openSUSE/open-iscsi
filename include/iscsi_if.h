@@ -50,6 +50,7 @@ enum iscsi_uevent_e {
 	ISCSI_UEVENT_TGT_DSCVR		= UEVENT_BASE + 15,
 	ISCSI_UEVENT_SET_HOST_PARAM	= UEVENT_BASE + 16,
 	ISCSI_UEVENT_UNBIND_SESSION	= UEVENT_BASE + 17,
+	ISCSI_UEVENT_CREATE_BOUND_SESSION	= UEVENT_BASE + 18,
 
 	/* up events */
 	ISCSI_KEVENT_RECV_PDU		= KEVENT_BASE + 1,
@@ -58,7 +59,6 @@ enum iscsi_uevent_e {
 	ISCSI_KEVENT_DESTROY_SESSION	= KEVENT_BASE + 4,
 	ISCSI_KEVENT_UNBIND_SESSION	= KEVENT_BASE + 5,
 	ISCSI_KEVENT_CREATE_SESSION	= KEVENT_BASE + 6,
-	ISCSI_KEVENT_TRANS_ERROR	= KEVENT_BASE + 7,
 };
 
 enum iscsi_tgt_dscvr {
@@ -79,6 +79,12 @@ struct iscsi_uevent {
 			uint16_t	cmds_max;
 			uint16_t	queue_depth;
 		} c_session;
+		struct msg_create_bound_session {
+			uint64_t	ep_handle;
+			uint32_t	initial_cmdsn;
+			uint16_t	cmds_max;
+			uint16_t	queue_depth;
+		} c_bound_session;
 		struct msg_destroy_session {
 			uint32_t	sid;
 		} d_session;
@@ -254,6 +260,7 @@ enum iscsi_param {
 
 	ISCSI_PARAM_IFACE_NAME,
 	ISCSI_PARAM_ISID,
+	ISCSI_PARAM_INITIATOR_NAME,
 	/* must always be last */
 	ISCSI_PARAM_MAX,
 };
@@ -292,6 +299,7 @@ enum iscsi_param {
 #define ISCSI_RECV_TMO			(1ULL << ISCSI_PARAM_RECV_TMO)
 #define ISCSI_IFACE_NAME		(1ULL << ISCSI_PARAM_IFACE_NAME)
 #define ISCSI_ISID			(1ULL << ISCSI_PARAM_ISID)
+#define ISCSI_INITIATOR_NAME		(1ULL << ISCSI_PARAM_INITIATOR_NAME)
 
 /* iSCSI HBA params */
 enum iscsi_host_param {
@@ -309,13 +317,6 @@ enum iscsi_host_param {
 
 #define iscsi_ptr(_handle) ((void*)(unsigned long)_handle)
 #define iscsi_handle(_ptr) ((uint64_t)(unsigned long)_ptr)
-#define hostdata_session(_hostdata) (iscsi_ptr(*(unsigned long *)_hostdata))
-
-/**
- * iscsi_hostdata - get LLD hostdata from scsi_host
- * @_hostdata: pointer to scsi host's hostdata
- **/
-#define iscsi_hostdata(_hostdata) ((void*)_hostdata + sizeof(unsigned long))
 
 /*
  * These flags presents iSCSI Data-Path capabilities.

@@ -1498,7 +1498,15 @@ static int idbm_rec_write(node_rec_t *rec)
 
 	if (!S_ISDIR(statb.st_mode)) {
 		/*
-		 * Old style portal as a file. Let's update it.
+		 * older iscsiadm versions had you create the config then set
+		 * set the tgpt. In new versions you must pass all the info in
+		 * from the start
+		 */
+		if (rec->tpgt == PORTAL_GROUP_TAG_UNKNOWN)
+			/* drop down to old style portal as config */
+			goto open_conf;
+		/*
+		 * Old style portal as a file, but with tpgt. Let's update it.
 		 */
 		if (unlink(portal)) {
 			log_error("Could not convert %s. err %d\n", portal,
@@ -1748,10 +1756,13 @@ int idbm_bind_ifaces_to_node(struct node_rec *new_rec, struct list_head *ifaces,
 
 		list_for_each_entry_safe(iface, tmp, &def_ifaces, list) {
 			list_del(&iface->list);
-			t = get_transport_by_name(iface->transport_name);
-			/* only auto bind to software iscsi */
-			if (!t || t->caps & CAP_FW_DB ||
-			    t->caps & CAP_DATA_PATH_OFFLOAD) {
+			t = iscsi_sysfs_get_transport_by_name(iface->transport_name);
+			/*
+			 * only auto bind to software iscsi if it is
+			 * not the default iface (that is handled below)
+			 */
+			if (!t || strcmp(t->name, DEFAULT_TRANSPORT) ||
+			    !strcmp(iface->name, DEFAULT_IFACENAME)) {
 				free(iface);
 				continue;
 			}
@@ -1810,10 +1821,10 @@ int idbm_add_nodes(node_rec_t *newrec, discovery_rec_t *drec,
 
 		list_for_each_entry_safe(iface, tmp, &def_ifaces, list) {
 			list_del(&iface->list);
-			t = get_transport_by_name(iface->transport_name);
+			t = iscsi_sysfs_get_transport_by_name(iface->transport_name);
 			/* only auto bind to software iscsi */
-			if (!t || t->caps & CAP_FW_DB ||
-			    t->caps & CAP_DATA_PATH_OFFLOAD) {
+			if (!t || strcmp(t->name, DEFAULT_TRANSPORT) ||
+			     !strcmp(iface->name, DEFAULT_IFACENAME)) {
 				free(iface);
 				continue;
 			}
