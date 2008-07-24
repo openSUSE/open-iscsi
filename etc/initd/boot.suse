@@ -10,8 +10,10 @@
 # Should-Stop:
 # Default-Start:     B
 # Default-Stop:      
-# Short-Description: Starts the iSCSI initiator daemon
-#                    
+# Short-Description: iSCSI initiator daemon root-fs support
+# Description:       Starts the iSCSI initiator daemon if the
+#                    root-filesystem is on an iSCSI device
+#               
 ### END INIT INFO
 
 ISCSIADM=/sbin/iscsiadm
@@ -56,7 +58,7 @@ case "$1" in
 	rc_status -v
 	iscsi_mark_root_nodes
 	;;
-    stop)
+    stop|restart|reload)
 	rc_failed 0
 	;;
     status)
@@ -68,13 +70,8 @@ case "$1" in
 	    rc_status -v
 	fi
 	;;
-    restart)
-	$0 stop
-	sleep 1
-	$0 start
-	;;
     *)
-	echo "Usage: $0 {start|stop|status|restart}"
+	echo "Usage: $0 {start|stop|status|restart|reload}"
 	exit 1
 	;;
 esac

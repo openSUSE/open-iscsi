@@ -10,7 +10,9 @@
 # Should-Stop:
 # Default-Start:     3 5
 # Default-Stop:      
-# Short-Description: Starts and stops the iSCSI client initiator
+# Short-Description: iSCSI initiator daemon
+# Description:       The iSCSI initator is used to create and
+#                    manage iSCSI connections to a iSCSI Target.
 #                    
 ### END INIT INFO
 
@@ -190,13 +192,13 @@ case "$1" in
 	    rc_status -v
 	fi
 	;;
-    restart)
+    restart|reload)
 	$0 stop
 	sleep 1
 	$0 start
 	;;
     *)
-	echo "Usage: $0 {start|stop|status|restart}"
+	echo "Usage: $0 {start|stop|status|restart|reload}"
 	exit 1
 	;;
 esac
