@@ -156,7 +156,7 @@ index 68423e8..1796c96 100644
  struct socket;
  struct iscsi_tcp_conn;
 diff --git a/libiscsi.c b/libiscsi.c
-index e45476b..d7613eb 100644
+index dfeaed3..0fb0705 100644
 --- a/libiscsi.c
 +++ b/libiscsi.c
 @@ -24,7 +24,10 @@
@@ -267,18 +267,7 @@ index e45476b..d7613eb 100644
  	done(sc);
  	spin_lock(host->host_lock);
  	return 0;
-@@ -1882,8 +1874,9 @@ struct Scsi_Host *iscsi_host_alloc(struct scsi_host_template *sht,
- 	shost = scsi_host_alloc(sht, sizeof(struct iscsi_host) + dd_data_size);
- 	if (!shost)
- 		return NULL;
-+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,16)
- 	shost->transportt->eh_timed_out = iscsi_eh_cmd_timed_out;
--
-+#endif
- 	if (qdepth > ISCSI_MAX_CMD_PER_LUN || qdepth < 1) {
- 		if (qdepth != 0)
- 			printk(KERN_ERR "iscsi: invalid queue depth of %d. "
-@@ -2096,7 +2089,7 @@ iscsi_conn_setup(struct iscsi_cls_session *cls_session, int dd_size,
+@@ -2099,7 +2091,7 @@ iscsi_conn_setup(struct iscsi_cls_session *cls_session, int dd_size,
  	INIT_LIST_HEAD(&conn->mgmtqueue);
  	INIT_LIST_HEAD(&conn->xmitqueue);
  	INIT_LIST_HEAD(&conn->requeue);
@@ -288,19 +277,10 @@ index e45476b..d7613eb 100644
  	/* allocate login_task used for the login/text sequences */
  	spin_lock_bh(&session->lock);
 diff --git a/libiscsi.h b/libiscsi.h
-index cfc5fa6..ede08ef 100644
+index cfc5fa6..64508d8 100644
 --- a/libiscsi.h
 +++ b/libiscsi.h
-@@ -25,13 +25,15 @@
- 
- #include <linux/types.h>
- #include <linux/wait.h>
-+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
- #include <linux/mutex.h>
--#include <linux/timer.h>
--#include <linux/workqueue.h>
-+#endif
- 
+@@ -32,6 +32,8 @@
  #include "iscsi_proto.h"
  #include "iscsi_if.h"
  
@@ -309,331 +289,11 @@ index cfc5fa6..ede08ef 100644
  struct scsi_transport_template;
  struct scsi_host_template;
  struct scsi_device;
-diff --git a/open_iscsi_compat.h b/open_iscsi_compat.h
-new file mode 100644
-index 0000000..ecd48df
---- /dev/null
-+++ b/open_iscsi_compat.h
-@@ -0,0 +1,303 @@
-+#include <linux/version.h>
-+#include <linux/kernel.h>
-+#include <scsi/scsi.h>
-+#include <scsi/scsi_cmnd.h>
-+
-+#ifndef OPEN_ISCSI_COMPAT
-+#define OPEN_ISCSI_COMPAT
-+
-+#ifndef SCAN_WILD_CARD
-+#define SCAN_WILD_CARD  ~0
-+#endif
-+
-+#ifndef NIPQUAD_FMT
-+#define NIPQUAD_FMT "%u.%u.%u.%u"
-+#endif
-+
-+#ifndef NIP6_FMT
-+#define NIP6_FMT "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x"
-+#endif
-+
-+#ifndef DEFINE_MUTEX
-+
-+/* mutex changes from 2.6.16-rc1 and up */
-+#define DEFINE_MUTEX DECLARE_MUTEX
-+#define mutex_lock down
-+#define mutex_unlock up
-+#define mutex semaphore
-+#define mutex_init init_MUTEX
-+#endif
-+
-+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,12)
-+
-+void int_to_scsilun(unsigned int lun, struct scsi_lun *scsilun)
-+{
-+	int i;
-+
-+	memset(scsilun->scsi_lun, 0, sizeof(scsilun->scsi_lun));
-+
-+	for (i = 0; i < sizeof(lun); i += 2) {
-+		scsilun->scsi_lun[i] = (lun >> 8) & 0xFF;
-+		scsilun->scsi_lun[i+1] = lun & 0xFF;
-+		lun = lun >> 16;
-+	}
-+}
-+
-+#define __nlmsg_put(skb, daemon_pid, seq, type, len, flags) \
-+	__nlmsg_put(skb, daemon_pid, 0, 0, len)
-+
-+#endif
-+
-+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,13)
-+
-+#define gfp_t unsigned
-+
-+void *kzalloc(size_t size, gfp_t flags)
-+{
-+	void *ret = kmalloc(size, flags);
-+	if (ret)
-+		memset(ret, 0, size);
-+}
-+
-+#endif
-+
-+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,15)
-+
-+static inline int fls64(__u64 x)
-+{
-+	__u32 h = x >> 32;
-+	if (h)
-+		return fls(h) + 32;
-+	return fls(x);
-+}
-+
-+#endif
-+
-+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,16)
-+
-+static inline unsigned fls_long(unsigned long l)
-+{
-+	if (sizeof(l) == 4)
-+		return fls(l);
-+	return fls64(l);
-+}
-+
-+#endif
-+
-+
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-+
-+#include "linux/crypto.h"
-+
-+#define CRYPTO_ALG_ASYNC		0x00000080
-+struct hash_desc
-+{
-+	struct crypto_tfm *tfm;
-+	u32 flags;
-+};
-+
-+static inline int crypto_hash_init(struct hash_desc *desc)
-+{
-+	crypto_digest_init(desc->tfm);
-+	return 0;
-+}
-+
-+static inline int crypto_hash_digest(struct hash_desc *desc,
-+				     struct scatterlist *sg,
-+				     unsigned int nbytes, u8 *out)
-+{
-+	crypto_digest_digest(desc->tfm, sg, 1, out);
-+	return nbytes;
-+}
-+
-+static inline int crypto_hash_update(struct hash_desc *desc,
-+				     struct scatterlist *sg,
-+				     unsigned int nbytes)
-+{
-+	crypto_digest_update(desc->tfm, sg, 1);
-+	return nbytes;
-+}
-+
-+static inline int crypto_hash_final(struct hash_desc *desc, u8 *out)
-+{
-+	crypto_digest_final(desc->tfm, out);
-+	return 0;
-+}
-+
-+static inline struct crypto_tfm *crypto_alloc_hash(const char *alg_name,
-+						    u32 type, u32 mask)
-+{
-+	struct crypto_tfm *ret = crypto_alloc_tfm(alg_name ,type);
-+	return ret ? ret : ERR_PTR(-ENOMEM);
-+}
-+
-+static inline void crypto_free_hash(struct crypto_tfm *tfm)
-+{
-+	crypto_free_tfm(tfm);
-+}
-+
-+int kernel_getsockname(struct socket *sock, struct sockaddr *addr,
-+			int *addrlen)
-+{
-+	return sock->ops->getname(sock, addr, addrlen, 0);
-+}
-+
-+int kernel_getpeername(struct socket *sock, struct sockaddr *addr,
-+			int *addrlen)
-+{
-+	return sock->ops->getname(sock, addr, addrlen, 1);
-+}
-+
-+#endif
-+
-+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,20)
-+#ifdef RHEL_RELEASE_VERSION
-+#if RHEL_RELEASE_CODE < RHEL_RELEASE_VERSION(5,2)
-+static inline int is_power_of_2(unsigned long n)
-+{
-+	return (n != 0 && ((n & (n - 1)) == 0));
-+}
-+#endif
-+#else
-+/* not a redhat kernel */
-+static inline int is_power_of_2(unsigned long n)
-+{
-+	return (n != 0 && ((n & (n - 1)) == 0));
-+}
-+#endif
-+#endif
-+
-+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,21)
-+
-+static inline struct nlmsghdr *nlmsg_hdr(const struct sk_buff *skb)
-+{
-+	return (struct nlmsghdr *)skb->data;
-+}
-+
-+#endif
-+
-+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,22)
-+#ifdef RHEL_RELEASE_VERSION
-+#if RHEL_RELEASE_CODE < RHEL_RELEASE_VERSION(5,2)
-+static inline void *shost_priv(struct Scsi_Host *shost)
-+{
-+	return (void *)shost->hostdata;
-+}
-+#endif
-+#else
-+/* not a redhat kernel */
-+static inline void *shost_priv(struct Scsi_Host *shost)
-+{
-+	return (void *)shost->hostdata;
-+}
-+#endif
-+
-+/*
-+ * Note: We do not support bidi for the compat modules if the kernel
-+ * does not have support.
-+ */
-+#define scsi_sg_count(cmd) ((cmd)->use_sg)
-+#define scsi_sglist(cmd) ((struct scatterlist *)(cmd)->request_buffer)
-+#define scsi_bufflen(cmd) ((cmd)->request_bufflen)
-+
-+#ifdef RHEL_RELEASE_VERSION
-+#if RHEL_RELEASE_CODE < RHEL_RELEASE_VERSION(5,2)
-+static inline void scsi_set_resid(struct scsi_cmnd *cmd, int resid)
-+{
-+	cmd->resid = resid;
-+}
-+
-+static inline int scsi_get_resid(struct scsi_cmnd *cmd)
-+{
-+	return cmd->resid;
-+}
-+#endif
-+#else
-+/* not a redhat kernel */
-+static inline void scsi_set_resid(struct scsi_cmnd *cmd, int resid)
-+{
-+	cmd->resid = resid;
-+}
-+
-+static inline int scsi_get_resid(struct scsi_cmnd *cmd)
-+{
-+	return cmd->resid;
-+}
-+#endif
-+
-+#endif
-+
-+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,23)
-+
-+static inline unsigned long rounddown_pow_of_two(unsigned long n)
-+{
-+	return 1UL << (fls_long(n) - 1);
-+}
-+
-+
-+static inline struct scatterlist *sg_next(struct scatterlist *sg)
-+{
-+	if (!sg) {
-+		BUG();
-+		return NULL;
-+	}
-+	return sg + 1;
-+}
-+
-+#define for_each_sg(sglist, sg, nr, __i)        \
-+	for (__i = 0, sg = (sglist); __i < (nr); __i++, sg = sg_next(sg))
-+
-+#define sg_page(_sg) _sg->page
-+
-+static inline void sg_set_page(struct scatterlist *sg, struct page *page,
-+				unsigned int len, unsigned int offset)
-+{
-+	sg->page = page;
-+	sg->offset = offset;
-+	sg->length = len;
-+}
-+
-+static inline void sg_init_table(struct scatterlist *sgl, unsigned int nents)
-+{
-+	memset(sgl, 0, sizeof(*sgl) * nents);
-+}
-+#endif
-+
-+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,24)
-+
-+static inline int scsi_bidi_cmnd(struct scsi_cmnd *cmd)
-+{
-+	return 0;
-+}
-+
-+#define netlink_kernel_release(_nls) \
-+	sock_release(_nls->sk_socket)
-+
-+
-+#endif
-+
-+
-+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,13)
-+
-+#define netlink_kernel_create(net, uint, groups, input, cb_mutex, mod) \
-+	netlink_kernel_create(uint, input)
-+
-+#elif LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,21)
-+
-+#define netlink_kernel_create(net, uint, groups, input, cb_mutex, mod) \
-+	netlink_kernel_create(uint, groups, input, mod)
-+
-+#elif LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,22)
-+
-+#define netlink_kernel_create(net, uint, groups, input, cb_mutex, mod) \
-+	netlink_kernel_create(uint, groups, input, cb_mutex, mod)
-+
-+#elif LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,23)
-+
-+#define netlink_kernel_create(net, uint, groups, input, cb_mutex, mod) \
-+	netlink_kernel_create(uint, groups, input, cb_mutex, mod)
-+
-+#endif
-+
-+
-+#endif
 diff --git a/scsi_transport_iscsi.c b/scsi_transport_iscsi.c
-index 535e461..319599a 100644
+index 535e461..1ae65fb 100644
 --- a/scsi_transport_iscsi.c
 +++ b/scsi_transport_iscsi.c
-@@ -21,7 +21,10 @@
-  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-  */
- #include <linux/module.h>
-+#include <linux/version.h>
-+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
- #include <linux/mutex.h>
-+#endif
- #include <net/tcp.h>
- #include <scsi/scsi.h>
- #include <scsi/scsi_host.h>
-@@ -41,13 +44,13 @@ struct iscsi_internal {
+@@ -41,13 +41,13 @@ struct iscsi_internal {
  	struct scsi_transport_template t;
  	struct iscsi_transport *iscsi_transport;
  	struct list_head list;
@@ -651,7 +311,7 @@ index 535e461..319599a 100644
  };
  
  static atomic_t iscsi_session_nr; /* sysfs session id for next new session */
-@@ -64,12 +67,12 @@ static DEFINE_SPINLOCK(iscsi_transport_lock);
+@@ -64,12 +64,12 @@ static DEFINE_SPINLOCK(iscsi_transport_lock);
  #define to_iscsi_internal(tmpl) \
  	container_of(tmpl, struct iscsi_internal, t)
  
@@ -668,7 +328,7 @@ index 535e461..319599a 100644
  	kfree(priv);
  }
  
-@@ -79,33 +82,31 @@ static void iscsi_transport_release(struct device *dev)
+@@ -79,33 +79,31 @@ static void iscsi_transport_release(struct device *dev)
   */
  static struct class iscsi_transport_class = {
  	.name = "iscsi_transport",
@@ -711,7 +371,7 @@ index 535e461..319599a 100644
  	NULL,
  };
  
-@@ -113,6 +114,7 @@ static struct attribute_group iscsi_transport_group = {
+@@ -113,6 +111,7 @@ static struct attribute_group iscsi_transport_group = {
  	.attrs = iscsi_transport_attrs,
  };
  
@@ -719,7 +379,7 @@ index 535e461..319599a 100644
  /*
   * iSCSI endpoint attrs
   */
-@@ -229,9 +231,10 @@ struct iscsi_endpoint *iscsi_lookup_endpoint(u64 handle)
+@@ -229,9 +228,10 @@ struct iscsi_endpoint *iscsi_lookup_endpoint(u64 handle)
  	return iscsi_dev_to_endpoint(dev);
  }
  EXPORT_SYMBOL_GPL(iscsi_lookup_endpoint);
@@ -731,7 +391,7 @@ index 535e461..319599a 100644
  {
  	struct Scsi_Host *shost = dev_to_shost(dev);
  	struct iscsi_cls_host *ihost = shost->shost_data;
-@@ -250,7 +253,7 @@ static int iscsi_setup_host(struct transport_container *tc, struct device *dev,
+@@ -250,7 +250,7 @@ static int iscsi_setup_host(struct transport_container *tc, struct device *dev,
  }
  
  static int iscsi_remove_host(struct transport_container *tc, struct device *dev,
@@ -740,7 +400,7 @@ index 535e461..319599a 100644
  {
  	struct Scsi_Host *shost = dev_to_shost(dev);
  	struct iscsi_cls_host *ihost = shost->shost_data;
-@@ -490,10 +493,9 @@ static int iscsi_user_scan(struct Scsi_Host *shost, uint channel,
+@@ -490,10 +490,9 @@ static int iscsi_user_scan(struct Scsi_Host *shost, uint channel,
  				     iscsi_user_scan_session);
  }
  
@@ -753,7 +413,7 @@ index 535e461..319599a 100644
  	struct Scsi_Host *shost = iscsi_session_to_shost(session);
  	struct iscsi_cls_host *ihost = shost->shost_data;
  	struct iscsi_scan_data scan_data;
-@@ -506,11 +508,9 @@ static void iscsi_scan_session(struct work_struct *work)
+@@ -506,11 +505,9 @@ static void iscsi_scan_session(struct work_struct *work)
  	atomic_dec(&ihost->nr_scans);
  }
  
@@ -767,7 +427,7 @@ index 535e461..319599a 100644
  	unsigned long flags;
  
  	iscsi_cls_session_printk(KERN_INFO, session,
-@@ -536,11 +536,9 @@ static void session_recovery_timedout(struct work_struct *work)
+@@ -536,13 +533,13 @@ static void session_recovery_timedout(struct work_struct *work)
  	scsi_target_unblock(&session->dev);
  }
  
@@ -778,10 +438,14 @@ index 535e461..319599a 100644
 -			container_of(work, struct iscsi_cls_session,
 -				     unblock_work);
 +	struct iscsi_cls_session *session = data;
++#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,19)
  	struct Scsi_Host *shost = iscsi_session_to_shost(session);
  	struct iscsi_cls_host *ihost = shost->shost_data;
++#endif
  	unsigned long flags;
-@@ -560,10 +558,12 @@ static void __iscsi_unblock_session(struct work_struct *work)
+ 
+ 	/*
+@@ -560,10 +557,12 @@ static void __iscsi_unblock_session(struct work_struct *work)
  	 * the async scanning code (drivers like iscsi_tcp do login and
  	 * scanning from userspace).
  	 */
@@ -794,7 +458,7 @@ index 535e461..319599a 100644
  }
  
  /**
-@@ -583,11 +583,9 @@ void iscsi_unblock_session(struct iscsi_cls_session *session)
+@@ -583,11 +582,9 @@ void iscsi_unblock_session(struct iscsi_cls_session *session)
  }
  EXPORT_SYMBOL_GPL(iscsi_unblock_session);
  
@@ -808,7 +472,7 @@ index 535e461..319599a 100644
  	unsigned long flags;
  
  	spin_lock_irqsave(&session->lock, flags);
-@@ -604,11 +602,9 @@ void iscsi_block_session(struct iscsi_cls_session *session)
+@@ -604,11 +601,9 @@ void iscsi_block_session(struct iscsi_cls_session *session)
  }
  EXPORT_SYMBOL_GPL(iscsi_block_session);
  
@@ -822,7 +486,7 @@ index 535e461..319599a 100644
  	struct Scsi_Host *shost = iscsi_session_to_shost(session);
  	struct iscsi_cls_host *ihost = shost->shost_data;
  	unsigned long flags;
-@@ -651,12 +647,12 @@ iscsi_alloc_session(struct Scsi_Host *shost, struct iscsi_transport *transport,
+@@ -651,12 +646,12 @@ iscsi_alloc_session(struct Scsi_Host *shost, struct iscsi_transport *transport,
  	session->transport = transport;
  	session->recovery_tmo = 120;
  	session->state = ISCSI_SESSION_FREE;
@@ -840,16 +504,7 @@ index 535e461..319599a 100644
  	spin_lock_init(&session->lock);
  
  	/* this is released in the dev's release function */
-@@ -816,7 +812,7 @@ void iscsi_remove_session(struct iscsi_cls_session *session)
- 	scsi_target_unblock(&session->dev);
- 	/* flush running scans then delete devices */
- 	flush_workqueue(ihost->scan_workq);
--	__iscsi_unbind_session(&session->unbind_work);
-+	__iscsi_unbind_session(session);
- 
- 	/* hw iscsi may not have removed all connections from session */
- 	err = device_for_each_child(&session->dev, NULL,
-@@ -1300,6 +1296,8 @@ static int
+@@ -1300,6 +1295,8 @@ static int
  iscsi_if_transport_ep(struct iscsi_transport *transport,
  		      struct iscsi_uevent *ev, int msg_type)
  {
@@ -858,7 +513,7 @@ index 535e461..319599a 100644
  	struct iscsi_endpoint *ep;
  	struct sockaddr *dst_addr;
  	int rc = 0;
-@@ -1340,6 +1338,8 @@ iscsi_if_transport_ep(struct iscsi_transport *transport,
+@@ -1340,6 +1337,8 @@ iscsi_if_transport_ep(struct iscsi_transport *transport,
  		break;
  	}
  	return rc;
@@ -867,7 +522,7 @@ index 535e461..319599a 100644
  }
  
  static int
-@@ -1421,6 +1421,9 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+@@ -1421,6 +1420,9 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
  					      ev->u.c_session.queue_depth);
  		break;
  	case ISCSI_UEVENT_CREATE_BOUND_SESSION:
@@ -877,7 +532,7 @@ index 535e461..319599a 100644
  		ep = iscsi_lookup_endpoint(ev->u.c_bound_session.ep_handle);
  		if (!ep) {
  			err = -EINVAL;
-@@ -1432,6 +1435,7 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+@@ -1432,6 +1434,7 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
  					ev->u.c_bound_session.cmds_max,
  					ev->u.c_bound_session.queue_depth);
  		break;
@@ -885,7 +540,7 @@ index 535e461..319599a 100644
  	case ISCSI_UEVENT_DESTROY_SESSION:
  		session = iscsi_session_lookup(ev->u.d_session.sid);
  		if (session)
-@@ -1514,55 +1518,70 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+@@ -1514,55 +1517,70 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
  }
  
  /*
@@ -992,7 +647,7 @@ index 535e461..319599a 100644
  	__ATTR(_name,_mode,_show,_store)
  
  /*
-@@ -1570,10 +1589,9 @@ struct device_attribute dev_attr_##_prefix##_##_name =	\
+@@ -1570,10 +1588,9 @@ struct device_attribute dev_attr_##_prefix##_##_name =	\
   */
  #define iscsi_conn_attr_show(param)					\
  static ssize_t								\
@@ -1005,7 +660,7 @@ index 535e461..319599a 100644
  	struct iscsi_transport *t = conn->transport;			\
  	return t->get_conn_param(conn, param, buf);			\
  }
-@@ -1597,16 +1615,17 @@ iscsi_conn_attr(address, ISCSI_PARAM_CONN_ADDRESS);
+@@ -1597,16 +1614,17 @@ iscsi_conn_attr(address, ISCSI_PARAM_CONN_ADDRESS);
  iscsi_conn_attr(ping_tmo, ISCSI_PARAM_PING_TMO);
  iscsi_conn_attr(recv_tmo, ISCSI_PARAM_RECV_TMO);
  
@@ -1027,7 +682,7 @@ index 535e461..319599a 100644
  	struct iscsi_transport *t = session->transport;			\
  									\
  	if (perm && !capable(CAP_SYS_ADMIN))				\
-@@ -1640,10 +1659,9 @@ iscsi_session_attr(ifacename, ISCSI_PARAM_IFACE_NAME, 0);
+@@ -1640,10 +1658,9 @@ iscsi_session_attr(ifacename, ISCSI_PARAM_IFACE_NAME, 0);
  iscsi_session_attr(initiatorname, ISCSI_PARAM_INITIATOR_NAME, 0)
  
  static ssize_t
@@ -1040,7 +695,7 @@ index 535e461..319599a 100644
  	return sprintf(buf, "%s\n", iscsi_session_state_name(session->state));
  }
  static ISCSI_CLASS_ATTR(priv_sess, state, S_IRUGO, show_priv_session_state,
-@@ -1651,11 +1669,9 @@ static ISCSI_CLASS_ATTR(priv_sess, state, S_IRUGO, show_priv_session_state,
+@@ -1651,11 +1668,9 @@ static ISCSI_CLASS_ATTR(priv_sess, state, S_IRUGO, show_priv_session_state,
  
  #define iscsi_priv_session_attr_show(field, format)			\
  static ssize_t								\
@@ -1054,7 +709,7 @@ index 535e461..319599a 100644
  	return sprintf(buf, format"\n", session->field);		\
  }
  
-@@ -1670,10 +1686,9 @@ iscsi_priv_session_attr(recovery_tmo, "%d");
+@@ -1670,10 +1685,9 @@ iscsi_priv_session_attr(recovery_tmo, "%d");
   */
  #define iscsi_host_attr_show(param)					\
  static ssize_t								\
@@ -1067,7 +722,7 @@ index 535e461..319599a 100644
  	struct iscsi_internal *priv = to_iscsi_internal(shost->transportt); \
  	return priv->iscsi_transport->get_host_param(shost, param, buf); \
  }
-@@ -1690,7 +1705,7 @@ iscsi_host_attr(initiatorname, ISCSI_HOST_PARAM_INITIATOR_NAME);
+@@ -1690,7 +1704,7 @@ iscsi_host_attr(initiatorname, ISCSI_HOST_PARAM_INITIATOR_NAME);
  
  #define SETUP_PRIV_SESSION_RD_ATTR(field)				\
  do {									\
@@ -1076,7 +731,7 @@ index 535e461..319599a 100644
  	count++;							\
  } while (0)
  
-@@ -1698,7 +1713,7 @@ do {									\
+@@ -1698,7 +1712,7 @@ do {									\
  #define SETUP_SESSION_RD_ATTR(field, param_flag)			\
  do {									\
  	if (tt->param_mask & param_flag) {				\
@@ -1085,7 +740,7 @@ index 535e461..319599a 100644
  		count++;						\
  	}								\
  } while (0)
-@@ -1706,7 +1721,7 @@ do {									\
+@@ -1706,7 +1720,7 @@ do {									\
  #define SETUP_CONN_RD_ATTR(field, param_flag)				\
  do {									\
  	if (tt->param_mask & param_flag) {				\
@@ -1094,7 +749,7 @@ index 535e461..319599a 100644
  		count++;						\
  	}								\
  } while (0)
-@@ -1714,7 +1729,7 @@ do {									\
+@@ -1714,7 +1728,7 @@ do {									\
  #define SETUP_HOST_RD_ATTR(field, param_flag)				\
  do {									\
  	if (tt->host_param_mask & param_flag) {				\
@@ -1103,13 +758,7 @@ index 535e461..319599a 100644
  		count++;						\
  	}								\
  } while (0)
-@@ -1803,19 +1818,21 @@ iscsi_register_transport(struct iscsi_transport *tt)
- 	INIT_LIST_HEAD(&priv->list);
- 	priv->daemon_pid = -1;
- 	priv->iscsi_transport = tt;
-+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
- 	priv->t.user_scan = iscsi_user_scan;
-+#endif
+@@ -1807,15 +1821,15 @@ iscsi_register_transport(struct iscsi_transport *tt)
  	if (!(tt->caps & CAP_DATA_PATH_OFFLOAD))
  		priv->t.create_work_queue = 1;
  
@@ -1130,7 +779,7 @@ index 535e461..319599a 100644
  
  	/* host parameters */
  	priv->t.host_attrs.ac.attrs = &priv->host_attrs[0];
-@@ -1894,9 +1911,8 @@ iscsi_register_transport(struct iscsi_transport *tt)
+@@ -1894,9 +1908,8 @@ iscsi_register_transport(struct iscsi_transport *tt)
  	printk(KERN_NOTICE "iscsi: registered transport (%s)\n", tt->name);
  	return &priv->t;
  
@@ -1142,7 +791,7 @@ index 535e461..319599a 100644
  free_priv:
  	kfree(priv);
  	return NULL;
-@@ -1923,8 +1939,8 @@ int iscsi_unregister_transport(struct iscsi_transport *tt)
+@@ -1923,8 +1936,8 @@ int iscsi_unregister_transport(struct iscsi_transport *tt)
  	transport_container_unregister(&priv->session_cont);
  	transport_container_unregister(&priv->t.host_attrs);
  
@@ -1153,7 +802,7 @@ index 535e461..319599a 100644
  	mutex_unlock(&rx_queue_mutex);
  
  	return 0;
-@@ -1944,13 +1960,14 @@ static __init int iscsi_transport_init(void)
+@@ -1944,13 +1957,14 @@ static __init int iscsi_transport_init(void)
  	if (err)
  		return err;
  
@@ -1170,7 +819,7 @@ index 535e461..319599a 100644
  
  	err = transport_class_register(&iscsi_connection_class);
  	if (err)
-@@ -1981,8 +1998,10 @@ unregister_conn_class:
+@@ -1981,8 +1995,10 @@ unregister_conn_class:
  	transport_class_unregister(&iscsi_connection_class);
  unregister_host_class:
  	transport_class_unregister(&iscsi_host_class);
@@ -1181,7 +830,7 @@ index 535e461..319599a 100644
  unregister_transport_class:
  	class_unregister(&iscsi_transport_class);
  	return err;
-@@ -1995,7 +2014,9 @@ static void __exit iscsi_transport_exit(void)
+@@ -1995,7 +2011,9 @@ static void __exit iscsi_transport_exit(void)
  	transport_class_unregister(&iscsi_connection_class);
  	transport_class_unregister(&iscsi_session_class);
  	transport_class_unregister(&iscsi_host_class);
@@ -1192,17 +841,11 @@ index 535e461..319599a 100644
  }
  
 diff --git a/scsi_transport_iscsi.h b/scsi_transport_iscsi.h
-index b7652e3..03a8a2b 100644
+index b7652e3..3978551 100644
 --- a/scsi_transport_iscsi.h
-+++ b//scsi_transport_iscsi.h
-@@ -25,9 +25,14 @@
- 
- #include <linux/device.h>
- #include <linux/list.h>
-+#include <linux/version.h>
-+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
++++ b/scsi_transport_iscsi.h
+@@ -28,6 +28,8 @@
  #include <linux/mutex.h>
-+#endif
  #include "iscsi_if.h"
  
 +#include "open_iscsi_compat.h"
@@ -1210,7 +853,7 @@ index b7652e3..03a8a2b 100644
  struct scsi_transport_template;
  struct iscsi_transport;
  struct iscsi_endpoint;
-@@ -175,7 +180,7 @@ struct iscsi_cls_session {
+@@ -175,7 +177,7 @@ struct iscsi_cls_session {
  
  	/* recovery fields */
  	int recovery_tmo;
@@ -1219,6 +862,3 @@ index b7652e3..03a8a2b 100644
  
  	unsigned int target_id;
  
--- 
-1.5.4.1
-
