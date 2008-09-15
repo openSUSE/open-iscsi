@@ -49,10 +49,10 @@ all: kernel_check
 
 #some constants
 14to19_patch=2.6.14-19_compat.patch
-16suse_patch=2.6.16-suse.patch
 20to21_patch=2.6.20-21_compat.patch
 24_patch=2.6.24_compat.patch
-all_patches=14to21_patch 20to21_patch 24_patch
+26_patch=2.6.26_compat.patch
+all_patches=14to21_patch 20to21_patch 24_patch 26_patch
 cur_patched=cur_patched
 
 ## fun stuff for maintaining multiple versions
@@ -63,12 +63,6 @@ unpatch_code=$(shell test -e $(cur_patched) && echo do_unpatch_code )
 KSUBLEVEL = $(shell cat $(KSRC)/Makefile | awk -F= '/^SUBLEVEL =/ {print $$2}' | \
 		sed 's/^[ \t]*//;s/[ \t]*$$//')
 
-ifeq (16, ${KSUBLEVEL})
-KERNEL_SUSE = $(shell cat $(KBUILD_OUTPUT)/.config | sed -n '/^CONFIG_SUSE_KERNEL=y/p')
-ifneq (${KERNEL_SUSE}, undefined)
-KSUBLEVEL := 16-suse
-endif
-endif
 
 KERNEL_TARGET=linux_2_6_$(KSUBLEVEL)
 kernel_check: $(KERNEL_TARGET)
@@ -78,8 +72,6 @@ linux_2_6_14: has_14to19_patch
 linux_2_6_15: has_14to19_patch
 
 linux_2_6_16: has_14to19_patch
-
-linux_2_6_16-suse: has_16suse_patch
 
 linux_2_6_17: has_14to19_patch
 
@@ -99,7 +91,9 @@ linux_2_6_24: has_24_patch
 
 linux_2_6_25: has_24_patch
 
-linux_2_6_26: $(unpatch_code)
+linux_2_6_26: has_26_patch
+
+linux_2_6_27: $(unpatch_code)
 
 do_unpatch_code:
 	echo "Un-patching source code for use with linux-2.6.14 and up ..."
@@ -118,15 +112,6 @@ has_14to19_patch: $(14to19_patch)
 	cp $(14to19_patch) $@
 	ln -s $@ $(cur_patched)
 
-has_16suse_patch: $(16suse_patch)
-	echo "Patching source code for linux-2.6.16 SLES10 SP2 ..."
-	if [ -e $(cur_patched) ]; then \
-		make -C . clean; \
-	fi
-	patch -p1 < $(16suse_patch)
-	cp $(16suse_patch) $@
-	ln -s $@ $(cur_patched)
-
 has_20to21_patch: $(20to21_patch)
 	echo "Patching source code for linux-2.6.20-21 ..."
 	if [ -e $(cur_patched) ]; then \
@@ -137,13 +122,23 @@ has_20to21_patch: $(20to21_patch)
 	ln -s $@ $(cur_patched)
 
 has_24_patch: $(24_patch)
-	echo "Patching source code for linux-2.6.24 ..."
+	echo "Patching source code for linux-2.6.24-25 ..."
 	if [ -e $(cur_patched) ]; then \
 		make -C . clean; \
 	fi
 	patch -p1 < $(24_patch)
 	cp $(24_patch) $@
 	ln -s $@ $(cur_patched)
+
+has_26_patch: $(26_patch)
+	echo "Patching source code for linux-2.6.26 ..."
+	if [ -e $(cur_patched) ]; then \
+		make -C . clean; \
+	fi
+	patch -p1 < $(26_patch)
+	cp $(26_patch) $@
+	ln -s $@ $(cur_patched)
+
 
 # ============ END code for kernel_check and source patching =================
 
