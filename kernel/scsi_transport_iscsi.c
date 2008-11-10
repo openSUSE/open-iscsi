@@ -138,7 +138,7 @@ static ssize_t
 show_ep_handle(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct iscsi_endpoint *ep = iscsi_dev_to_endpoint(dev);
-	return sprintf(buf, "%u\n", ep->id);
+	return sprintf(buf, "%llu\n", (unsigned long long) ep->id);
 }
 static ISCSI_ATTR(ep, handle, S_IRUGO, show_ep_handle, NULL);
 
@@ -156,7 +156,7 @@ static struct attribute_group iscsi_endpoint_group = {
 static int iscsi_match_epid(struct device *dev, void *data)
 {
 	struct iscsi_endpoint *ep = iscsi_dev_to_endpoint(dev);
-	unsigned int *epid = (unsigned int *) data;
+	uint64_t *epid = (uint64_t *) data;
 
 	return *epid == ep->id;
 }
@@ -166,11 +166,11 @@ iscsi_create_endpoint(int dd_size)
 {
 	struct device *dev;
 	struct iscsi_endpoint *ep;
-	unsigned int id;
+	uint64_t id;
 	int err;
 
 	for (id = 1; id < ISCSI_MAX_EPID; id++) {
-		dev = class_find_device(&iscsi_endpoint_class, &id,
+		dev = class_find_device(&iscsi_endpoint_class, NULL, &id,
 					iscsi_match_epid);
 		if (!dev)
 			break;
@@ -187,7 +187,8 @@ iscsi_create_endpoint(int dd_size)
 
 	ep->id = id;
 	ep->dev.class = &iscsi_endpoint_class;
-	snprintf(ep->dev.bus_id, BUS_ID_SIZE, "ep-%u", id);
+	snprintf(ep->dev.bus_id, BUS_ID_SIZE, "ep-%llu",
+		 (unsigned long long) id);
 	err = device_register(&ep->dev);
         if (err)
                 goto free_ep;
@@ -219,14 +220,21 @@ EXPORT_SYMBOL_GPL(iscsi_destroy_endpoint);
 
 struct iscsi_endpoint *iscsi_lookup_endpoint(u64 handle)
 {
+	struct iscsi_endpoint *ep;
 	struct device *dev;
 
-	dev = class_find_device(&iscsi_endpoint_class, &handle,
+	dev = class_find_device(&iscsi_endpoint_class, NULL, &handle,
 				iscsi_match_epid);
 	if (!dev)
 		return NULL;
 
-	return iscsi_dev_to_endpoint(dev);
+	ep = iscsi_dev_to_endpoint(dev);
+	/*
+	 * we can drop this now because the interface will prevent
+	 * removals and lookups from racing.
+	 */
+	put_device(dev);
+	return ep;
 }
 EXPORT_SYMBOL_GPL(iscsi_lookup_endpoint);
 
@@ -240,8 +248,8 @@ static int iscsi_setup_host(struct transport_container *tc, struct device *dev,
 	atomic_set(&ihost->nr_scans, 0);
 	mutex_init(&ihost->mutex);
 
-	snprintf(ihost->scan_workq_name, KOBJ_NAME_LEN, "iscsi_scan_%d",
-		shost->host_no);
+	snprintf(ihost->scan_workq_name, sizeof(ihost->scan_workq_name),
+		 "iscsi_scan_%d", shost->host_no);
 	ihost->scan_workq = create_singlethread_workqueue(
 						ihost->scan_workq_name);
 	if (!ihost->scan_workq)
