@@ -58,15 +58,12 @@ if [ "${root_iscsi}" ]; then
 	save_var TargetName${session}
 	save_var TargetAddress${session}
 	save_var TargetPort${session}
-	
-	# copy the iscsi configuration
-	cp -rp /etc/iscsi etc/
-	mkdir -p $tmp_mnt/var/run
-	mkdir -p $tmp_mnt/var/lock/iscsi
-	if [ -z "$interface" ] ; then
-		interface="default"
-	fi
     done
+    # copy the iscsi configuration
+    cp -rp /etc/iscsi etc/
+    if [ -z "$interface" ] ; then
+	interface="default"
+    fi
 fi
 
 save_var TargetPort 3260 # in case the port was not defined via command line we assign a default port

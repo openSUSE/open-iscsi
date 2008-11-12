@@ -3,7 +3,7 @@
 #%stage: setup
 #%provides: killprogs
 #
-#%if: "$iscsi_root"
+#%if: "$root_iscsi"
 #%dontshow
 #
 ##### kill iscsi
@@ -18,4 +18,4 @@
 
 # kill iscsid, will be restarted from the real root
 iscsi_pid=$(pidof iscsid)
-[ "$iscsi_pid" ] && kill -KILL $iscsi_pid
+[ "$iscsi_pid" ] && kill -TERM $iscsi_pid
