@@ -690,12 +690,6 @@ static int
 __login_by_startup(void *data, struct list_head *list, struct node_rec *rec)
 {
 	char *mode = data;
-	/*
-	 * we always skip onboot because this should be handled by
-	 * something else
-	 */
-	if (rec->startup == ISCSI_STARTUP_ONBOOT)
-		return -1;
 
 	if (match_startup_mode(rec, mode))
 		return -1;
@@ -711,7 +705,7 @@ login_by_startup(char *mode)
 	struct list_head rec_list;
 
 	if (!mode || !(!strcmp(mode, "automatic") || !strcmp(mode, "all") ||
-	    !strcmp(mode,"manual"))) {
+		       !strcmp(mode,"manual") || !strcmp(mode, "onboot"))) {
 		log_error("Invalid loginall option %s.", mode);
 		usage(0);
 		return EINVAL;
