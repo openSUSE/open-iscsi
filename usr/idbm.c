@@ -274,8 +274,8 @@ idbm_recinfo_node(node_rec_t *r, recinfo_t *ri)
 	 */
 	__recinfo_str("iface.hwaddress", ri, r, iface.hwaddress, IDBM_SHOW,
 		      num, 1);
-//	__recinfo_str("iface.ipaddress", ri, r, iface.ipaddress,
-//		     IDBM_SHOW, num);
+	__recinfo_str("iface.ipaddress", ri, r, iface.ipaddress, IDBM_SHOW,
+		      num, 1);
 	__recinfo_str("iface.iscsi_ifacename", ri, r, iface.name, IDBM_SHOW,
 		      num, 1);
 	__recinfo_str("iface.net_ifacename", ri, r, iface.netdev, IDBM_SHOW,
@@ -413,7 +413,7 @@ void idbm_recinfo_iface(iface_rec_t *r, recinfo_t *ri)
 
 	__recinfo_str("iface.iscsi_ifacename", ri, r, name, IDBM_SHOW, num, 0);
 	__recinfo_str("iface.net_ifacename", ri, r, netdev, IDBM_SHOW, num, 1);
-//	__recinfo_str("iface.ipaddress", ri, r, ipaddress, IDBM_SHOW, num, 1);
+	__recinfo_str("iface.ipaddress", ri, r, ipaddress, IDBM_SHOW, num, 1);
 	__recinfo_str("iface.hwaddress", ri, r, hwaddress, IDBM_SHOW, num, 1);
 	__recinfo_str("iface.transport_name", ri, r, transport_name,
 		      IDBM_SHOW, num, 1);

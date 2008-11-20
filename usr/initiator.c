@@ -1176,7 +1176,7 @@ mgmt_ipc_err_e iscsi_host_set_param(int host_no, int param, char *value)
         return MGMT_IPC_OK;
 }
 
-#define MAX_SESSION_PARAMS 30
+#define MAX_SESSION_PARAMS 31
 #define MAX_HOST_PARAMS 3
 
 static void
@@ -1359,6 +1359,10 @@ setup_full_feature_phase(iscsi_conn_t *conn)
 		}, {
 			.param = ISCSI_PARAM_IFACE_NAME,
 			.value = session->nrec.iface.name,
+			.type = ISCSI_STRING,
+		}, {
+			.param = ISCSI_PARAM_INITIATOR_NAME,
+			.value = session->initiator_name,
 			.type = ISCSI_STRING,
 		},
 	};
@@ -1946,6 +1950,54 @@ int session_is_running(node_rec_t *rec)
 	return 0;
 }
 
+static int iface_set_param(struct iscsi_transport *t, iface_rec_t *iface,
+			   iscsi_session_t *session)
+{
+	int rc = 0;
+	int netdev_set = strcasecmp(iface->netdev, DEFAULT_NETDEV);
+	int ipaddr_set = strcasecmp(iface->ipaddress, DEFAULT_IPADDRESS);
+	int hwaddr_set = strcasecmp(iface->hwaddress, DEFAULT_HWADDRESS);
+	int hostno;
+	iface_rec_t *iface_tmp;
+
+	log_debug(3, "iface %s, dev %s, set ip %s, hw %s, tranport %s.\n",
+		  iface->name, iface->netdev, iface->ipaddress,
+		  iface->hwaddress, iface->transport_name);
+
+	/* proceed only when netdev and either ipaddress or hwaddress is set */
+	if (!netdev_set || (!ipaddr_set && !hwaddr_set))
+		return 0;
+
+	/* find out hostno via netdev */
+	iface_tmp = calloc(1, sizeof(*iface_tmp));
+	strcpy(iface_tmp->netdev, iface->netdev);
+	hostno = iscsi_sysfs_get_host_no_from_iface(iface_tmp, &rc);
+	free(iface_tmp);
+	if (rc)
+		return rc;
+	session->hostno = hostno;
+
+	if (ipaddr_set) {
+		rc = __iscsi_host_set_param(t, session->hostno,
+					    ISCSI_HOST_PARAM_IPADDRESS,
+					    iface->ipaddress,
+					    ISCSI_STRING);
+		if (rc)
+			return rc;
+	}
+
+	if (hwaddr_set) {
+		rc = __iscsi_host_set_param(t, session->hostno,
+					    ISCSI_HOST_PARAM_HWADDRESS,
+					    iface->hwaddress,
+					    ISCSI_STRING);
+		if (rc)
+			return rc;
+	}
+
+	return 0;
+}
+
 int
 session_login_task(node_rec_t *rec, queue_task_t *qtask)
 {
@@ -2027,6 +2079,11 @@ session_login_task(node_rec_t *rec, queue_task_t *qtask)
 	}
 	conn = &session->conn[0];
 	qtask->conn = conn;
+
+	if (iface_set_param(t, &rec->iface, session)) {
+		__session_destroy(session);
+		return MGMT_IPC_ERR_LOGIN_FAILURE;
+	}
 
 	conn->state = STATE_XPT_WAIT;
 	if (iscsi_conn_connect(conn, qtask)) {

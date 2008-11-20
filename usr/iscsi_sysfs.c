@@ -531,7 +531,7 @@ uint32_t iscsi_sysfs_get_host_no_from_iface(struct iface_rec *iface, int *rc)
 	else if (strlen(iface->ipaddress) &&
 		 strcasecmp(iface->ipaddress, DEFAULT_IPADDRESS))
 		host_no = get_host_no_from_ipaddress(iface->ipaddress, &tmp_rc);
-	else if(strlen(iface->netdev) &&
+	else if (strlen(iface->netdev) &&
 		strcasecmp(iface->netdev, DEFAULT_NETDEV))
 		host_no = get_host_no_from_netdev(iface->netdev, &tmp_rc);
 	else
@@ -582,35 +582,78 @@ static int sysfs_read_iface(struct iface_rec *iface, int host_no, int sid)
 		log_debug(7, "could not read netdev for host%d\n", host_no);
 	}
 
-	ret = iscsi_sysfs_get_iscsi_host_param(host_no, "initiatorname",
-					       iface->iname, "%s\n");
-	if (ret)
-		/* default iname is picked up later from initiatorname.iscsi */
-		log_debug(7, "Could not read initiatorname for host%d\n",
-			  host_no);
-
 	/*
-	 * this is on the session, because we support multiple bindings
-	 * per device.
+	 * If we are looping over the hosts then we want to read the
+	 * initiator name set at that level instead of the session
+	 * level one, because if we created a iscsi port with a different
+	 * iname then they will not match.
 	 */
-	memset(iface->name, 0, sizeof(iface->name));
-	/*
-	 * this was added after 2.0.869 so we could be doing iscsi_tcp
-	 * session binding, but there may not be a ifacename set
-	 */
-	ret = iscsi_sysfs_get_session_param(sid, "ifacename", iface->name,
-					    "%s\n");
-	if (ret) {
-		log_debug(7, "could not read iface name for sid %u\n", sid);
+	ret = 1;
+	if (sid != -1) {
 		/*
- 		 * if the ifacename file is not there then we are using a older
- 		 * kernel and can try to find the binding by the net info
- 		 * which was used on these older kernels.
- 		 */
-		if (iface_get_by_net_binding(iface, iface))
-			log_debug(7, "Could not find iface for session bound "
-				  "to:" iface_fmt "\n", iface_str(iface));
+		 * this is on the session, because we support multiple bindings
+		 * per device.
+		 */
+		memset(iface->name, 0, sizeof(iface->name));
+		/*
+		 * this was added after 2.0.869 so we could be doing iscsi_tcp
+		 * session binding, but there may not be a ifacename set
+		 */
+		ret = iscsi_sysfs_get_session_param(sid, "ifacename",
+						    iface->name, "%s\n");
+		/* if failed then look ifacename through binding tuple */
+		if (ret)
+			log_debug(7, "could not read iface name for sid %u\n",
+				  sid);
 	}
+
+	if (ret) {
+		/*
+		 * if the ifacename file (will always not be for qla4xxx)
+		 * is not there then we are using a older kernel and can
+		 * try to find the binding by the net info which was
+		 * used on these older kernels. If scanning hosts then
+		 * we must go this route currently because we do not
+		 * store the ifacename on the host for qla4xxx.
+		 */
+		if (iface_get_by_net_binding(iface, iface))
+			log_debug(7, "Could not find iface for "
+				  "session bound to:" iface_fmt "\n",
+				  iface_str(iface));
+	}
+
+	ret = 1;
+	if (sid != 1) {
+		/*
+		 * 2.0.870 we added the two inames to distinguish
+		 * between one that may be set at the hba level
+		 * as the default and one that we set for the iface
+		 * so we could create a virtual initiator port.
+		 */
+		ret = iscsi_sysfs_get_session_param(sid, "initiatorname",
+						    iface->iname, "%s\n");
+		if (ret)
+			/*
+			 * default iname is picked up later from
+			 * initiatorname.iscsi
+			 */
+			log_debug(7, "Could not read initiatorname for "
+				  "host%d\n", host_no);
+			/* drop through to older iface iname */
+	}
+
+	if (ret) {
+		ret = iscsi_sysfs_get_iscsi_host_param(host_no, "initiatorname",
+						       iface->iname, "%s\n");
+		if (ret)
+			/*
+			 * default iname is picked up later from
+			 * initiatorname.iscsi
+			 */
+			log_debug(7, "Could not read initiatorname for "
+				  "host%d\n", host_no);
+	}
+
 	return ret;
 }
 
