@@ -16,11 +16,10 @@
 #                    
 ### END INIT INFO
 
-PID_FILE=/var/run/iscsi.pid
 CONFIG_FILE=/etc/iscsi/iscsid.conf
 DAEMON=/sbin/iscsid
 ISCSIADM=/sbin/iscsiadm
-ARGS="-c $CONFIG_FILE -p $PID_FILE"
+ARGS="-c $CONFIG_FILE -n"
 
 # Source LSB init functions
 . /etc/rc.status
@@ -105,7 +104,6 @@ iscsi_list_all_nodes()
 
 case "$1" in
     start)
-	[ ! -d /var/lib/iscsi ] && mkdir -p /var/lib/iscsi
 	if checkproc $DAEMON ; then
 	    RETVAL=0
 	else
@@ -122,15 +120,14 @@ case "$1" in
 	;;
     stop)
 	iscsi_umount_all_luns
+	echo -n "Stopping iSCSI initiator service: "
 	if iscsi_logout_all_nodes ; then
 	    killproc -KILL $DAEMON
 	    RETVAL=$?
 	else
 	    RETVAL=1
 	fi
-	echo -n "Stopping iSCSI initiator service: "
 	if [ "$RETVAL" == "0" ]; then
-	    rm -f $PID_FILE
 	    status=0
 	    modprobe -r iscsi_tcp
 	    if [ "$?" -ne "0" -a "$?" -ne "1" ]; then

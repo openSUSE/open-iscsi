@@ -17,10 +17,9 @@
 ### END INIT INFO
 
 ISCSIADM=/sbin/iscsiadm
-PID_FILE=/var/run/iscsi.pid
 CONFIG_FILE=/etc/iscsid.conf
 DAEMON=/sbin/iscsid
-ARGS="-c $CONFIG_FILE -p $PID_FILE"
+ARGS="-c $CONFIG_FILE"
 
 # Source LSB init functions
 . /etc/rc.status
