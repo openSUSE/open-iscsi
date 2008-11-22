@@ -1,3 +1,8 @@
+open-iscsi-2.0-870 - open-iscsi-2.0.870.1
+Mike Christie (1):
+      iscsid: fix relogin retry handling
+
+
 open-iscsi-2.0-870 - open-iscsi-2.0.869
 
 Doron Shoham (1):
