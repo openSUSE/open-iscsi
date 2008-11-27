@@ -28,7 +28,7 @@ int fw_get_entry(struct boot_context *context, const char *filepath)
 	int ret;
 
 	ret = fwparam_ppc(context, filepath);
-	if (ret)
+	if (ret < 0)
 		ret = fwparam_ibft(context, filepath);
 	return ret;
 }
