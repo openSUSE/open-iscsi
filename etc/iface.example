@@ -60,5 +60,5 @@
 #    the same subnet.
 # iface.net_ifacename = eth0
 # iface.ipaddress = 102.50.50.101
-~
+
 
