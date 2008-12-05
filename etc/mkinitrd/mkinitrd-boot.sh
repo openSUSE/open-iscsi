@@ -49,6 +49,8 @@ tmp_InitiatorName="$(get_param InitiatorName)"
 # reads the InitiatorName variable
 . /etc/iscsi/initiatorname.iscsi
 
+load_modules
+
 # Check of iBFT settings
 if [ -d /sys/firmware/ibft/initiator ] ; then
     # only use the iBFT InitiatorName if the commandline argument is not "default"
@@ -69,13 +71,13 @@ echo "InitiatorName=$InitiatorName" > /etc/iscsi/initiatorname.iscsi
 
 unset iSCSI_warning_InitiatorName
 
-load_modules
-
 echo "Starting iSCSI daemon"
 /sbin/iscsid -n
 
-# log into iBFT nodes
-/sbin/iscsiadm -m fw -l
+if [ -d /sys/firmware/ibft/initiator ] ; then
+    # log into iBFT nodes
+    /sbin/iscsiadm -m fw -l
+fi
 
 # Check for command line sessions
 if [ -n "$TargetAddress" -a -n "$TargetName" ] ; then
