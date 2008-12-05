@@ -235,15 +235,10 @@ static int print_ifaces(int info_level)
 static int
 match_startup_mode(node_rec_t *rec, char *mode)
 {
-	/*
-	 * we always skip onboot because this should be handled by
-	 * something else
-	 */
-	if (rec->startup == ISCSI_STARTUP_ONBOOT)
-		return -1;
-
 	if ((!strcmp(mode, "automatic") &&
 	    rec->startup == ISCSI_STARTUP_AUTOMATIC) ||
+	    (!strcmp(mode, "onboot") &&
+	    rec->startup == ISCSI_STARTUP_ONBOOT) ||
 	    (!strcmp(mode, "manual") &&
 	    rec->startup == ISCSI_STARTUP_MANUAL) ||
 	    !strcmp(mode, "all"))
@@ -252,6 +247,8 @@ match_startup_mode(node_rec_t *rec, char *mode)
 	/* support conn or session startup params */
 	if ((!strcmp(mode, "automatic") &&
 	    rec->conn[0].startup == ISCSI_STARTUP_AUTOMATIC) ||
+	    (!strcmp(mode, "onboot") &&
+	    rec->conn[0].startup == ISCSI_STARTUP_ONBOOT) ||
 	    (!strcmp(mode, "manual") &&
 	    rec->conn[0].startup == ISCSI_STARTUP_MANUAL) ||
 	    !strcmp(mode, "all"))
