@@ -1,4 +1,11 @@
+open-iscsi-2.0-870.1 - open-iscsi-2.0.870.2
+
+Mike Christie (1):
+      libiscsi: fix iscsi pool leak
+
+
 open-iscsi-2.0-870 - open-iscsi-2.0.870.1
+
 Mike Christie (1):
       iscsid: fix relogin retry handling
 
