@@ -21,6 +21,7 @@
 #include "transport.h"
 #include "idbm.h"
 #include "iface.h"
+#include "session_info.h"
 
 void daemon_init(void)
 {
@@ -260,10 +261,12 @@ void idbm_node_setup_defaults(node_rec_t *rec)
 
 	memset(rec, 0, sizeof(node_rec_t));
 
+	INIT_LIST_HEAD(&rec->list);
+
 	rec->tpgt = PORTAL_GROUP_TAG_UNKNOWN;
 	rec->disc_type = DISCOVERY_TYPE_STATIC;
-	rec->session.initial_cmdsn = 0;
 	rec->session.cmds_max = CMDS_MAX;
+	rec->session.initial_cmdsn = 0;
 	rec->session.queue_depth = QUEUE_DEPTH;
 	rec->session.initial_login_retry_max = DEF_INITIAL_LOGIN_RETRIES_MAX;
 	rec->session.reopen_max = 32;
@@ -330,6 +333,7 @@ void iscsid_handle_error(mgmt_ipc_err_e err)
 		/* 16 */ "Unknown request",
 		/* 17 */ "encountered iSNS failure",
 		/* 18 */ "could not communicate to iscsid",
+		/* 19 */ "encountered non-retryable iSCSI login failure",
 	};
 	log_error("initiator reported error (%d - %s)", err, err_msgs[err]);
 }

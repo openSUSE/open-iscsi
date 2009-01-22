@@ -32,6 +32,7 @@
 #include "sysdeps.h"
 #include "iscsi_settings.h"
 #include "iface.h"
+#include "session_info.h"
 
 /*
  * TODO: remove the _DIR defines and search for subsys dirs like
@@ -41,16 +42,16 @@
 #define ISCSI_SESSION_DIR	"/sys/class/iscsi_session"
 #define ISCSI_HOST_DIR		"/sys/class/iscsi_host"
 
-#define ISCSI_SYSFS_INVALID_VALUE	"<NULL>"
 #define ISCSI_SESSION_SUBSYS		"iscsi_session"
 #define ISCSI_CONN_SUBSYS		"iscsi_connection"
 #define ISCSI_HOST_SUBSYS		"iscsi_host"
 #define ISCSI_TRANSPORT_SUBSYS		"iscsi_transport"
 #define SCSI_HOST_SUBSYS		"scsi_host"
-#define SCSI_DEVICE_SUBSYS		"scsi_device"
 #define SCSI_SUBSYS			"scsi"
 
-#define ISCSI_MAX_SYSFS_BUFFER NI_MAXHOST
+#define ISCSI_SESSION_ID		"session%d"
+#define ISCSI_CONN_ID			"connection%d:0"
+#define ISCSI_HOST_ID			"host%d"
 
 /*
  * TODO: make this into a real API and check inputs better and add doc.
@@ -58,168 +59,6 @@
 
 static int num_transports;
 LIST_HEAD(transports);
-
-static int iscsi_sysfs_get_param(char *id, char *subsys, char *param,
-				 void *ret_value, char *format)
-{
-	char devpath[PATH_SIZE];
-	char *sysfs_value;
-
-	/* set to invalid */
-	if (!strcmp(format, "%s\n"))
-		((char *)ret_value)[0] = '\0';
-	else
-		*((int *)ret_value) = -1;
-
-	if (!sysfs_lookup_devpath_by_subsys_id(devpath, sizeof(devpath),
-					       subsys, id)) {
-		log_debug(3, "Could not lookup devpath for %s %s\n",
-			  subsys, id);
-		return EIO;
-	}
-
-	sysfs_value = sysfs_attr_get_value(devpath, param);
-	if (!sysfs_value) {
-		log_debug(3, "Could not read attr %s on path %s\n",
-			  param, devpath);
-		return EIO;
-	}
-
-	if (!strncmp(sysfs_value, ISCSI_SYSFS_INVALID_VALUE, 6))
-		return ENODATA;
-
-	sscanf(sysfs_value, format, ret_value);
-	return 0;
-}
-
-#define iscsi_sysfs_get_param_by_str(name, subsys)			\
-static int iscsi_sysfs_get_##name##_param(char *tag, char *param,	\
-					  void *ret_value,		\
-					  char *format)			\
-{									\
-	char id[NAME_SIZE];						\
-									\
-	snprintf(id, sizeof(id), "%s", tag);				\
-	return iscsi_sysfs_get_param(id, subsys, param, ret_value, format);\
-}
-
-#define iscsi_sysfs_get_param_by_int(name, id_format, subsys)		\
-static int iscsi_sysfs_get_##name##_param(int tag, char *param,		\
-					  void *ret_value,		\
-					  char *format)			\
-{									\
-	char id[NAME_SIZE];						\
-									\
-	snprintf(id, sizeof(id), id_format, tag);			\
-	return iscsi_sysfs_get_param(id, subsys, param, ret_value, format);\
-}
-
-iscsi_sysfs_get_param_by_int(session, "session%d", ISCSI_SESSION_SUBSYS);
-iscsi_sysfs_get_param_by_int(conn, "connection%d:0", ISCSI_CONN_SUBSYS);
-iscsi_sysfs_get_param_by_int(iscsi_host, "host%d", ISCSI_HOST_SUBSYS);
-iscsi_sysfs_get_param_by_int(scsi_host, "host%d", SCSI_HOST_SUBSYS);
-
-iscsi_sysfs_get_param_by_str(transport, ISCSI_TRANSPORT_SUBSYS);
-iscsi_sysfs_get_param_by_str(scsi_dev, SCSI_SUBSYS);
-
-static int iscsi_sysfs_set_param(char *id, char *subsys, char *attr_name,
-				 char *write_buf, ssize_t buf_size)
-{
-	struct stat statbuf;
-	char devpath[PATH_SIZE];
-	size_t sysfs_len;
-	char path_full[PATH_SIZE];
-	const char *path;
-	int rc = 0, fd;
-
-	if (!sysfs_lookup_devpath_by_subsys_id(devpath, sizeof(devpath),
-					       subsys, id)) {
-		log_debug(3, "Could not lookup devpath for %s %s\n",
-			  subsys, id);
-		return EIO;
-	}
-
-	sysfs_len = strlcpy(path_full, sysfs_path, sizeof(path_full));
-	if(sysfs_len >= sizeof(path_full))
-		sysfs_len = sizeof(path_full) - 1;
-	path = &path_full[sysfs_len];
-	strlcat(path_full, devpath, sizeof(path_full));
-	strlcat(path_full, "/", sizeof(path_full));
-	strlcat(path_full, attr_name, sizeof(path_full));
-
-	if (lstat(path_full, &statbuf)) {
-		log_debug(3, "Could not stat %s\n", path_full);
-		return errno;
-	}
-
-	if ((statbuf.st_mode & S_IWUSR) == 0) {
-		log_error("Could not write to %s. Invalid permissions.\n",
-			  path_full);
-		return EACCES;
-	}
-
-	fd = open(path_full, O_WRONLY);
-	if (fd < 0) {
-		log_error("Could not open %s err %d\n", path_full, errno);
-		return errno;
-	}
-
-	if (write(fd, write_buf, buf_size) == -1)
-		rc = errno;
-	close(fd);
-	return rc;
-}
-
-#define iscsi_sysfs_set_param_by_str(name, subsys)			\
-static int iscsi_sysfs_set_##name##_param(char *tag, char *attr_name,	\
-					  char *write_buf,		\
-					  ssize_t buf_size)		\
-{									\
-	char id[NAME_SIZE];						\
-									\
-	snprintf(id, sizeof(id), "%s", tag);				\
-	return iscsi_sysfs_set_param(id, subsys, attr_name, write_buf,	\
-				     buf_size);				\
-}
-
-#define iscsi_sysfs_set_param_by_int(name, id_format, subsys)		\
-static int iscsi_sysfs_set_##name##_param(int tag, char *attr_name,	\
-					  char *write_buf,		\
-					  ssize_t buf_size)		\
-{									\
-	char id[NAME_SIZE];						\
-									\
-	snprintf(id, sizeof(id), id_format, tag);			\
-	return iscsi_sysfs_set_param(id, subsys, attr_name, write_buf,	\
-				     buf_size);				\
-}
-
-iscsi_sysfs_set_param_by_int(scsi_host, "host%d", SCSI_HOST_SUBSYS);
-iscsi_sysfs_set_param_by_str(scsi_dev, SCSI_SUBSYS);
-
-/* mini implementation of versionsort for uclibc compatility */
-int direntcmp(const void *d1, const void *d2)
-{
-	const char *a = (*(const struct dirent **)d1)->d_name;
-	const char *b = (*(const struct dirent **)d2)->d_name;
-	while (*a && *b) {
-		int mask = (isdigit(*a) != 0) |  ((isdigit(*b) != 0) << 1);
-		switch (mask) {
-		case 0: /* none are digit */
-			if (*a == *b)
-				break;
-			return (*a - *b);
-		case 1: /* a is digit but not b */
-			return -1;
-		case 2: /* b is digit but not a */
-			return 1;
-		case 3: /* both ar digits */
-			return atoi(a) - atoi(b);
-		}
-		a++; b++;
-	}
-	return *a - *b;
-}
 
 void free_transports(void)
 {
@@ -245,7 +84,7 @@ static int read_transports(void)
 	log_debug(7, "in %s", __FUNCTION__);
 
 	n = scandir(ISCSI_TRANSPORT_DIR, &namelist, trans_filter,
-		    direntcmp);
+		    alphasort);
 	if (n < 0) {
 		log_error("Could not scan %s.", ISCSI_TRANSPORT_DIR);
 		return n;
@@ -261,27 +100,41 @@ static int read_transports(void)
 			}
 		}
 
-		if (found)
-			continue;
+		if (!found) {
+			/* copy new transport */
+			t = malloc(sizeof(*t));
+			if (!t)
+				continue;
+			log_debug(7, "Adding new transport %s",
+				  namelist[i]->d_name);
 
-		/* copy new transport */
-		t = malloc(sizeof(*t));
-		if (!t)
-			continue;
-		log_debug(7, "Adding new transport %s", namelist[i]->d_name);
+			INIT_LIST_HEAD(&t->sessions);
+			INIT_LIST_HEAD(&t->list);
+			strncpy(t->name, namelist[i]->d_name,
+				ISCSI_TRANSPORT_NAME_MAXLEN);
+		} else
+			log_debug(7, "Updating transport %s",
+				  namelist[i]->d_name);
 
-		INIT_LIST_HEAD(&t->sessions);
-		INIT_LIST_HEAD(&t->list);
-		strncpy(t->name, namelist[i]->d_name,
-			ISCSI_TRANSPORT_NAME_MAXLEN);
-
-		if (iscsi_sysfs_get_transport_param(t->name, "handle",
-						    &t->handle, "%llu\n"))
+		if (sysfs_get_ull(t->name, ISCSI_TRANSPORT_SUBSYS,
+				  "handle", (unsigned long long *)&t->handle)) {
+			if (list_empty(&t->list))
+				free(t);
+			else
+				log_error("Could not update %s.\n",
+					  t->name);
 			continue;
+		}
 
-		if (iscsi_sysfs_get_transport_param(t->name, "caps",
-						    &t->caps, "0x%x"))
+		if (sysfs_get_uint(t->name, ISCSI_TRANSPORT_SUBSYS,
+				  "caps", &t->caps)) {
+			if (list_empty(&t->list))
+				free(t);
+			else
+				log_error("Could not update %s.\n",
+					  t->name);
 			continue;
+		}
 		/*
 		 * tmp hack for qla4xx compat
 		 */
@@ -290,7 +143,8 @@ static int read_transports(void)
 			t->caps |= CAP_FW_DB;
 		}
 
-		list_add_tail(&t->list, &transports);
+		if (list_empty(&t->list))
+			list_add_tail(&t->list, &transports);
 	}
 
 	for (i = 0; i < n; i++)
@@ -304,16 +158,23 @@ static int read_transports(void)
 /* caller must check lengths */
 void iscsi_sysfs_get_auth_conf(int sid, struct iscsi_auth_config *conf)
 {
-	memset(conf, 0, sizeof(*conf));
+	char id[NAME_SIZE];
 
-	iscsi_sysfs_get_session_param(sid, "username", conf->username, "%s\n");
-	iscsi_sysfs_get_session_param(sid, "username_in", conf->username_in,
-				      "%s\n");
-	iscsi_sysfs_get_session_param(sid, "password", conf->password, "%s\n");
+	memset(conf, 0, sizeof(*conf));
+	snprintf(id, sizeof(id), ISCSI_SESSION_ID, sid);
+
+	sysfs_get_str(id, ISCSI_SESSION_SUBSYS, "username", conf->username,
+		      sizeof(conf->username));
+	sysfs_get_str(id, ISCSI_SESSION_SUBSYS, "username_in",
+		      conf->username_in, sizeof(conf->username_in));
+
+	sysfs_get_str(id, ISCSI_SESSION_SUBSYS, "password",
+		      (char *)conf->password, sizeof(conf->password));
 	if (strlen((char *)conf->password))
 		conf->password_length = strlen((char *)conf->password);
-	iscsi_sysfs_get_session_param(sid, "password_in", conf->password_in,
-				      "%s\n");
+
+	sysfs_get_str(id, ISCSI_SESSION_SUBSYS, "password_in",
+		      (char *)conf->password_in, sizeof(conf->password_in));
 	if (strlen((char *)conf->password_in))
 		conf->password_in_length = strlen((char *)conf->password_in);
 }
@@ -322,39 +183,44 @@ void iscsi_sysfs_get_auth_conf(int sid, struct iscsi_auth_config *conf)
 void iscsi_sysfs_get_negotiated_conn_conf(int sid,
 				struct iscsi_conn_operational_config *conf)
 {
-	memset(conf, 0, sizeof(*conf));
+	char id[NAME_SIZE];
 
-	iscsi_sysfs_get_conn_param(sid, "data_digest", &conf->DataDigest,
-				   "%d\n");
-	iscsi_sysfs_get_conn_param(sid, "header_digest", &conf->HeaderDigest,
-				   "%d\n");
-	iscsi_sysfs_get_conn_param(sid, "max_xmit_dlength",
-				   &conf->MaxXmitDataSegmentLength, "%d\n");
-	iscsi_sysfs_get_conn_param(sid, "max_recv_dlength",
-				   &conf->MaxRecvDataSegmentLength, "%d\n");
+	memset(conf, 0, sizeof(*conf));
+	snprintf(id, sizeof(id), ISCSI_CONN_ID, sid);
+
+	sysfs_get_int(id, ISCSI_CONN_SUBSYS, "data_digest", &conf->DataDigest);
+	sysfs_get_int(id, ISCSI_CONN_SUBSYS, "header_digest",
+		      &conf->HeaderDigest);
+	sysfs_get_int(id, ISCSI_CONN_SUBSYS, "max_xmit_dlength",
+		      &conf->MaxXmitDataSegmentLength);
+	sysfs_get_int(id, ISCSI_CONN_SUBSYS, "max_recv_dlength",
+		       &conf->MaxRecvDataSegmentLength);
 }
 
 /* called must check for -1=invalid value */
 void iscsi_sysfs_get_negotiated_session_conf(int sid,
 				struct iscsi_session_operational_config *conf)
 {
-	memset(conf, 0, sizeof(*conf));
+	char id[NAME_SIZE];
 
-	iscsi_sysfs_get_session_param(sid, "data_pdu_in_order",
-				      &conf->DataPDUInOrder, "%d\n");
-	iscsi_sysfs_get_session_param(sid, "data_seq_in_order",
-				      &conf->DataSequenceInOrder, "%d\n");
-	iscsi_sysfs_get_session_param(sid, "erl", &conf->ERL, "%d\n");
-	iscsi_sysfs_get_session_param(sid, "first_burst_len",
-				      &conf->FirstBurstLength, "%d\n");
-	iscsi_sysfs_get_session_param(sid, "max_burst_len",
-				      &conf->MaxBurstLength, "%d\n");
-	iscsi_sysfs_get_session_param(sid, "immediate_data",
-				      &conf->ImmediateData, "%d\n");
-	iscsi_sysfs_get_session_param(sid, "initial_r2t",
-				      &conf->InitialR2T, "%d\n");
-	iscsi_sysfs_get_session_param(sid, "max_outstanding_r2t",
-				      &conf->MaxOutstandingR2T, "%d\n");
+	memset(conf, 0, sizeof(*conf));
+	snprintf(id, sizeof(id), ISCSI_SESSION_ID, sid);
+
+	sysfs_get_int(id, ISCSI_SESSION_SUBSYS, "data_pdu_in_order",
+		      &conf->DataPDUInOrder);
+	sysfs_get_int(id, ISCSI_SESSION_SUBSYS, "data_seq_in_order",
+		      &conf->DataSequenceInOrder);
+	sysfs_get_int(id, ISCSI_SESSION_SUBSYS, "erl", &conf->ERL);
+	sysfs_get_int(id, ISCSI_SESSION_SUBSYS, "first_burst_len",
+		       &conf->FirstBurstLength);
+	sysfs_get_int(id, ISCSI_SESSION_SUBSYS, "max_burst_len",
+		      &conf->MaxBurstLength);
+	sysfs_get_int(id, ISCSI_SESSION_SUBSYS, "immediate_data",
+		      &conf->ImmediateData);
+	sysfs_get_int(id, ISCSI_SESSION_SUBSYS, "initial_r2t",
+		      &conf->InitialR2T);
+	sysfs_get_int(id, ISCSI_SESSION_SUBSYS, "max_outstanding_r2t",
+		      &conf->MaxOutstandingR2T);
 }
 
 uint32_t iscsi_sysfs_get_host_no_from_sid(uint32_t sid, int *err)
@@ -520,7 +386,7 @@ static uint32_t get_host_no_from_ipaddress(char *address, int *rc)
 	return host_no;
 }
 
-uint32_t iscsi_sysfs_get_host_no_from_iface(struct iface_rec *iface, int *rc)
+uint32_t iscsi_sysfs_get_host_no_from_hwinfo(struct iface_rec *iface, int *rc)
 {
 	int tmp_rc;
 	uint32_t host_no = -1;
@@ -528,12 +394,12 @@ uint32_t iscsi_sysfs_get_host_no_from_iface(struct iface_rec *iface, int *rc)
 	if (strlen(iface->hwaddress) &&
 	    strcasecmp(iface->hwaddress, DEFAULT_HWADDRESS))
 		host_no = get_host_no_from_hwaddress(iface->hwaddress, &tmp_rc);
+	else if (strlen(iface->netdev) &&
+		strcasecmp(iface->netdev, DEFAULT_NETDEV))
+		host_no = get_host_no_from_netdev(iface->netdev, &tmp_rc);
 	else if (strlen(iface->ipaddress) &&
 		 strcasecmp(iface->ipaddress, DEFAULT_IPADDRESS))
 		host_no = get_host_no_from_ipaddress(iface->ipaddress, &tmp_rc);
-	else if(strlen(iface->netdev) &&
-		strcasecmp(iface->netdev, DEFAULT_NETDEV))
-		host_no = get_host_no_from_netdev(iface->netdev, &tmp_rc);
 	else
 		tmp_rc = EINVAL;
 
@@ -541,22 +407,12 @@ uint32_t iscsi_sysfs_get_host_no_from_iface(struct iface_rec *iface, int *rc)
 	return host_no;
 }
 
-static int sysfs_read_iface(struct iface_rec *iface, int host_no, int sid)
+static int sysfs_read_iface(struct iface_rec *iface, int host_no,
+			    char *session)
 {
+	char id[NAME_SIZE];
 	struct iscsi_transport *t;
 	int ret;
-
-	/*
-	 * backward compat
-	 * If we cannot get the address we assume we are doing the old
-	 * style and use default.
-	 */
-	ret = iscsi_sysfs_get_iscsi_host_param(host_no, "hwaddress",
-					       iface->hwaddress, "%s\n");
-	if (ret) {
-		sprintf(iface->hwaddress, DEFAULT_HWADDRESS);
-		log_debug(7, "could not read hwaddress for host%d\n", host_no);
-	}
 
 	t = iscsi_sysfs_get_transport_by_hba(host_no);
 	if (!t)
@@ -565,9 +421,22 @@ static int sysfs_read_iface(struct iface_rec *iface, int host_no, int sid)
 	else
 		strcpy(iface->transport_name, t->name);
 
+	snprintf(id, sizeof(id), ISCSI_HOST_ID, host_no);
+	/*
+	 * backward compat
+	 * If we cannot get the address we assume we are doing the old
+	 * style and use default.
+	 */
+	ret = sysfs_get_str(id, ISCSI_HOST_SUBSYS, "hwaddress",
+			    iface->hwaddress, sizeof(iface->hwaddress));
+	if (ret) {
+		sprintf(iface->hwaddress, DEFAULT_HWADDRESS);
+		log_debug(7, "could not read hwaddress for host%d\n", host_no);
+	}
+
 	/* if not found just print out default */
-	ret = iscsi_sysfs_get_iscsi_host_param(host_no, "ipaddress",
-					       iface->ipaddress, "%s\n");
+	ret = sysfs_get_str(id, ISCSI_HOST_SUBSYS, "ipaddress",
+			    iface->ipaddress, sizeof(iface->ipaddress));
 	if (ret) {
 		sprintf(iface->ipaddress, DEFAULT_IPADDRESS);
 		log_debug(7, "could not read local address for host%d\n",
@@ -575,33 +444,69 @@ static int sysfs_read_iface(struct iface_rec *iface, int host_no, int sid)
 	}
 
 	/* if not found just print out default */
-	ret = iscsi_sysfs_get_iscsi_host_param(host_no, "netdev",
-					       iface->netdev, "%s\n");
+	ret = sysfs_get_str(id, ISCSI_HOST_SUBSYS, "netdev",
+			    iface->netdev, sizeof(iface->netdev));
 	if (ret) {
 		sprintf(iface->netdev, DEFAULT_NETDEV);
 		log_debug(7, "could not read netdev for host%d\n", host_no);
 	}
 
-	ret = iscsi_sysfs_get_iscsi_host_param(host_no, "initiatorname",
-					       iface->iname, "%s\n");
-	if (ret)
-		/* default iname is picked up later from initiatorname.iscsi */
-		log_debug(7, "Could not read initiatorname for host%d\n",
-			  host_no);
+	/*
+	 * For drivers like qla4xxx we can only set the iname at the
+	 * host level because we cannot create different initiator ports
+	 * (cannot set isid either). The LLD also exports the iname at the
+	 * hba level so apps can see it, but we no longer set the iname for
+	 * each iscsid controlled host since bnx2i cxgb3i can support multiple
+	 * initiator names and of course software iscsi can support anything.
+	 */
+	ret = 1;
+	if (session) {
+		ret = sysfs_get_str(session, ISCSI_SESSION_SUBSYS,
+				    "initiatorname",
+				    iface->iname, sizeof(iface->iname));
+		/*
+		 * qlaxxx will not set this at the session level so we
+		 * always drop down for it.
+		 *
+		 * And.
+		 *
+		 * For older kernels/tools (2.6.26 and below and 2.0.870)
+		 * we will not have a session level initiator name, so
+		 * we will drop down.
+		 */
+	}
+
+	if (ret) {
+		ret = sysfs_get_str(id, ISCSI_HOST_SUBSYS, "initiatorname",
+				    iface->iname, sizeof(iface->iname));
+		if (ret)
+			/*
+			 * default iname is picked up later from
+			 * initiatorname.iscsi if software/partial-offload.
+			 *
+			 * TODO: we should make it easier to get the
+			 * global iname so we can just fill it in here.
+			 */
+			log_debug(7, "Could not read initiatorname for "
+				  "host%d\n", host_no);
+	}
 
 	/*
 	 * this is on the session, because we support multiple bindings
 	 * per device.
 	 */
 	memset(iface->name, 0, sizeof(iface->name));
-	/*
-	 * this was added after 2.0.869 so we could be doing iscsi_tcp
-	 * session binding, but there may not be a ifacename set
-	 */
-	ret = iscsi_sysfs_get_session_param(sid, "ifacename", iface->name,
-					    "%s\n");
-	if (ret) {
-		log_debug(7, "could not read iface name for sid %u\n", sid);
+	if (session)
+		/*
+		 * this was added after 2.0.869 so we could be doing iscsi_tcp
+		 * session binding, but there may not be a ifacename set
+		 * if binding is not used.
+		 */
+		ret = sysfs_get_str(session, ISCSI_SESSION_SUBSYS, "ifacename",
+				    iface->name, sizeof(iface->name));
+	if (ret || !session) {
+		log_debug(7, "could not read iface name for session %s\n",
+			  session);
 		/*
  		 * if the ifacename file is not there then we are using a older
  		 * kernel and can try to find the binding by the net info
@@ -626,7 +531,7 @@ int iscsi_sysfs_for_each_host(void *data, int *nr_found,
 		return ENOMEM;
 
 	n = scandir(ISCSI_HOST_DIR, &namelist, trans_filter,
-		    direntcmp);
+		    alphasort);
 	if (n <= 0)
 		goto free_info;
 
@@ -638,7 +543,7 @@ int iscsi_sysfs_for_each_host(void *data, int *nr_found,
 			break;
 		}
 
-		sysfs_read_iface(&info->iface, info->host_no, -1);
+		sysfs_read_iface(&info->iface, info->host_no, NULL);
 
 		rc = fn(data, info);
 		if (rc != 0)
@@ -734,6 +639,7 @@ int iscsi_sysfs_get_sid_from_path(char *session)
 
 int iscsi_sysfs_get_sessioninfo_by_id(struct session_info *info, char *session)
 {
+	char id[NAME_SIZE];
 	int ret, pers_failed = 0;
 	uint32_t host_no;
 
@@ -742,24 +648,26 @@ int iscsi_sysfs_get_sessioninfo_by_id(struct session_info *info, char *session)
 		return EINVAL;
 	}
 
-	ret = iscsi_sysfs_get_session_param(info->sid, "targetname",
-					    info->targetname, "%s\n");
+	ret = sysfs_get_str(session, ISCSI_SESSION_SUBSYS, "targetname",
+			    info->targetname, sizeof(info->targetname));
 	if (ret) {
 		log_error("could not read session targetname: %d", ret);
 		return ret;
 	}
 
-	ret = iscsi_sysfs_get_session_param(info->sid, "tpgt", &info->tpgt,
-					    "%u\n");
+	ret = sysfs_get_int(session, ISCSI_SESSION_SUBSYS, "tpgt",
+			    &info->tpgt);
 	if (ret) {
 		log_error("could not read session tpgt: %u", ret);
 		return ret;
 	}
 
+	snprintf(id, sizeof(id), ISCSI_CONN_ID, info->sid);
 	/* some HW drivers do not export addr and port */
 	memset(info->persistent_address, 0, NI_MAXHOST);
-	ret = iscsi_sysfs_get_conn_param(info->sid, "persistent_address",
-					 info->persistent_address, "%s\n");
+	ret = sysfs_get_str(id, ISCSI_CONN_SUBSYS, "persistent_address",
+			    info->persistent_address,
+			    sizeof(info->persistent_address));
 	if (ret) {
 		pers_failed = 1;
 		/* older qlogic does not support this */
@@ -767,8 +675,8 @@ int iscsi_sysfs_get_sessioninfo_by_id(struct session_info *info, char *session)
 	}
 
 	memset(info->address, 0, NI_MAXHOST);
-	ret = iscsi_sysfs_get_conn_param(info->sid, "address",
-					 info->address, "%s\n");
+	ret = sysfs_get_str(id, ISCSI_CONN_SUBSYS, "address",
+			    info->address, sizeof(info->address));
 	if (ret) {
 		log_debug(5, "could not read curr addr: %d", ret);
 		/* iser did not export this */
@@ -783,16 +691,15 @@ int iscsi_sysfs_get_sessioninfo_by_id(struct session_info *info, char *session)
 	pers_failed = 0;
 
 	info->persistent_port = -1;
-	ret = iscsi_sysfs_get_conn_param(info->sid, "persistent_port",
-					 &info->persistent_port, "%u\n");
+	ret = sysfs_get_int(id, ISCSI_CONN_SUBSYS, "persistent_port",
+			    &info->persistent_port);
 	if (ret) {
 		pers_failed = 1;
 		log_debug(5, "Could not read pers conn port %d", ret);
 	}
 
 	info->port = -1;
-	ret = iscsi_sysfs_get_conn_param(info->sid, "port", &info->port,
-					 "%u\n");
+	ret = sysfs_get_int(id, ISCSI_CONN_SUBSYS, "port", &info->port);
 	if (ret) {
 		/* iser did not export this */
 		if (!pers_failed)
@@ -813,7 +720,7 @@ int iscsi_sysfs_get_sessioninfo_by_id(struct session_info *info, char *session)
 		return ret;
 	}
 
-	sysfs_read_iface(&info->iface, host_no, info->sid);
+	sysfs_read_iface(&info->iface, host_no, session);
  
 	log_debug(7, "found targetname %s address %s pers address %s port %d "
 		 "pers port %d driver %s iface name %s ipaddress %s "
@@ -839,7 +746,7 @@ int iscsi_sysfs_for_each_session(void *data, int *nr_found,
 		return ENOMEM;
 
 	n = scandir(ISCSI_SESSION_DIR, &namelist, trans_filter,
-		    direntcmp);
+		    alphasort);
 	if (n <= 0)
 		goto free_info;
 
@@ -873,12 +780,20 @@ free_info:
 
 int iscsi_sysfs_get_session_state(char *state, int sid)
 {
-	return iscsi_sysfs_get_session_param(sid, "state", state, "%s\n");
+	char id[NAME_SIZE];
+
+	snprintf(id, sizeof(id), ISCSI_SESSION_ID, sid);
+	return sysfs_get_str(id, ISCSI_SESSION_SUBSYS, "state", state,
+			     SCSI_MAX_STATE_VALUE);
 }
 
 int iscsi_sysfs_get_host_state(char *state, int host_no)
 {
-	return iscsi_sysfs_get_scsi_host_param(host_no, "state", state, "%s\n");
+	char id[NAME_SIZE];
+
+	snprintf(id, sizeof(id), ISCSI_HOST_ID, host_no);
+	return sysfs_get_str(id, SCSI_HOST_SUBSYS, "state", state,
+			     SCSI_MAX_STATE_VALUE);
 }
 
 int iscsi_sysfs_get_device_state(char *state, int host_no, int target, int lun)
@@ -886,7 +801,8 @@ int iscsi_sysfs_get_device_state(char *state, int host_no, int target, int lun)
 	char id[NAME_SIZE];
 
 	snprintf(id, sizeof(id), "%d:0:%d:%d", host_no, target, lun);
-	if (iscsi_sysfs_get_scsi_dev_param(id, "state", state, "%s\n")) {
+	if (sysfs_get_str(id, SCSI_SUBSYS, "state", state,
+			  SCSI_MAX_STATE_VALUE)) {
 		log_debug(3, "Could not read attr state for %s\n", id);
 		return EIO;
 	}
@@ -1052,18 +968,20 @@ struct iscsi_transport *iscsi_sysfs_get_transport_by_name(char *transport_name)
 }
 
 /* TODO: replace the following functions with some decent sysfs links */
-struct iscsi_transport *iscsi_sysfs_get_transport_by_hba(long host_no)
+struct iscsi_transport *iscsi_sysfs_get_transport_by_hba(uint32_t host_no)
 {
 	char name[ISCSI_TRANSPORT_NAME_MAXLEN];
+	char id[NAME_SIZE];
 	int rc;
 
 	if (host_no == -1)
 		return NULL;
 
-	rc = iscsi_sysfs_get_scsi_host_param(host_no, "proc_name", name,
-					     "%s\n");
+	snprintf(id, sizeof(id), ISCSI_HOST_ID, host_no);
+	rc = sysfs_get_str(id, SCSI_HOST_SUBSYS, "proc_name", name,
+			   ISCSI_TRANSPORT_NAME_MAXLEN);
 	if (rc) {
-		log_error("Could not read proc_name for host%ld rc %d.",
+		log_error("Could not read proc_name for host%u rc %d.",
 			  host_no, rc);
 		return NULL;
 	}
@@ -1098,10 +1016,12 @@ struct iscsi_transport *iscsi_sysfs_get_transport_by_sid(uint32_t sid)
  */
 int iscsi_sysfs_get_exp_statsn(int sid)
 {
+	char id[NAME_SIZE];
 	uint32_t exp_statsn = 0;
 
-	if (iscsi_sysfs_get_conn_param(sid, "exp_statsn", &exp_statsn,
-				      "%u\n")) {
+	snprintf(id, sizeof(id), ISCSI_CONN_ID, sid);
+	if (sysfs_get_uint(id, ISCSI_CONN_SUBSYS, "exp_statsn",
+			   &exp_statsn)) {
 		log_error("Could not read expstatsn for sid %d. "
 			  "Using zero for exp_statsn.", sid);
 		exp_statsn = 0;
@@ -1109,8 +1029,9 @@ int iscsi_sysfs_get_exp_statsn(int sid)
 	return exp_statsn;
 }
 
-int iscsi_sysfs_for_each_device(int host_no, uint32_t sid,
-				void (* fn)(int host_no, int target, int lun))
+int iscsi_sysfs_for_each_device(void *data, int host_no, uint32_t sid,
+				void (* fn)(void *data, int host_no,
+					    int target, int lun))
 {
 	struct dirent **namelist;
 	int h, b, t, l, i, n, err = 0, target;
@@ -1132,7 +1053,7 @@ int iscsi_sysfs_for_each_device(int host_no, uint32_t sid,
 	snprintf(path_full, sizeof(path_full), "%s%s/device/target%d:0:%d",
 		 sysfs_path, devpath, host_no, target);
 	n = scandir(path_full, &namelist, trans_filter,
-		    direntcmp);
+		    alphasort);
 	if (n <= 0)
 		return 0;
 
@@ -1140,7 +1061,7 @@ int iscsi_sysfs_for_each_device(int host_no, uint32_t sid,
 		if (sscanf(namelist[i]->d_name, "%d:%d:%d:%d\n",
 			   &h, &b, &t, &l) != 4)
 			continue;
-		fn(h, t, l);
+		fn(data, h, t, l);
 	}
 
 	for (i = 0; i < n; i++)
@@ -1150,7 +1071,7 @@ int iscsi_sysfs_for_each_device(int host_no, uint32_t sid,
 	return 0;
 }
 
-void iscsi_sysfs_set_device_online(int hostno, int target, int lun)
+void iscsi_sysfs_set_device_online(void *data, int hostno, int target, int lun)
 {
 	char *write_buf = "running\n";
 	char id[NAME_SIZE];
@@ -1159,26 +1080,27 @@ void iscsi_sysfs_set_device_online(int hostno, int target, int lun)
 	snprintf(id, sizeof(id), "%d:0:%d:%d", hostno, target, lun);
 	log_debug(4, "online device %s", id);
 
-	err = iscsi_sysfs_set_scsi_dev_param(id, "state", write_buf,
-					     strlen(write_buf));
+	err = sysfs_set_param(id, SCSI_SUBSYS, "state", write_buf,
+			      strlen(write_buf));
 	if (err && err != EINVAL)
 		/* we should read the state */
 		log_error("Could not online LUN %d err %d.", lun, err);
 }
 
-void iscsi_sysfs_rescan_device(int hostno, int target, int lun)
+void iscsi_sysfs_rescan_device(void *data, int hostno, int target, int lun)
 {
 	char *write_buf = "1";
 	char id[NAME_SIZE];
 
 	snprintf(id, sizeof(id), "%d:0:%d:%d", hostno, target, lun);
 	log_debug(4, "rescanning device %s", id);
-	iscsi_sysfs_set_scsi_dev_param(id, "rescan", write_buf,
-				       strlen(write_buf));
+	sysfs_set_param(id, SCSI_SUBSYS, "rescan", write_buf,
+			strlen(write_buf));
 }
 
 pid_t iscsi_sysfs_scan_host(int hostno, int async)
 {
+	char id[NAME_SIZE];
 	char *write_buf = "- - -";
 	pid_t pid = 0;
 
@@ -1188,8 +1110,9 @@ pid_t iscsi_sysfs_scan_host(int hostno, int async)
 		/* child */
 		log_debug(4, "scanning host%d", hostno);
 
-		iscsi_sysfs_set_scsi_host_param(hostno, "scan", write_buf,
-					        strlen(write_buf));
+		snprintf(id, sizeof(id), ISCSI_HOST_ID, hostno);
+		sysfs_set_param(id, SCSI_HOST_SUBSYS, "scan", write_buf,
+				strlen(write_buf));
 		log_debug(4, "scanning host%d completed\n", hostno);
 	} else if (pid > 0) {
 		log_debug(4, "scanning host%d from pid %d", hostno, pid);

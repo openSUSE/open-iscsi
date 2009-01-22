@@ -38,6 +38,7 @@
 #include "scsi.h"
 #include "iscsi_sysfs.h"
 #include "iscsi_settings.h"
+#include "iface.h"
 
 #define ISCSI_CONN_ERR_REOPEN_DELAY	3
 #define ISCSI_INTERNAL_ERR_REOPEN_DELAY	5
@@ -135,7 +136,7 @@ void iscsi_conn_context_put(struct iscsi_conn_context *conn_context)
 
 static void session_online_devs(int host_no, int sid)
 {
-	iscsi_sysfs_for_each_device(host_no, sid,
+	iscsi_sysfs_for_each_device(NULL, host_no, sid,
 				    iscsi_sysfs_set_device_online);
 }
 
@@ -153,7 +154,8 @@ __login_response_status(iscsi_conn_t *conn,
 	case LOGIN_REDIRECTION_FAILED:
 		return CONN_LOGIN_RETRY;
 	default:
-		log_error("conn %d giving up on login attempts", conn->id);
+		log_error("Login error (Login status %d) on conn %d", conn->id,
+			  login_status);
 		break;
 	}
 
@@ -217,8 +219,7 @@ __check_iscsi_status_class(iscsi_session_t *session, int cid,
 			return CONN_LOGIN_FAILED;
 		default:
 			log_error("conn %d login rejected: initiator "
-			       "error (%02x/%02x), non-retryable, "
-			       "giving up", conn->id, status_class,
+			       "error (%02x/%02x)", conn->id, status_class,
 			       status_detail);
 			return CONN_LOGIN_FAILED;
 		}
@@ -827,7 +828,8 @@ static void iscsi_login_eh(struct iscsi_conn *conn, struct queue_task *qtask,
 				  "R_STAGE_NO_CHANGE");
 			/* timeout during initial connect.
 			 * clean connection. write ipc rsp or retry */
-			if (!iscsi_retry_initial_login(conn))
+			if (err == MGMT_IPC_ERR_FATAL_LOGIN_FAILURE ||
+			    !iscsi_retry_initial_login(conn))
 				session_conn_shutdown(conn, qtask, err);
 			else {
 				session->reopen_cnt++;
@@ -842,7 +844,8 @@ static void iscsi_login_eh(struct iscsi_conn *conn, struct queue_task *qtask,
 				  "R_STAGE_SESSION_REDIRECT");
 			/* timeout during initial redirect connect
 			 * clean connection. write ipc rsp or retry */
-			if (!iscsi_retry_initial_login(conn))
+			if (err == MGMT_IPC_ERR_FATAL_LOGIN_FAILURE ||
+			    !iscsi_retry_initial_login(conn))
 				session_conn_shutdown(conn, qtask, err);
 			else
 				session_conn_reopen(conn, qtask, 0);
@@ -874,7 +877,8 @@ static void iscsi_login_eh(struct iscsi_conn *conn, struct queue_task *qtask,
 			 * initial redirected connect. Clean connection
 			 * and write rsp or retry.
 			 */
-			if (!iscsi_retry_initial_login(conn))
+			if (err == MGMT_IPC_ERR_FATAL_LOGIN_FAILURE ||
+			    !iscsi_retry_initial_login(conn))
 				session_conn_shutdown(conn, qtask, err);
 			else
 				session_conn_reopen(conn, qtask,
@@ -884,11 +888,6 @@ static void iscsi_login_eh(struct iscsi_conn *conn, struct queue_task *qtask,
 			log_debug(6, "login failed STATE_IN_LOGIN/"
 				  "R_STAGE_SESSION_REOPEN %d",
 				  session->reopen_cnt);
-			/*
-			 * If we get a retryable error during the initial
-			 * login then we will hit this path and
-			 * initial_login_retry_max is ignored.
-			 */
 			session_conn_reopen(conn, qtask, STOP_CONN_RECOVER);
 			break;
 		case R_STAGE_SESSION_CLEANUP:
@@ -1176,7 +1175,7 @@ mgmt_ipc_err_e iscsi_host_set_param(int host_no, int param, char *value)
         return MGMT_IPC_OK;
 }
 
-#define MAX_SESSION_PARAMS 30
+#define MAX_SESSION_PARAMS 31
 #define MAX_HOST_PARAMS 3
 
 static void
@@ -1190,19 +1189,23 @@ setup_full_feature_phase(iscsi_conn_t *conn)
 		int param;
 		int type;
 		void *value;
+		int set;
 	} hosttbl[MAX_HOST_PARAMS] = {
 		{
-			.param = ISCSI_HOST_PARAM_INITIATOR_NAME,
-			.value = session->initiator_name,
-			.type = ISCSI_STRING,
-		}, {
 			.param = ISCSI_HOST_PARAM_NETDEV_NAME,
 			.value = session->nrec.iface.netdev,
 			.type = ISCSI_STRING,
+			.set = 1,
 		}, {
 			.param = ISCSI_HOST_PARAM_HWADDRESS,
 			.value = session->nrec.iface.hwaddress,
 			.type = ISCSI_STRING,
+			.set = 1,
+		}, {
+			.param = ISCSI_HOST_PARAM_INITIATOR_NAME,
+			.value = session->initiator_name,
+			.type = ISCSI_STRING,
+			.set = 0,
 		},
 	};
 	struct connparam {
@@ -1360,6 +1363,10 @@ setup_full_feature_phase(iscsi_conn_t *conn)
 			.param = ISCSI_PARAM_IFACE_NAME,
 			.value = session->nrec.iface.name,
 			.type = ISCSI_STRING,
+		}, {
+			.param = ISCSI_PARAM_INITIATOR_NAME,
+			.value = session->initiator_name,
+			.type = ISCSI_STRING,
 		},
 	};
 
@@ -1386,16 +1393,30 @@ setup_full_feature_phase(iscsi_conn_t *conn)
 			return;
 		}
 
-		/* older kernels may not support nop handling in kernel */
-		if (rc == -ENOSYS &&
-		    conntbl[i].param == ISCSI_PARAM_PING_TMO)
-			conn->userspace_nop = 1;
+		if (rc == -ENOSYS) {
+			switch (conntbl[i].param) {
+			case ISCSI_PARAM_PING_TMO:
+				/*
+				 * older kernels may not support nops
+				 * in kernel
+				 */
+				conn->userspace_nop = 1;
+				break;
+			case ISCSI_PARAM_INITIATOR_NAME:
+				/* use host level one instead */
+				hosttbl[ISCSI_HOST_PARAM_INITIATOR_NAME].set = 1;
+				break;
+			}
+		}
 
 		print_param_value(conntbl[i].param, conntbl[i].value,
 				  conntbl[i].type);
 	}
 
 	for (i = 0; i < MAX_HOST_PARAMS; i++) {
+		if (!hosttbl[i].set)
+			continue;
+
 		if (__iscsi_host_set_param(session->t, session->hostno,
 					   hosttbl[i].param, hosttbl[i].value,
 					   hosttbl[i].type)) {
@@ -1540,12 +1561,13 @@ static void iscsi_recv_nop_in(iscsi_conn_t *conn, struct iscsi_hdr *hdr)
 static void iscsi_recv_logout_rsp(iscsi_conn_t *conn, struct iscsi_hdr *hdr)
 {
 	struct iscsi_logout_rsp *logout_rsp = (struct iscsi_logout_rsp *)hdr;
-	log_debug(3, "Recv: logout response\n");
 
-
-	conn->session->def_time2wait = ntohl(logout_rsp->t2wait);
-	log_debug(4, "logout rsp returned time2wait %u",
-		  conn->session->def_time2wait);
+	log_debug(3, "Recv: logout response %d\n", logout_rsp->response);
+	if (logout_rsp->response == 2 || logout_rsp->response == 3) {
+		conn->session->def_time2wait = ntohs(logout_rsp->t2wait);
+		log_debug(4, "logout rsp returned time2wait %u",
+			  conn->session->def_time2wait);
+	}
 	/* TODO process the hdr */
 	__conn_error_handle(conn->session, conn);
 }
@@ -1656,20 +1678,13 @@ static void iscsi_recv_login_rsp(struct iscsi_conn *conn)
 
 	return;
 retry:
-	/*
-	 * If this is not the initial login attempt force a retry. If this
-	 * is the initial attempt we follow the login_retry count.
-	 */
-	if (session->r_stage != R_STAGE_NO_CHANGE &&
-	    session->r_stage != R_STAGE_SESSION_REDIRECT)
-		session->r_stage = R_STAGE_SESSION_REOPEN;
+	/* retry if not initial login or initial login has not timed out */
 	iscsi_login_eh(conn, c->qtask, MGMT_IPC_ERR_LOGIN_FAILURE);
 	return;
 failed:
-	/* force faulure */
-	session->r_stage = R_STAGE_NO_CHANGE;
+	/* force failure if initial login */
 	session->reopen_cnt = session->nrec.session.initial_login_retry_max;
-	iscsi_login_eh(conn, c->qtask, MGMT_IPC_ERR_LOGIN_FAILURE);
+	iscsi_login_eh(conn, c->qtask, MGMT_IPC_ERR_FATAL_LOGIN_FAILURE);
 	return;
 }
 
@@ -1946,6 +1961,51 @@ int session_is_running(node_rec_t *rec)
 	return 0;
 }
 
+static int iface_set_param(struct iscsi_transport *t, struct iface_rec *iface,
+			   struct iscsi_session *session)
+{
+	int rc = 0, hostno;
+
+	log_debug(3, "setting iface %s, dev %s, set ip %s, hw %s, "
+		  "transport %s.\n",
+		  iface->name, iface->netdev, iface->ipaddress,
+		  iface->hwaddress, iface->transport_name);
+
+	/* if we need to set the ip addr then set all the iface net settings */
+	if (!iface_is_bound_by_ipaddr(iface))
+		return 0;
+
+	/* this assumes that the netdev or hw address is going to be set */
+	hostno = iscsi_sysfs_get_host_no_from_hwinfo(iface, &rc);
+	if (rc)
+		return rc;
+
+	session->hostno = hostno;
+
+	rc = __iscsi_host_set_param(t, session->hostno,
+				    ISCSI_HOST_PARAM_IPADDRESS,
+				    iface->ipaddress, ISCSI_STRING);
+	if (rc)
+		return rc;
+
+	if (iface_is_bound_by_netdev(iface)) {
+		rc = __iscsi_host_set_param(t, session->hostno,
+					    ISCSI_HOST_PARAM_NETDEV_NAME,
+					    iface->netdev, ISCSI_STRING);
+		if (rc)
+			return rc;
+	}
+
+	if (iface_is_bound_by_hwaddr(iface)) {
+		rc = __iscsi_host_set_param(t, session->hostno,
+					    ISCSI_HOST_PARAM_HWADDRESS,
+					    iface->hwaddress, ISCSI_STRING);
+		if (rc)
+			return rc;
+	}
+	return 0;
+}
+
 int
 session_login_task(node_rec_t *rec, queue_task_t *qtask)
 {
@@ -2027,6 +2087,11 @@ session_login_task(node_rec_t *rec, queue_task_t *qtask)
 	}
 	conn = &session->conn[0];
 	qtask->conn = conn;
+
+	if (iface_set_param(t, &rec->iface, session)) {
+		__session_destroy(session);
+		return MGMT_IPC_ERR_LOGIN_FAILURE;
+	}
 
 	conn->state = STATE_XPT_WAIT;
 	if (iscsi_conn_connect(conn, qtask)) {

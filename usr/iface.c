@@ -35,6 +35,7 @@
 #include "transport.h"
 #include "idbm.h"
 #include "iface.h"
+#include "session_info.h"
 
 /*
  * Default ifaces for use with transports that do not bind to hardware
@@ -62,20 +63,9 @@ static struct iface_rec iface_iser = {
 	.hwaddress	= DEFAULT_HWADDRESS,
 };
 
-/*
- * Broadcom bnx2i
- */
-static struct iface_rec iface_bnx2i = {
-	.name		= "bnx2i",
-	.transport_name	= "bnx2i",
-	.netdev		= DEFAULT_NETDEV,
-	.hwaddress	= DEFAULT_HWADDRESS,
-};
-
 static struct iface_rec *default_ifaces[] = {
 	&iface_default,
 	&iface_iser,
-	&iface_bnx2i,
 	NULL,
 };
 
@@ -104,7 +94,7 @@ static void iface_init(struct iface_rec *iface)
 void iface_setup_defaults(struct iface_rec *iface)
 {
 	sprintf(iface->netdev, DEFAULT_NETDEV);
-//	sprintf(iface->ipaddress, DEFAULT_IPADDRESS);
+	sprintf(iface->ipaddress, DEFAULT_IPADDRESS);
 	sprintf(iface->hwaddress, DEFAULT_HWADDRESS);
 	sprintf(iface->transport_name, DEFAULT_TRANSPORT);
 	iface_init(iface);
@@ -494,8 +484,8 @@ void iface_copy(struct iface_rec *dst, struct iface_rec *src)
 		strcpy(dst->name, src->name);
 	if (strlen(src->netdev))
 		strcpy(dst->netdev, src->netdev);
-//	if (strlen(src->ipaddress))
-//		strcpy(dst->ipaddress, src->ipaddress);
+	if (strlen(src->ipaddress))
+		strcpy(dst->ipaddress, src->ipaddress);
 	if (strlen(src->hwaddress))
 		strcpy(dst->hwaddress, src->hwaddress);
 	if (strlen(src->transport_name))
@@ -570,16 +560,55 @@ int iface_is_bound_by_netdev(struct iface_rec *iface)
 
 int iface_is_bound_by_ipaddr(struct iface_rec *iface)
 {
-	return 0;
-/*	if (iface && strlen(iface->ipaddress) &&
-	   strcmp(iface->ipaddress, DEFAULT_NETDEV))
+	if (iface && strlen(iface->ipaddress) &&
+	   strcmp(iface->ipaddress, DEFAULT_IPADDRESS))
 		return 1;
 	return 0;
-*/
+}
+
+static int iface_match_session_iface(void *data, struct session_info *info)
+{
+	return iface_match(data, &info->iface);
+}
+
+void iface_print(struct iface_rec *iface, char *prefix)
+{
+	if (strlen(iface->name))
+		printf("%sIface Name: %s\n", prefix, iface->name);
+	else
+		printf("%sIface Name: %s\n", prefix, UNKNOWN_VALUE);
+
+	if (strlen(iface->transport_name))
+		printf("%sIface Transport: %s\n", prefix,
+		      iface->transport_name);
+	else
+		printf("%sIface Transport: %s\n", prefix, UNKNOWN_VALUE);
+
+	if (strlen(iface->iname))
+		printf("%sIface Initiatorname: %s\n", prefix, iface->iname);
+	else
+		printf("%sIface Initiatorname: %s\n", prefix, UNKNOWN_VALUE);
+
+	if (!strlen(iface->ipaddress))
+		printf("%sIface IPaddress: %s\n", prefix, UNKNOWN_VALUE);
+	else if (strchr(iface->ipaddress, '.'))
+		printf("%sIface IPaddress: %s\n", prefix, iface->ipaddress);
+	else
+		printf("%sIface IPaddress: [%s]\n", prefix, iface->ipaddress);
+
+	if (strlen(iface->hwaddress))
+		printf("%sIface HWaddress: %s\n", prefix, iface->hwaddress);
+	else
+		printf("%sIface HWaddress: %s\n", prefix, UNKNOWN_VALUE);
+
+	if (strlen(iface->netdev))
+		printf("%sIface Netdev: %s\n", prefix, iface->netdev);
+	else
+		printf("%sIface Netdev: %s\n", prefix, UNKNOWN_VALUE);
 }
 
 /**
- * iface_print_node_tree - print out binding info
+ * iface_print_tree - print out binding info
  * @iface: iface to print out
  *
  * Currently this looks like the iface conf print, because we only
@@ -588,26 +617,71 @@ int iface_is_bound_by_ipaddr(struct iface_rec *iface)
  */
 int iface_print_tree(void *data, struct iface_rec *iface)
 {
-	printf("Name: %s\n", iface->name);
-	printf("\tTransport Name: %s\n",
-	       strlen(iface->transport_name) ? iface->transport_name :
-	       UNKNOWN_VALUE);
-	printf("\tHW Address: %s\n",
-	       strlen(iface->hwaddress) ? iface->hwaddress : UNKNOWN_VALUE);
-	printf("\tNetdev: %s\n",
-	       strlen(iface->netdev) ? iface->netdev : UNKNOWN_VALUE);
-	printf("\tInitiator Name: %s\n",
-	       strlen(iface->iname) ? iface->iname : UNKNOWN_VALUE);
+	struct list_head sessions;
+	struct session_link_info link_info;
+	int err, num_found = 0, info_level = *(int *)data;
+	unsigned int flags = 0;
+	uint32_t hostno;
+	char state[SCSI_MAX_STATE_VALUE];
+
+	INIT_LIST_HEAD(&sessions);
+
+	printf("Iface: %s\n", iface->name);
+	iface_print(iface, "\t");
+	/*
+	 * software iscsi/iser does a host per session so
+	 * we cannot get a exact hostno for the iface
+	 */
+	err = 0;
+	hostno = iscsi_sysfs_get_host_no_from_hwinfo(iface, &err);
+	if (!err) {
+		printf("\tHost Number: %u\t", hostno);
+		if (!iscsi_sysfs_get_host_state(state, hostno))
+			printf("State: %s\n", state);
+		else
+			printf("State: Unknown\n");
+	}
+
+	if (info_level == 1)
+		return 0;
+
+	link_info.list = &sessions;
+        link_info.match_fn = iface_match_session_iface;
+        link_info.data = iface;
+
+	err = iscsi_sysfs_for_each_session(&link_info, &num_found,
+					   session_info_create_list);
+	if (err || !num_found)
+		return 0;
+
+	printf("\t*********\n");
+	printf("\tSessions:\n");
+	printf("\t*********\n");
+
+	switch (info_level) {
+	case 4:
+		flags |= SESSION_INFO_SCSI_DEVS | SESSION_INFO_HOST_DEVS;
+		/* fall through */
+	case 3:
+		flags |= SESSION_INFO_ISCSI_STATE | SESSION_INFO_ISCSI_PARAMS;
+		/* fall through */
+	case 2:
+		;/* print portals by default when called */
+	}
+
+	session_info_print_tree(&sessions, "\t", flags);
+	session_info_free_list(&sessions);
 	return 0;
 }
 
 int iface_print_flat(void *data, struct iface_rec *iface)
 {
-	printf("%s %s,%s,%s,%s\n",
+	printf("%s %s,%s,%s,%s,%s\n",
 		strlen(iface->name) ? iface->name : UNKNOWN_VALUE,
 		strlen(iface->transport_name) ? iface->transport_name :
 							UNKNOWN_VALUE,
 		strlen(iface->hwaddress) ? iface->hwaddress : UNKNOWN_VALUE,
+		strlen(iface->ipaddress) ? iface->ipaddress : UNKNOWN_VALUE,
 		strlen(iface->netdev) ? iface->netdev : UNKNOWN_VALUE,
 		strlen(iface->iname) ? iface->iname : UNKNOWN_VALUE);
 	return 0;
