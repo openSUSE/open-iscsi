@@ -147,7 +147,7 @@ index 68423e8..1796c96 100644
  struct socket;
  struct iscsi_tcp_conn;
 diff --git a/libiscsi.c b/libiscsi.c
-index f3b845f..cfafb60 100644
+index db69145..c021e39 100644
 --- a/libiscsi.c
 +++ b/libiscsi.c
 @@ -24,7 +24,10 @@
@@ -269,18 +269,18 @@ index f3b845f..cfafb60 100644
  	done(sc);
  	spin_lock(host->host_lock);
  	return 0;
-@@ -1906,8 +1898,9 @@ struct Scsi_Host *iscsi_host_alloc(struct scsi_host_template *sht,
- 	shost = scsi_host_alloc(sht, sizeof(struct iscsi_host) + dd_data_size);
- 	if (!shost)
- 		return NULL;
+@@ -1886,8 +1878,10 @@ int iscsi_host_add(struct Scsi_Host *shost, struct device *pdev)
+ 	if (!shost->can_queue)
+ 		shost->can_queue = ISCSI_DEF_XMIT_CMDS_MAX;
+ 
 +#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,16)
- 	shost->transportt->eh_timed_out = iscsi_eh_cmd_timed_out;
--
+ 	if (!shost->transportt->eh_timed_out)
+ 		shost->transportt->eh_timed_out = iscsi_eh_cmd_timed_out;
 +#endif
- 	if (qdepth > ISCSI_MAX_CMD_PER_LUN || qdepth < 1) {
- 		if (qdepth != 0)
- 			printk(KERN_ERR "iscsi: invalid queue depth of %d. "
-@@ -2123,7 +2116,7 @@ iscsi_conn_setup(struct iscsi_cls_session *cls_session, int dd_size,
+ 	return scsi_add_host(shost, pdev);
+ }
+ EXPORT_SYMBOL_GPL(iscsi_host_add);
+@@ -2125,7 +2119,7 @@ iscsi_conn_setup(struct iscsi_cls_session *cls_session, int dd_size,
  	INIT_LIST_HEAD(&conn->mgmtqueue);
  	INIT_LIST_HEAD(&conn->xmitqueue);
  	INIT_LIST_HEAD(&conn->requeue);
@@ -1222,5 +1222,5 @@ index b65c96a..15b1f0e 100644
  	unsigned int target_id;
  
 -- 
-1.5.4.1
+1.6.0.6
 
