@@ -415,7 +415,7 @@ char *search_ibft(unsigned char *start, int length)
 
 	cur_ptr = (unsigned char *)start;
 	for (cur_ptr = (unsigned char *)start;
-	     cur_ptr < (start + length);
+	     cur_ptr < (start + length - strlen(iBFTSTR));
 	     cur_ptr++) {
 		if (memcmp(cur_ptr, iBFTSTR,strlen(iBFTSTR)))
 			continue;
