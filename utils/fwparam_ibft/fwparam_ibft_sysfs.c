@@ -32,6 +32,7 @@
 #include "sysfs.h"
 #include "fw_context.h"
 #include "fwparam.h"
+#include "sysdeps.h"
 
 #define IBFT_MAX 255
 #define IBFT_SYSFS_ROOT "/sys/firmware/ibft/"
@@ -103,39 +104,46 @@ static int get_iface_from_device(char *id, struct boot_context *context)
 				rc = EINVAL;
 			rc = 0;
 			break;
-		} else if (!strncmp(dent->d_name, "net", 3)) {
-			DIR *net_dirfd;
-			struct dirent *net_dent;
-
-			strncat(dev_dir, "/", FILENAMESZ);
-			strncat(dev_dir, dent->d_name, FILENAMESZ);
-
-			net_dirfd = opendir(dev_dir);
-			if (!net_dirfd) {
-				printf("Could not open net path %s.\n",
-				       dev_dir);
-				rc = errno;
-				break;
-			}
-
-			while ((net_dent = readdir(net_dirfd))) {
-				if (!strcmp(net_dent->d_name, ".") ||
-				    !strcmp(net_dent->d_name, ".."))
-					continue;
-
-				strncpy(context->iface, net_dent->d_name,
-					sizeof(context->iface));
-				break;
-			}
-			closedir(net_dirfd);
-			rc = 0;
-			break;
 		} else {
 			printf("Could not read ethernet to net link\n.");
 			rc = EOPNOTSUPP;
 			break;
 		}
 	}
+
+	closedir(dirfd);
+
+	if (rc != ENODEV)
+		return rc;
+
+	/* If not found try again with newer kernel networkdev sysfs layout */
+	strlcat(dev_dir, "/net", FILENAMESZ);
+
+	if (!file_exist(dev_dir))
+		return rc;
+
+	dirfd = opendir(dev_dir);
+	if (!dirfd)
+		return errno;
+
+	while ((dent = readdir(dirfd))) {
+		if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, ".."))
+			continue;
+
+		/* Take the first "regular" directory entry */
+		if (strlen(dent->d_name) > (sizeof(context->iface) - 1)) {
+			rc = EINVAL;
+			printf("Net device %s too big for iface buffer.\n",
+			       dent->d_name);
+			break;
+		}
+
+		strcpy(context->iface, dent->d_name);
+		rc = 0;
+		break;
+	}
+
+	closedir(dirfd);
 
 	return rc;
 }
@@ -267,8 +275,8 @@ int fwparam_ibft_sysfs_boot_info(struct boot_context *context)
 	int nic_idx = -1, tgt_idx = -1;
 
 	memset(&initiator_dir, 0 , FILENAMESZ);
-	strncat(initiator_dir, IBFT_SYSFS_ROOT, FILENAMESZ);
-	strncat(initiator_dir, "initiator", FILENAMESZ);
+	strlcat(initiator_dir, IBFT_SYSFS_ROOT, FILENAMESZ);
+	strlcat(initiator_dir, "initiator", FILENAMESZ);
 
 	if (file_exist(initiator_dir)) {
 		/* Find the target's and the ethernet's */
@@ -301,8 +309,8 @@ int fwparam_ibft_sysfs_get_targets(struct list_head *list)
 	char initiator_dir[FILENAMESZ];
 
 	memset(&initiator_dir, 0 , FILENAMESZ);
-	strncat(initiator_dir, IBFT_SYSFS_ROOT, FILENAMESZ);
-	strncat(initiator_dir, "initiator", FILENAMESZ);
+	strlcat(initiator_dir, IBFT_SYSFS_ROOT, FILENAMESZ);
+	strlcat(initiator_dir, "initiator", FILENAMESZ);
 
 	if (!file_exist(initiator_dir))
 		return ENODEV;

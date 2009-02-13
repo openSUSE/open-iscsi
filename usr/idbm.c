@@ -48,9 +48,9 @@ static struct idbm *db;
 
 #define __recinfo_str(_key, _info, _rec, _name, _show, _n, _mod) do { \
 	_info[_n].type = TYPE_STR; \
-	strncpy(_info[_n].name, _key, NAME_MAXVAL); \
+	strlcpy(_info[_n].name, _key, NAME_MAXVAL); \
 	if (strlen((char*)_rec->_name)) \
-		strncpy((char*)_info[_n].value, (char*)_rec->_name, \
+		strlcpy((char*)_info[_n].value, (char*)_rec->_name, \
 			VALUE_MAXVAL); \
 	_info[_n].data = &_rec->_name; \
 	_info[_n].data_len = sizeof(_rec->_name); \
@@ -61,7 +61,7 @@ static struct idbm *db;
 
 #define __recinfo_int(_key, _info, _rec, _name, _show, _n, _mod) do { \
 	_info[_n].type = TYPE_INT; \
-	strncpy(_info[_n].name, _key, NAME_MAXVAL); \
+	strlcpy(_info[_n].name, _key, NAME_MAXVAL); \
 	snprintf(_info[_n].value, VALUE_MAXVAL, "%d", _rec->_name); \
 	_info[_n].data = &_rec->_name; \
 	_info[_n].data_len = sizeof(_rec->_name); \
@@ -72,9 +72,9 @@ static struct idbm *db;
 
 #define __recinfo_int_o2(_key,_info,_rec,_name,_show,_op0,_op1,_n, _mod) do { \
 	_info[_n].type = TYPE_INT_O; \
-	strncpy(_info[_n].name, _key, NAME_MAXVAL); \
-	if (_rec->_name == 0) strncpy(_info[_n].value, _op0, VALUE_MAXVAL); \
-	if (_rec->_name == 1) strncpy(_info[_n].value, _op1, VALUE_MAXVAL); \
+	strlcpy(_info[_n].name, _key, NAME_MAXVAL); \
+	if (_rec->_name == 0) strlcpy(_info[_n].value, _op0, VALUE_MAXVAL); \
+	if (_rec->_name == 1) strlcpy(_info[_n].value, _op1, VALUE_MAXVAL); \
 	_info[_n].data = &_rec->_name; \
 	_info[_n].data_len = sizeof(_rec->_name); \
 	_info[_n].visible = _show; \
@@ -89,7 +89,7 @@ static struct idbm *db;
 			 _mod) do { \
 	__recinfo_int_o2(_key,_info,_rec,_name,_show,_op0,_op1,_n, _mod); \
 	_n--; \
-	if (_rec->_name == 2) strncpy(_info[_n].value, _op2, VALUE_MAXVAL);\
+	if (_rec->_name == 2) strlcpy(_info[_n].value, _op2, VALUE_MAXVAL);\
 	_info[_n].opts[2] = _op2; \
 	_info[_n].numopts = 3; \
 	_n++; \
@@ -99,7 +99,7 @@ static struct idbm *db;
 			 _mod) do { \
 	__recinfo_int_o3(_key,_info,_rec,_name,_show,_op0,_op1,_op2,_n, _mod); \
 	_n--; \
-	if (_rec->_name == 3) strncpy(_info[_n].value, _op3, VALUE_MAXVAL); \
+	if (_rec->_name == 3) strlcpy(_info[_n].value, _op3, VALUE_MAXVAL); \
 	_info[_n].opts[3] = _op3; \
 	_info[_n].numopts = 4; \
 	_n++; \
@@ -110,7 +110,7 @@ static struct idbm *db;
 	__recinfo_int_o4(_key,_info,_rec,_name,_show,_op0,_op1,_op2,_op3, \
 			  _n,_mod); \
 	_n--; \
-	if (_rec->_name == 4) strncpy(_info[_n].value, _op4, VALUE_MAXVAL); \
+	if (_rec->_name == 4) strlcpy(_info[_n].value, _op4, VALUE_MAXVAL); \
 	_info[_n].opts[4] = _op4; \
 	_info[_n].numopts = 5; \
 	_n++; \
@@ -121,7 +121,7 @@ static struct idbm *db;
 	__recinfo_int_o5(_key,_info,_rec,_name,_show,_op0,_op1,_op2,_op3, \
 			 _op4,_n,_mod); \
 	_n--; \
-	if (_rec->_name == 5) strncpy(_info[_n].value, _op5, VALUE_MAXVAL); \
+	if (_rec->_name == 5) strlcpy(_info[_n].value, _op5, VALUE_MAXVAL); \
 	_info[_n].opts[5] = _op5; \
 	_info[_n].numopts = 6; \
 	_n++; \
@@ -300,10 +300,14 @@ idbm_recinfo_node(node_rec_t *r, recinfo_t *ri)
 		      session.auth.username, IDBM_SHOW, num, 1);
 	__recinfo_str(SESSION_PASSWORD, ri, r,
 		      session.auth.password, IDBM_MASKED, num, 1);
+	__recinfo_int(SESSION_PASSWORD_LEN, ri, r,
+		      session.auth.password_length, IDBM_HIDE, num, 1);
 	__recinfo_str(SESSION_USERNAME_IN, ri, r,
 		      session.auth.username_in, IDBM_SHOW, num, 1);
 	__recinfo_str(SESSION_PASSWORD_IN, ri, r,
 		      session.auth.password_in, IDBM_MASKED, num, 1);
+	__recinfo_int(SESSION_PASSWORD_IN_LEN, ri, r,
+		      session.auth.password_in_length, IDBM_HIDE, num, 1);
 	__recinfo_int(SESSION_REPLACEMENT_TMO, ri, r,
 		      session.timeo.replacement_timeout,
 		      IDBM_SHOW, num, 1);
@@ -516,7 +520,7 @@ setup_passwd_len:
 				if (!info[i].data)
 					continue;
 
-				strncpy((char*)info[i].data,
+				strlcpy((char*)info[i].data,
 					value, info[i].data_len);
 				goto updated;
 			}
@@ -828,7 +832,7 @@ int idbm_lock(void)
 	if (access(LOCK_DIR, F_OK) != 0) {
 		if (mkdir(LOCK_DIR, 0660) != 0) {
 			log_error("Could not open %s. Exiting\n", LOCK_DIR);
-			exit(-1);
+			return errno;
 		}
 	}
 
@@ -842,10 +846,10 @@ int idbm_lock(void)
 			break;
 
 		if (errno != EEXIST) {
+			log_error("Maybe you are not root?");
 			log_error("Could not lock discovery DB: %s: %s",
 					LOCK_WRITE_FILE, strerror(errno));
-			log_error("Maybe you are not root?");
-			exit(-1);
+			return errno;
 		} else if (i == 0)
 			log_debug(2, "Waiting for discovery DB lock");
 
@@ -884,8 +888,8 @@ static FILE *idbm_open_rec_r(char *portal, char *config)
 	}
 
 	if (S_ISDIR(statb.st_mode)) {
-		strncat(portal, "/", PATH_MAX);
-		strncat(portal, config, PATH_MAX);
+		strlcat(portal, "/", PATH_MAX);
+		strlcat(portal, config, PATH_MAX);
 	}
 	return fopen(portal, "r");
 }
@@ -900,7 +904,10 @@ static int __idbm_rec_read(node_rec_t *out_rec, char *conf)
 	if (!info)
 		return ENOMEM;
 
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		goto free_info;
+
 	f = fopen(conf, "r");
 	if (!f) {
 		log_debug(5, "Could not open %s err %d\n", conf, errno);
@@ -916,6 +923,7 @@ static int __idbm_rec_read(node_rec_t *out_rec, char *conf)
 
 unlock:
 	idbm_unlock();
+free_info:
 	free(info);
 	return rc;
 }
@@ -1381,14 +1389,18 @@ idbm_discovery_read(discovery_rec_t *out_rec, char *addr, int port)
 		return ENOMEM;
 
 	portal = malloc(PATH_MAX);
-	if (!portal)
+	if (!portal) {
+		rc = ENOMEM;
 		goto free_info;
+	}
 
 	snprintf(portal, PATH_MAX, "%s/%s,%d", ST_CONFIG_DIR,
 		 addr, port);
 	log_debug(5, "Looking for config file %s\n", portal);
 
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		goto free_info;
 
 	f = idbm_open_rec_r(portal, ST_CONFIG_NAME);
 	if (!f) {
@@ -1446,8 +1458,8 @@ mkdir_portal:
 		}
 	}
 
-	strncat(portal, "/", PATH_MAX);
-	strncat(portal, config, PATH_MAX);
+	strlcat(portal, "/", PATH_MAX);
+	strlcat(portal, config, PATH_MAX);
 	f = fopen(portal, "w");
 	if (!f)
 		log_error("Could not open %s err %d\n", portal, errno);
@@ -1489,7 +1501,9 @@ static int idbm_rec_write(node_rec_t *rec)
 		 rec->name, rec->conn[0].address, rec->conn[0].port);
 	log_debug(5, "Looking for config file %s", portal);
 
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		goto free_portal;
 
 	rc = stat(portal, &statb);
 	if (rc) {
@@ -1574,13 +1588,16 @@ idbm_discovery_write(discovery_rec_t *rec)
 		return ENOMEM;
 	}
 
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		goto free_portal;
+
 	snprintf(portal, PATH_MAX, "%s", ST_CONFIG_DIR);
 	if (access(portal, F_OK) != 0) {
 		if (mkdir(portal, 0660) != 0) {
 			log_error("Could not make %s\n", portal);
 			rc = errno;
-			goto free_portal;
+			goto unlock;
 		}
 	}
 
@@ -1591,13 +1608,14 @@ idbm_discovery_write(discovery_rec_t *rec)
 	if (!f) {
 		log_error("Could not open %s err %d\n", portal, errno);
 		rc = errno;
-		goto free_portal;
+		goto unlock;
 	}
 
 	idbm_print(IDBM_PRINT_TYPE_DISCOVERY, rec, 1, f);
 	fclose(f);
-free_portal:
+unlock:
 	idbm_unlock();
+free_portal:
 	free(portal);
 	return rc;
 }
@@ -1731,7 +1749,10 @@ int idbm_add_node(node_rec_t *newrec, discovery_rec_t *drec, int overwrite)
 	log_debug(7, "node addition making link from %s to %s", node_portal,
 		 disc_portal);
 
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		goto free_portal;
+
 	if (symlink(node_portal, disc_portal)) {
 		if (errno == EEXIST)
 			log_debug(7, "link from %s to %s exists", node_portal,
@@ -1919,11 +1940,11 @@ static void idbm_rm_disc_node_links(char *disc_dir)
 			  target, address, port, iface_id);
 
 		memset(rec, 0, sizeof(*rec));	
-		strncpy(rec->name, target, TARGET_NAME_MAXLEN);
+		strlcpy(rec->name, target, TARGET_NAME_MAXLEN);
 		rec->tpgt = atoi(tpgt);
 		rec->conn[0].port = atoi(port);
-		strncpy(rec->conn[0].address, address, NI_MAXHOST);
-		strncpy(rec->iface.name, iface_id, ISCSI_MAX_IFACE_LEN);
+		strlcpy(rec->conn[0].address, address, NI_MAXHOST);
+		strlcpy(rec->iface.name, iface_id, ISCSI_MAX_IFACE_LEN);
 
 		if (idbm_delete_node(rec))
 			log_error("Could not delete node %s/%s/%s,%s/%s",
@@ -1957,8 +1978,8 @@ int idbm_delete_discovery(discovery_rec_t *drec)
 	}
 
 	if (S_ISDIR(statb.st_mode)) {
-		strncat(portal, "/", PATH_MAX);
-		strncat(portal, ST_CONFIG_NAME, PATH_MAX);
+		strlcat(portal, "/", PATH_MAX);
+		strlcat(portal, ST_CONFIG_NAME, PATH_MAX);
 	}
 
 	if (unlink(portal))
@@ -2018,7 +2039,10 @@ static int idbm_remove_disc_to_node_link(node_rec_t *rec,
 	if (rc)
 		goto done;
 
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		goto done;
+
 	if (!stat(portal, &statb)) {
 		if (unlink(portal)) {
 			log_error("Could not remove link %s err %d\n",
@@ -2055,7 +2079,10 @@ int idbm_delete_node(node_rec_t *rec)
 	log_debug(5, "Removing config file %s iface id %s\n",
 		  portal, rec->iface.name);
 
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		goto free_portal;
+
 	if (!stat(portal, &statb))
 		goto rm_conf;
 
