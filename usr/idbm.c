@@ -290,6 +290,8 @@ idbm_recinfo_node(node_rec_t *r, recinfo_t *ri)
 		      session.initial_cmdsn, IDBM_SHOW, num, 1);
 	__recinfo_int(SESSION_INIT_LOGIN_RETRY, ri, r,
 		      session.initial_login_retry_max, IDBM_SHOW, num, 1);
+	__recinfo_int(SESSION_XMIT_THREAD_PRIORITY, ri, r,
+		      session.xmit_thread_priority, IDBM_SHOW, num, 1);
 	__recinfo_int(SESSION_CMDS_MAX, ri, r,
 		      session.cmds_max, IDBM_SHOW, num, 1);
 	__recinfo_int(SESSION_QDEPTH, ri, r,
@@ -1824,6 +1826,7 @@ int idbm_bind_ifaces_to_node(struct node_rec *new_rec, struct list_head *ifaces,
 		if (!found) {
 			struct iface_rec def_iface;
 
+			memset(&def_iface, 0, sizeof(struct iface_rec));
 			iface_setup_defaults(&def_iface);
 			return idbm_bind_iface_to_node(new_rec, &def_iface,
 						       bound_recs);

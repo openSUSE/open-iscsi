@@ -19,18 +19,24 @@
  * See the file COPYING included with this distribution for more details.
  */
 
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/resource.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <sys/time.h>
+#include <dirent.h>
+#include <fcntl.h>
 
 #include "initiator.h"
 #include "transport.h"
 #include "iscsid.h"
 #include "iscsi_if.h"
 #include "mgmt_ipc.h"
+#include "event_poll.h"
 #include "iscsi_ipc.h"
 #include "idbm.h"
 #include "log.h"
@@ -43,6 +49,8 @@
 
 #define ISCSI_CONN_ERR_REOPEN_DELAY	3
 #define ISCSI_INTERNAL_ERR_REOPEN_DELAY	5
+
+#define PROC_DIR "/proc"
 
 static void iscsi_login_timedout(void *data);
 
@@ -1129,13 +1137,20 @@ void free_initiator(void)
 	free_transports();
 }
 
-static void session_scan_host(int hostno, queue_task_t *qtask)
+static void session_scan_host(struct iscsi_session *session, int hostno,
+			      queue_task_t *qtask)
 {
 	pid_t pid;
 
 	pid = iscsi_sysfs_scan_host(hostno, 1);
 	if (pid == 0) {
 		mgmt_ipc_write_rsp(qtask, MGMT_IPC_OK);
+
+		if (session)
+			iscsi_sysfs_for_each_device(
+					&session->nrec.session.queue_depth,
+					hostno, session->id,
+					iscsi_sysfs_set_queue_depth);
 		exit(0);
 	} else if (pid > 0) {
 		need_reap();
@@ -1446,7 +1461,7 @@ setup_full_feature_phase(iscsi_conn_t *conn)
 		 * don't want to re-scan it on recovery.
 		 */
 		if (conn->id == 0)
-			session_scan_host(session->hostno, c->qtask);
+			session_scan_host(session, session->hostno, c->qtask);
 
 		log_warning("connection%d:%d is operational now",
 			    session->id, conn->id);
@@ -1595,7 +1610,7 @@ static void iscsi_recv_async_msg(iscsi_conn_t *conn, struct iscsi_hdr *hdr)
 		}
 
 		if (sshdr.asc == 0x3f && sshdr.ascq == 0x0e)
-			session_scan_host(session->hostno, NULL);
+			session_scan_host(session, session->hostno, NULL);
 		break;
 	case ISCSI_ASYNC_MSG_REQUEST_LOGOUT:
 		log_warning("Target requests logout within %u seconds for "
@@ -1742,6 +1757,83 @@ static void session_conn_recv_pdu(void *data)
 	}
 }
 
+static void session_increase_wq_priority(struct iscsi_session *session)
+{
+	DIR *proc_dir;
+	struct dirent *proc_dent;
+	struct stat statb;
+	char stat_file[PATH_SIZE];
+	char sbuf[1024];	/* got this from ps */
+	int pid, stat_fd, num_read;
+	char *proc_name, *proc_name_end;
+	uint32_t host_no;
+
+	proc_dir = opendir(PROC_DIR);
+	if (!proc_dir)
+		goto fail;
+
+	while ((proc_dent = readdir(proc_dir))) {
+		if (!strcmp(proc_dent->d_name, ".") ||
+		    !strcmp(proc_dent->d_name, ".."))
+			continue;
+		if (sscanf(proc_dent->d_name, "%d", &pid) != 1)
+			continue;
+
+		memset(stat_file, 0, sizeof(stat_file));
+		sprintf(stat_file, PROC_DIR"/%d/stat", pid);
+		if (stat(stat_file, &statb))
+			continue;
+
+		if (!S_ISREG( statb.st_mode))
+			continue;
+
+		stat_fd = open(stat_file, O_RDONLY);
+		if (stat_fd == -1)
+			continue;
+
+		memset(sbuf, 0, sizeof(sbuf));
+		num_read = read(stat_fd, sbuf, sizeof(sbuf));
+		close(stat_fd);
+		if (num_read == -1)
+			continue;
+		if (num_read == sizeof(sbuf))
+			sbuf[num_read - 1] = '\0';
+		else
+			sbuf[num_read] = '\0';
+
+		/*
+		 * Finally match proc name to iscsi thread name.
+		 * In newer kernels the name is iscsi_wq_%HOST_NO.
+		 * In older kernels before 2.6.30, it was scsi_wq_%HOST_NO.
+		 */
+		proc_name = strchr(sbuf, '(') + 1;
+		if (!proc_name)
+			continue;
+
+		proc_name_end = strchr(proc_name, ')');
+		if (!proc_name_end)
+			continue;
+
+		*proc_name_end = '\0';
+
+		if (sscanf(proc_name, "iscsi_q_%u\n", &host_no) == 1 ||
+		    sscanf(proc_name, "scsi_wq_%u\n", &host_no) == 1) {
+			if (host_no == session->hostno) {
+				if (!setpriority(PRIO_PROCESS, pid,
+					session->nrec.session.xmit_thread_priority))
+					return;
+				else
+					break;
+			}
+		}
+	}
+	closedir(proc_dir);
+fail:
+	log_error("Could not set session%d priority. "
+		  "READ/WRITE throughout and latency could be "
+		  "affected.\n", session->id);
+}
+
 static int session_ipc_create(struct iscsi_session *session)
 {
 	struct iscsi_conn *conn = &session->conn[0];
@@ -1768,8 +1860,10 @@ retry_create:
 		goto retry_create;
 	}
 
-	if (!err)
+	if (!err) {
 		session->hostno = host_no;
+		session_increase_wq_priority(session);
+	}
 	return err;
 }
 
@@ -2280,7 +2374,7 @@ void iscsi_async_session_creation(uint32_t host_no, uint32_t sid)
 
 	log_debug(3, "session created sid %u host no %d", sid, host_no);
 	session_online_devs(host_no, sid);
-	session_scan_host(host_no, NULL);
+	session_scan_host(NULL, host_no, NULL);
 }
 
 void iscsi_async_session_destruction(uint32_t host_no, uint32_t sid)

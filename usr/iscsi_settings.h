@@ -17,6 +17,9 @@
 #define CMDS_MAX	128
 #define QUEUE_DEPTH	32
 
+/* system */
+#define XMIT_THREAD_PRIORITY	-20
+
 /* interface */
 #define UNKNOWN_VALUE		"unknown"
 #define DEFAULT_IFACENAME	"default"
@@ -36,7 +39,7 @@
 /* data and segment lengths in bytes */
 #define DEF_INI_FIRST_BURST_LEN		262144
 #define DEF_INI_MAX_BURST_LEN		16776192
-#define DEF_INI_MAX_RECV_SEG_LEN	131072
+#define DEF_INI_MAX_RECV_SEG_LEN	262144
 #define DEF_INI_DISC_MAX_RECV_SEG_LEN	32768
 
 /* login retries */

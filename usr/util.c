@@ -129,7 +129,7 @@ static mgmt_ipc_err_e iscsid_connect(int *fd)
 	*fd = socket(AF_LOCAL, SOCK_STREAM, 0);
 	if (*fd < 0) {
 		log_error("can not create IPC socket (%d)!", errno);
-		return MGMT_IPC_ERR_ISCSID_COMM_ERR;
+		return MGMT_IPC_ERR_ISCSID_NOTCONN;
 	}
 
 	memset(&addr, 0, sizeof(addr));
@@ -156,7 +156,7 @@ static mgmt_ipc_err_e iscsid_connect(int *fd)
 			sleep(nsec);
 	}
 	log_error("can not connect to iSCSI daemon (%d)!", errno);
-	return MGMT_IPC_ERR_ISCSID_COMM_ERR;
+	return MGMT_IPC_ERR_ISCSID_NOTCONN;
 }
 
 mgmt_ipc_err_e iscsid_request(int *fd, iscsiadm_req_t *req)
@@ -266,6 +266,7 @@ void idbm_node_setup_defaults(node_rec_t *rec)
 	rec->tpgt = PORTAL_GROUP_TAG_UNKNOWN;
 	rec->disc_type = DISCOVERY_TYPE_STATIC;
 	rec->session.cmds_max = CMDS_MAX;
+	rec->session.xmit_thread_priority = XMIT_THREAD_PRIORITY;
 	rec->session.initial_cmdsn = 0;
 	rec->session.queue_depth = QUEUE_DEPTH;
 	rec->session.initial_login_retry_max = DEF_INITIAL_LOGIN_RETRIES_MAX;
@@ -334,6 +335,7 @@ void iscsid_handle_error(mgmt_ipc_err_e err)
 		/* 17 */ "encountered iSNS failure",
 		/* 18 */ "could not communicate to iscsid",
 		/* 19 */ "encountered non-retryable iSCSI login failure",
+		/* 20 */ "could not connect to iscsid",
 	};
 	log_error("initiator reported error (%d - %s)", err, err_msgs[err]);
 }
