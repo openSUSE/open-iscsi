@@ -54,7 +54,7 @@ load_modules
 # Check of iBFT settings
 if [ -d /sys/firmware/ibft/initiator ] ; then
     # only use the iBFT InitiatorName if the commandline argument is not "default"
-    read iSCSI_INITIATOR_NAME < /sys/firmware/ibft/initiator
+    read iSCSI_INITIATOR_NAME < /sys/firmware/ibft/initiator/initiator-name
     if [ "$iSCSI_INITIATOR_NAME" -a "$tmp_InitiatorName" != "default" ] ; then
     	iSCSI_warning_InitiatorName "$iSCSI_INITIATOR_NAME" "iBFT"
         InitiatorName=$iSCSI_INITIATOR_NAME
