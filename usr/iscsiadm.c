@@ -42,6 +42,7 @@
 #include "fw_context.h"
 #include "iface.h"
 #include "session_info.h"
+#include "host.h"
 #include "sysdeps.h"
 
 struct iscsi_ipc *ipc = NULL; /* dummy */
@@ -75,6 +76,7 @@ static struct option const long_options[] =
 	{"type", required_argument, NULL, 't'},
 	{"name", required_argument, NULL, 'n'},
 	{"value", required_argument, NULL, 'v'},
+	{"host", required_argument, NULL, 'H'},
 	{"sid", required_argument, NULL, 'r'},
 	{"rescan", no_argument, NULL, 'R'},
 	{"print", required_argument, NULL, 'P'},
@@ -106,6 +108,7 @@ iscsiadm -m node [ -hV ] [ -d debug_level ] [ -P printlevel ] [ -L all,manual,au
 iscsiadm -m session [ -hV ] [ -d debug_level ] [ -P  printlevel] [ -r sessionid | sysfsdir [ -R | -u | -s ] [ -o operation ] [ -n name ] [ -v value ] ]\n\
 iscsiadm -m iface [ -hV ] [ -d debug_level ] [ -P printlevel ] [ -I ifacename ] [ [ -o  operation  ] [ -n name ] [ -v value ] ]\n\
 iscsiadm -m fw [ -l ]\n\
+iscsiadm -m host [ -P printlevel ] [ -H hostno ]\n\
 iscsiadm -k priority\n");
 	}
 	exit(status == 0 ? 0 : -1);
@@ -145,6 +148,8 @@ str_to_mode(char *str)
 		mode = MODE_IFACE;
 	else if (!strcmp("fw", str))
 		mode = MODE_FW;
+	else if (!strcmp("host", str))
+		mode = MODE_HOST;
 	else
 		mode = -1;
 
@@ -219,9 +224,6 @@ static int print_ifaces(struct iface_rec *iface, int info_level)
 					   iface_print_flat);
 		break;
 	case 1:
-	case 2:
-	case 3:
-	case 4:
 		if (iface) {
 			err = iface_conf_read(iface);
 			if (err) {
@@ -229,14 +231,14 @@ static int print_ifaces(struct iface_rec *iface, int info_level)
 					  iface->name);
 				return err;
 			}
-			iface_print_tree(&info_level, iface);
+			iface_print_tree(NULL, iface);
 			num_found = 1;
 		} else
-			err = iface_for_each_iface(&info_level, &num_found,
+			err = iface_for_each_iface(NULL, &num_found,
 						   iface_print_tree);
 		break;
 	default:
-		log_error("Invalid info level %d. Try 0 - 4.", info_level);
+		log_error("Invalid info level %d. Try 0 - 1.", info_level);
 		return EINVAL;
 	}
 
@@ -772,7 +774,7 @@ static int print_nodes(int info_level, struct node_rec *rec)
 		break;
 	case 1:
 		memset(&tmp_rec, 0, sizeof(node_rec_t));
-		if (for_each_rec(rec, &tmp_rec, idbm_print_node_tree))
+		if (for_each_rec(rec, &tmp_rec, idbm_print_node_and_iface_tree))
 			rc = -1;
 		break;
 	default:
@@ -1091,7 +1093,7 @@ static int delete_node(void *data, struct node_rec *rec)
 	return idbm_delete_node(rec);
 }
 
-static int delete_stale_recs(void *data, struct node_rec *rec)
+static int delete_stale_rec(void *data, struct node_rec *rec)
 {
 	struct list_head *new_rec_list = data;
 	struct node_rec *new_rec;
@@ -1123,32 +1125,19 @@ static int delete_stale_recs(void *data, struct node_rec *rec)
 }
 
 static int
-update_discovery_recs(discovery_rec_t *drec,
-		      struct list_head *new_rec_list, struct list_head *ifaces,
-		      int info_level, int do_login, int op)
+exec_disc_op_on_recs(discovery_rec_t *drec, struct list_head *rec_list,
+		     int info_level, int do_login, int op)
 {
-	int rc, err, found = 0;
-	struct list_head bound_rec_list;
-	struct node_rec *new_rec, *tmp;
-
-	INIT_LIST_HEAD(&bound_rec_list);
-
-	/* bind ifaces to node recs so we know what we have */
-	list_for_each_entry(new_rec, new_rec_list, list) {
-		rc = idbm_bind_ifaces_to_node(new_rec, ifaces,
-					      &bound_rec_list);
-		if (rc)
-			goto free_bound_recs;
-	}
+	int rc = 0, err, found = 0;
+	struct node_rec *new_rec;
 
 	/* clean up node db */
 	if (op & OP_DELETE)
-		idbm_for_each_rec(&found, &bound_rec_list,
-				  delete_stale_recs);
+		idbm_for_each_rec(&found, rec_list, delete_stale_rec);
 
 	if (op & OP_NEW || op & OP_UPDATE) {
 		/* now add/update records */
-		list_for_each_entry(new_rec, &bound_rec_list, list) {
+		list_for_each_entry(new_rec, rec_list, list) {
 			rc = idbm_add_node(new_rec, drec, op & OP_UPDATE);
 			if (rc)
 				log_error("Could not add/update "
@@ -1163,34 +1152,24 @@ update_discovery_recs(discovery_rec_t *drec,
 
 	idbm_print_discovered(drec, info_level);
 
-	if (!do_login) {
-		rc = 0;
-		goto free_bound_recs;
-	}
+	if (!do_login)
+		return 0;
 
-	err = __login_portals(drec, &found, &bound_rec_list,
-			      login_discovered_portal);
+	err = __login_portals(drec, &found, rec_list, login_discovered_portal);
 	if (err && !rc)
 		rc = err;
-
-free_bound_recs:
-	list_for_each_entry_safe(new_rec, tmp, &bound_rec_list, list) {
-		list_del(&new_rec->list);
-		free(new_rec);
-	}
 	return rc;
 }
 
 static int
 do_software_sendtargets(discovery_rec_t *drec, struct list_head *ifaces,
-		        int info_level, int do_login,
-			int op)
+		        int info_level, int do_login, int op)
 {
-	struct list_head new_rec_list;
-	struct node_rec *new_rec, *tmp;
+	struct list_head rec_list;
+	struct node_rec *rec, *tmp;
 	int rc;
 
-	INIT_LIST_HEAD(&new_rec_list);
+	INIT_LIST_HEAD(&rec_list);
 	/*
 	 * compat: if the user did not pass any op then we do all
 	 * ops for them
@@ -1199,24 +1178,31 @@ do_software_sendtargets(discovery_rec_t *drec, struct list_head *ifaces,
 		op = OP_NEW | OP_DELETE | OP_UPDATE;
 
 	drec->type = DISCOVERY_TYPE_SENDTARGETS;
-	rc = discovery_sendtargets(drec, &new_rec_list);
-	if (rc)
-		return rc;
-
+	/*
+	 * we will probably want to know how a specific iface and discovery
+	 * DB lined up, but for now just put all the targets found from
+	 * a discovery portal in one place
+	 */
 	rc = idbm_add_discovery(drec, op & OP_UPDATE);
 	if (rc) {
 		log_error("Could not add new discovery record.");
-		goto free_new_recs;
+		return rc;
 	}
 
-	rc = update_discovery_recs(drec, &new_rec_list, ifaces,
-				   info_level, do_login, op);
-
-free_new_recs:
-	list_for_each_entry_safe(new_rec, tmp, &new_rec_list, list) {
-		list_del(&new_rec->list);
-		free(new_rec);
+	rc = idbm_bind_ifaces_to_nodes(discovery_sendtargets, drec, ifaces,
+				       &rec_list);
+	if (rc) {
+		log_error("Could not perform SendTargets discovery.");
+		return rc;
 	}
+
+	rc = exec_disc_op_on_recs(drec, &rec_list, info_level, do_login, op);
+
+	list_for_each_entry_safe(rec, tmp, &rec_list, list) {
+		list_del(&rec->list);
+		free(rec);
+	}
+
 	return rc;
 }
 
@@ -1279,22 +1265,6 @@ do_sendtargets(discovery_rec_t *drec, struct list_head *ifaces,
 sw_st:
 	return do_software_sendtargets(drec, ifaces, info_level, do_login,
 				       op);
-}
-
-/* TODO: merge this with the idbm code */
-static void print_fw_nodes(struct node_rec *rec, int info_level)
-{
-	switch (info_level) {
-	case -1:
-	case 0:
-		idbm_print_node_flat(NULL, rec);
-		break;
-	case 1:
-		idbm_print_node_tree(NULL, rec);
-		break;
-	default:
-		log_error("Invalid print level %d. Try 0 or 1.", info_level);
-	}
 }
 
 static int isns_dev_attr_query(discovery_rec_t *drec,
@@ -1614,8 +1584,7 @@ out:
 	return rc;
 }
 
-static struct node_rec *
-fw_create_rec_by_entry(struct boot_context *context)
+struct node_rec *fw_create_rec_by_entry(struct boot_context *context)
 {
 	struct node_rec *rec;
 
@@ -1652,72 +1621,66 @@ static int exec_fw_op(discovery_rec_t *drec, struct list_head *ifaces,
 		      int info_level, int do_login, int op)
 {
 	struct boot_context *context;
+	struct list_head targets, rec_list;
+	struct iface_rec *iface, *tmp_iface;
 	struct node_rec *rec, *tmp_rec;
-	struct list_head targets, new_rec_list;
-	struct iface_rec *iface, *tmp_iface;;
-	int ret = 0;
+	int rc = 0;
 
-	INIT_LIST_HEAD(&new_rec_list);
 	INIT_LIST_HEAD(&targets);
-	/*
-	 * compat: if the user did not pass any op then we do all
-	 * ops for them
-	 */
-	if (!op)
-		op = OP_NEW | OP_DELETE | OP_UPDATE;
-
-	ret = fw_get_targets(&targets);
-	if (ret) {
-		log_error("Could not get list of targets from firmware. "
-			  "(err %d)\n", ret);
-		return ret;
-	}
+	INIT_LIST_HEAD(&rec_list);
 
 	if (drec) {
+		/*
+		 * compat: if the user did not pass any op then we do all
+		 * ops for them
+		 */
+		if (!op)
+			op = OP_NEW | OP_DELETE | OP_UPDATE;
+
 		list_for_each_entry_safe(iface, tmp_iface, ifaces, list) {
-			ret = iface_conf_read(iface);
-			if (ret) {
+			rc = iface_conf_read(iface);
+			if (rc) {
 				log_error("Could not read iface info for %s. "
 					  "Make sure a iface config with the "
 					  "file name and iface.iscsi_ifacename "
 					  "%s is in %s.", iface->name,
-					   iface->name, IFACE_CONFIG_DIR);
-				list_del(&iface->list);
+					  iface->name, IFACE_CONFIG_DIR);
+				list_del_init(&iface->list);
 				free(iface);
 				continue;
 			}
 		}
 
-		list_for_each_entry(context, &targets, list) {
-			rec = fw_create_rec_by_entry(context);
-			if (!rec) {
-				log_error("Could not convert firmware info to "
-					  "node record.\n");
-				ret = ENOMEM;
-				list_for_each_entry_safe(rec, tmp_rec,
-							 &new_rec_list,
-							 list) {
-					list_del(&rec->list);
-					free(rec);
-				}
-				break;
-			}
-			list_add_tail(&rec->list, &new_rec_list);
-		}
+		rc = idbm_bind_ifaces_to_nodes(discovery_fw, drec,
+					       ifaces, &rec_list);
+		if (rc)
+			log_error("Could not perform fw discovery.\n");
+		else
+			rc = exec_disc_op_on_recs(drec, &rec_list, info_level,
+						   do_login, op);
 
-		ret = update_discovery_recs(drec, &new_rec_list, ifaces,
-					    info_level, do_login, op);
-		list_for_each_entry_safe(rec, tmp_rec, &new_rec_list, list) {
+		list_for_each_entry_safe(rec, tmp_rec, &rec_list, list) {
 			list_del(&rec->list);
 			free(rec);
 		}
-	} else if (do_login) {
+		return rc;
+	}
+
+	/* The following ops do not interact with the DB */
+	rc = fw_get_targets(&targets);
+	if (rc) {
+		log_error("Could not get list of targets from firmware. "
+			  "(err %d)\n", rc);
+		return rc;
+	}
+
+	if (do_login) {
 		list_for_each_entry(context, &targets, list) {
 			rec = fw_create_rec_by_entry(context);
 			if (!rec) {
 				log_error("Could not convert firmware info to "
 					  "node record.\n");
-				ret = ENOMEM;
+				rc = ENOMEM;
 				break;
 			}
 
@@ -1730,7 +1693,7 @@ static int exec_fw_op(discovery_rec_t *drec, struct list_head *ifaces,
 	}
 
 	fw_free_targets(&targets);
-	return ret;
+	return rc;
 }
 
 int
@@ -1748,6 +1711,7 @@ main(int argc, char **argv)
 	struct list_head ifaces;
 	struct iface_rec *iface = NULL, *tmp;
 	struct node_rec *rec = NULL;
+	uint32_t host_no = -1;
 
 	memset(&drec, 0, sizeof(discovery_rec_t));
 	INIT_LIST_HEAD(&ifaces);
@@ -1798,6 +1762,16 @@ main(int argc, char **argv)
 			break;
 		case 'v':
 			value = optarg;
+			break;
+		case 'H':
+			errno = 0;
+			host_no = strtoul(optarg, NULL, 10);
+			if (errno) {
+				log_error("invalid host no %s. %s.",
+					  optarg, strerror(errno));
+				rc = -1;
+				goto free_ifaces;
+			}
 			break;
 		case 'r':
 			sid = iscsi_sysfs_get_sid_from_path(optarg);
@@ -1908,6 +1882,16 @@ main(int argc, char **argv)
 	iface_setup_host_bindings();
 
 	switch (mode) {
+	case MODE_HOST:
+		if ((rc = verify_mode_params(argc, argv, "HdmP", 0))) {
+			log_error("host mode: option '-%c' is not "
+				  "allowed/supported", rc);
+			rc = -1;
+			goto out;
+		}
+
+		rc = host_info_print(info_level, host_no);
+		break;
 	case MODE_IFACE:
 		if ((rc = verify_mode_params(argc, argv, "IdnvmPo", 0))) {
 			log_error("iface mode: option '-%c' is not "

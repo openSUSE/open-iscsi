@@ -56,15 +56,23 @@ static int file_exist(const char *file)
 static int find_sysfs_dirs(const char *fpath, const struct stat *sb,
 			   int tflag, struct FTW *ftw)
 {
-	if (tflag == FTW_D &&
-		(strstr(fpath + ftw->base, "target")))
-			target_list[tgt_cnt++] = strdup(strstr(fpath,
-							       "target"));
+	if (tflag == FTW_D && (strstr(fpath + ftw->base, "target"))) {
+		if (tgt_cnt == IBFT_MAX) {
+			printf("Too many targets found in IBFT data."
+			       "Max number of targets %d\n", IBFT_MAX);
+			return 0;
+		}
+		target_list[tgt_cnt++] = strdup(strstr(fpath, "target"));
+	}
 
-	if (tflag == FTW_D &&
-		(strstr(fpath + ftw->base, "ethernet")))
-			nic_list[nic_cnt++] = strdup(strstr(fpath,
-							    "ethernet"));
+	if (tflag == FTW_D && (strstr(fpath + ftw->base, "ethernet"))) {
+		if (nic_cnt == IBFT_MAX) {
+			printf("Too many nics found in IBFT data."
+			       "Max number of nics %d\n", IBFT_MAX);
+			return 0;
+		}
+		nic_list[nic_cnt++] = strdup(strstr(fpath, "ethernet"));
+	}
 
 	return 0;
 }
@@ -159,15 +167,13 @@ static int fill_nic_context(char *id, struct boot_context *context)
 			   sizeof(context->mac));
 	if (rc)
 		return rc;
-	rc = sysfs_get_str(id, IBFT_SUBSYS, "ip-addr", context->ipaddr,
-			   sizeof(context->ipaddr));
-	if (rc)
-		return rc;
 
 	rc = get_iface_from_device(id, context);
 	if (rc)
 		return rc;
 
+	sysfs_get_str(id, IBFT_SUBSYS, "ip-addr", context->ipaddr,
+		      sizeof(context->ipaddr));
 	sysfs_get_str(id, IBFT_SUBSYS, "vlan", context->vlan,
 		      sizeof(context->vlan));
 	sysfs_get_str(id, IBFT_SUBSYS, "subnet-mask", context->mask,
@@ -275,9 +281,11 @@ int fwparam_ibft_sysfs_boot_info(struct boot_context *context)
 	int nic_idx = -1, tgt_idx = -1;
 
 	memset(&initiator_dir, 0 , FILENAMESZ);
-	strlcat(initiator_dir, IBFT_SYSFS_ROOT, FILENAMESZ);
-	strlcat(initiator_dir, "initiator", FILENAMESZ);
+	snprintf(initiator_dir, FILENAMESZ, "%sinitiator",
+		IBFT_SYSFS_ROOT);
 
+	nic_cnt = 0;
+	tgt_cnt = 0;
 	if (file_exist(initiator_dir)) {
 		/* Find the target's and the ethernet's */
 		rc = nftw(IBFT_SYSFS_ROOT, find_sysfs_dirs, 20, 1);
@@ -309,11 +317,14 @@ int fwparam_ibft_sysfs_get_targets(struct list_head *list)
 	char initiator_dir[FILENAMESZ];
 
 	memset(&initiator_dir, 0 , FILENAMESZ);
-	strlcat(initiator_dir, IBFT_SYSFS_ROOT, FILENAMESZ);
-	strlcat(initiator_dir, "initiator", FILENAMESZ);
+	snprintf(initiator_dir, FILENAMESZ, "%sinitiator",
+		IBFT_SYSFS_ROOT);
 
 	if (!file_exist(initiator_dir))
 		return ENODEV;
+
+	nic_cnt = 0;
+	tgt_cnt = 0;
 
 	/* Find the target's and the ethernet's */
 	nftw(IBFT_SYSFS_ROOT, find_sysfs_dirs, 20, 1);

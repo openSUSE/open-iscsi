@@ -108,7 +108,9 @@ extern void idbm_terminate(void);
 extern int idbm_print_iface_info(void *data, struct iface_rec *iface);
 extern int idbm_print_node_info(void *data, node_rec_t *rec);
 extern int idbm_print_node_flat(void *data, node_rec_t *rec);
-extern int idbm_print_node_tree(void *data, node_rec_t *rec);
+extern int idbm_print_node_tree(struct node_rec *last_rec, struct node_rec *rec,
+				char *prefix);
+extern int idbm_print_node_and_iface_tree(void *data, node_rec_t *rec);
 extern int idbm_print_discovery_info(discovery_rec_t *rec, int show);
 extern int idbm_print_all_discovery(int info_level);
 extern int idbm_print_discovered(discovery_rec_t *drec, int info_level);
@@ -118,9 +120,13 @@ extern int idbm_delete_node(node_rec_t *rec);
 extern int idbm_add_node(node_rec_t *newrec, discovery_rec_t *drec,
 			 int overwrite);
 struct list_head;
-extern int idbm_bind_ifaces_to_node(struct node_rec *new_rec,
-				    struct list_head *ifaces,
-				    struct list_head *bound_recs);
+typedef int (idbm_disc_nodes_fn)(struct discovery_rec *drec,
+				 struct iface_rec *iface,
+				 struct list_head *recs);
+extern int idbm_bind_ifaces_to_nodes(idbm_disc_nodes_fn *disc_node_fn,
+				     struct discovery_rec *drec,
+				     struct list_head *ifaces,
+				     struct list_head *bound_recs);
 extern int idbm_add_nodes(node_rec_t *newrec,
 			  discovery_rec_t *drec, struct list_head *ifaces,
 			  int overwrite);
