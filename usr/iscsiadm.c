@@ -1899,8 +1899,31 @@ static int exec_node_op(int op, int do_login, int do_logout,
 		set_param.name = name;
 		set_param.value = value;
 
-		if (for_each_rec(rec, &set_param, idbm_node_set_param))	
+		if (for_each_rec(rec, &set_param, idbm_node_set_param))
 			rc = -1;
+
+		/*
+		 * Compat hack:
+		 * node.startup and node.conn[0].startup must be kept
+		 * in sync so as not to confuse --loginall and --logoutall
+		 */
+		if (!strcmp(name, "node.startup")) {
+			log_debug(1, "synch node.conn[0].startup mode");
+			set_param.name = "node.conn[0].startup";
+			set_param.value = value;
+			if (for_each_rec(rec, &set_param,
+					 idbm_node_set_param))
+				rc = -1;
+		}
+		if (!strcmp(name, "node.conn[0].startup")) {
+			log_debug(1, "synch node.startup modes");
+			set_param.name = "node.startup";
+			set_param.value = value;
+			if (for_each_rec(rec, &set_param,
+					 idbm_node_set_param))
+				rc = -1;
+		}
+
 		goto out;
 	} else if (op == OP_DELETE) {
 		if (for_each_rec(rec, NULL, delete_node))
