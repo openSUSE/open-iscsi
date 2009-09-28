@@ -30,7 +30,7 @@ iSCSI_warning_InitiatorName() {
 	echo "iSCSI: ======================="
 	echo "iSCSI: "
 	echo "iSCSI: InitiatorName given on $2 and internally stored Initiator are different."
-	echo "iSCSI: New:    $tmp_InitiatorName"
+	echo "iSCSI: New:    $1"
 	echo "iSCSI: Stored: $InitiatorName"
 	echo "iSCSI: "
 	echo "iSCSI: using the $2 version"
