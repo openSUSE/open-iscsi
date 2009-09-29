@@ -190,6 +190,11 @@ static int sync_session(void *data, struct session_info *info)
 	t = iscsi_sysfs_get_transport_by_sid(info->sid);
 	if (!t)
 		return 0;
+	if (set_transport_template(t)) {
+		log_error("Could not find userspace transport template for %s",
+			   t->name);
+		return 0;
+	}
 
 	/*
 	 * Just rescan the device in case this is the first startup.
@@ -210,6 +215,13 @@ static int sync_session(void *data, struct session_info *info)
 	}
 
 	memset(&rec, 0, sizeof(node_rec_t));
+	/*
+	 * We might get the local ip address for software. We do not
+	 * want to try and bind a session by ip though.
+	 */
+	if (!t->template->set_host_ip)
+		memset(info->iface.ipaddress, 0, sizeof(info->iface.ipaddress));
+
 	if (idbm_rec_read(&rec, info->targetname, info->tpgt,
 			  info->persistent_address, info->persistent_port,
 			  &info->iface)) {
@@ -254,7 +266,7 @@ static int sync_session(void *data, struct session_info *info)
 	memcpy(&req.u.session.rec, &rec, sizeof(node_rec_t));
 
 retry:
-	rc = do_iscsid(&req, &rsp);
+	rc = do_iscsid(&req, &rsp, 0);
 	if (rc == MGMT_IPC_ERR_ISCSID_NOTCONN && retries < 30) {
 		retries++;
 		sleep(1);
