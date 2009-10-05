@@ -575,7 +575,9 @@ char *search_ibft(unsigned char *start, int start_addr, int length)
 
 			/* Make sure it's correct version. */
 			if (ibft_hdr->revision != iBFT_REV) {
-				cur_ptr = rom_end;
+				if (debug > 1)
+					fprintf(stderr, "Unsupported iBFT version %d\n", ibft_hdr->revision);
+				cur_ptr += strlen(iBFTSTR);
 				continue;
 			}
 
@@ -587,8 +589,13 @@ char *search_ibft(unsigned char *start, int start_addr, int length)
 
 				if (check_sum == 0)
 					return (char *)cur_ptr;
+				else if (debug > 1)
+					fprintf(stderr, "Invalid iBFT CRC\n");
+			} else {
+				if (debug > 1)
+					fprintf(stderr, "Invalid iBFT size: length %d (%d)\n", ibft_hdr->length, length);
 			}
-			cur_ptr = rom_end;
+			cur_ptr += strlen(iBFTSTR);
 		}
 		cur_ptr += strlen(iBFTSTR);
 	}
