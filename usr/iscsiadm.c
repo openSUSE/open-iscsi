@@ -2211,12 +2211,12 @@ main(int argc, char **argv)
 				rc = -1;
 				goto out;
 			}
-
-			memset(&drec, 0, sizeof(discovery_rec_t));
-			idbm_sendtargets_defaults(&drec.u.sendtargets);
-			strncpy(drec.address, ip, sizeof(drec.address));
-			drec.port = port;
-
+			if (idbm_discovery_read(&drec, ip, port)) {
+				memset(&drec, 0, sizeof(discovery_rec_t));
+				idbm_sendtargets_defaults(&drec.u.sendtargets);
+				strncpy(drec.address, ip, sizeof(drec.address));
+				drec.port = port;
+			}
 			if (do_sendtargets(&drec, &ifaces, info_level,
 					   do_login, op)) {
 				rc = -1;
