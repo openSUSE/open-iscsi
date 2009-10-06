@@ -7,7 +7,10 @@ check_iscsi_root() {
     local sysfs_path
 
     sysfs_path=$(/sbin/udevadm info -q path -n $devname 2> /dev/null)
-    if [ -z "$sysfs_path" ] || [ ! -d /sys$sysfs_path ] ; then
+    if [ -z "$sysfs_path" ] ; then
+	sysfs_path="/block${devname##/dev}"
+    fi
+    if [ ! -d /sys$sysfs_path ] ; then
 	return;
     fi
 
