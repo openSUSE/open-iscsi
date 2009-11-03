@@ -1,3 +1,18 @@
+-------------------------------------------------------------------
+open-iscsi-2.0-871 - open-iscsi-2.0.871.1
+
+Mike Christie (7):
+      Don't kill iscsid if logout from all nodes fail
+      iscsid: fix ISCSI_ERR_INVALID_HOST err handling
+      iscsid: add flag to indicate if driver needs iscsid to set ip
+      iscsid: add be2iscsi template
+      iscsid be2iscsi: add more driver limits
+      iscsid: fix segfault during session sync up
+      iscsi mod: update Makefile for 2.6.31 and .32 support
+
+
+
+-------------------------------------------------------------------
 open-iscsi-2.0-871 - open-iscsi-2.0.870
 
 Boaz Harrosh (1):
