@@ -686,7 +686,7 @@ setup_authentication(iscsi_session_t *session,
 
 	/* copy in whatever credentials we have */
 	if (config->auth.username && strlen(config->auth.username)) {
-		strncpy(session->username, config->auth.username,
+		strlcpy(session->username, config->auth.username,
 			sizeof (session->username));
 		session->username[sizeof (session->username) - 1] = '\0';
 	} else
