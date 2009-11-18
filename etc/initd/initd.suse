@@ -6,8 +6,8 @@
 # Provides:          iscsi
 # Required-Start:    $network
 # Should-Start:      iscsitarget
-# Required-Stop:     
-# Should-Stop:
+# Required-Stop:     $network
+# Should-Stop:       $null
 # Default-Start:     3 5
 # Default-Stop:      
 # Short-Description: iSCSI initiator daemon

@@ -4,9 +4,9 @@
 #
 ### BEGIN INIT INFO
 # Provides:          iscsiboot
-# Required-Start:    $null
+# Required-Start:
 # Should-Start:
-# Required-Stop:     $null
+# Required-Stop:
 # Should-Stop:
 # Default-Start:     B
 # Default-Stop:      
