@@ -37,6 +37,7 @@
 #include "transport.h"
 #include "idbm.h"
 #include "iface.h"
+#include "sysdeps.h"
 
 #define LOG_CONN_CLOSED(conn) \
 do { \
@@ -185,7 +186,7 @@ static int get_netdev_from_hwaddress(char *hwaddress, char *netdev)
 	for (i = 0; ifni[i].if_index && ifni[i].if_name; i++) {
 		struct if_nameindex *n = &ifni[i];
 
-		strncpy(if_hwaddr.ifr_name, n->if_name, IFNAMSIZ);
+		strlcpy(if_hwaddr.ifr_name, n->if_name, IFNAMSIZ);
 		if (ioctl(sockfd, SIOCGIFHWADDR, &if_hwaddr) < 0) {
 			log_error("Could not match %s to netdevice.",
 				  hwaddress);
@@ -207,7 +208,7 @@ static int get_netdev_from_hwaddress(char *hwaddress, char *netdev)
 			log_debug(4, "Matches %s to %s", hwaddress,
 				  n->if_name);
 			memset(netdev, 0, IFNAMSIZ); 
-			strncpy(netdev, n->if_name, IFNAMSIZ);
+			strlcpy(netdev, n->if_name, IFNAMSIZ);
 			found = 1;
 			break;
 		}
@@ -218,6 +219,13 @@ free_ifni:
 	if_freenameindex(ifni);
 	return found;
 }
+
+#if 0
+
+This is not supported for now, because it is not exactly what we want.
+It also turns out that targets will send packets to other interfaces
+causing all types of weird things to happen.
+
 
 static int bind_src_by_address(int sockfd, char *address)
 {
@@ -249,6 +257,7 @@ static int bind_src_by_address(int sockfd, char *address)
 		log_debug(4, "Bound %s to socket fd %d", address, sockfd);
 	return rc;
 }
+#endif
 
 static int bind_conn_to_iface(iscsi_conn_t *conn, struct iface_rec *iface)
 {
@@ -260,13 +269,20 @@ static int bind_conn_to_iface(iscsi_conn_t *conn, struct iface_rec *iface)
 		log_error("Cannot match %s to net/scsi interface.",
 			  iface->hwaddress);
                 return -1;
-	} else if (iface_is_bound_by_ipaddr(iface) &&
-		   bind_src_by_address(conn->socket_fd, iface->ipaddress)) {
-		log_error("Cannot match %s to net/scsi interface.",
-			   iface->ipaddress);
-		return -1;
 	} else if (iface_is_bound_by_netdev(iface))
 		strcpy(session->netdev, iface->netdev);
+	else if (iface_is_bound_by_ipaddr(iface)) {
+		/*
+		 * we never supported this but now with offload having to
+		 * set the ip address in the iface, useris may forget to
+		 * set the offload's transport type and we end up here by
+		 * accident.
+		 */
+		log_error("Cannot bind %s to net/scsi interface. This is not "
+			  "supported with software iSCSI (iscsi_tcp).",
+			   iface->ipaddress);
+		return -1;
+	}
 
 	if (strlen(session->netdev)) {
 		struct ifreq ifr;
@@ -274,7 +290,7 @@ static int bind_conn_to_iface(iscsi_conn_t *conn, struct iface_rec *iface)
 		log_debug(4, "Binding session %d to %s", session->id,
 			  session->netdev);
 		memset(&ifr, 0, sizeof(ifr));
-		strncpy(ifr.ifr_name, session->netdev, IFNAMSIZ);
+		strlcpy(ifr.ifr_name, session->netdev, IFNAMSIZ);
 
 		if (setsockopt(conn->socket_fd, SOL_SOCKET, SO_BINDTODEVICE,
 			       session->netdev,
@@ -391,8 +407,8 @@ iscsi_io_tcp_poll(iscsi_conn_t *conn, int timeout_ms)
 			    conn->host, sizeof(conn->host), serv, sizeof(serv),
 			    NI_NUMERICHOST|NI_NUMERICSERV);
 
-		log_error("cannot make connection to %s:%s (%d)",
-			  conn->host, serv, errno);
+		log_error("cannot make connection to %s:%s (%s)",
+			  conn->host, serv, strerror(errno));
 		return rc;
 	}
 
@@ -403,7 +419,13 @@ iscsi_io_tcp_poll(iscsi_conn_t *conn, int timeout_ms)
 		return -1;
 	}
 	if (rc) {
-		log_error("connect failed (%d)\n", rc);
+		getnameinfo((struct sockaddr *) &conn->saddr,
+			    sizeof(conn->saddr),
+			    conn->host, sizeof(conn->host), serv, sizeof(serv),
+			    NI_NUMERICHOST|NI_NUMERICSERV);
+
+		log_error("connect to %s:%s failed (%s)\n",
+			  conn->host, serv, strerror(rc));
 		return -rc;
 	}
 

@@ -25,10 +25,11 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include "fwparam_ibft.h"
+#include "fwparam.h"
 #include "fw_context.h"
 #include "iscsi_obp.h"
 #include "prom_parse.h"
+#include "sysdeps.h"
 
 void* yy_scan_string(const char *str);
 int yyparse(struct ofw_dev *ofwdev);
@@ -44,12 +45,14 @@ static int bytes_read;
 static struct ofw_dev *ofwdevs[OFWDEV_MAX];
 static char *niclist[OFWDEV_MAX];
 static int nic_count;
+static int debug;
+static int dev_count;
 
 static void cp_param(char *dest, const char *name, struct ofw_dev *dev,
 		     enum obp_param item, int len)
 {
 	if (dev->param[item])
-		strncpy(dest, dev->param[item]->val, len);
+		strlcpy(dest, dev->param[item]->val, len);
 }
 
 static void cp_int_param(int *dest, const char *name, struct ofw_dev *dev,
@@ -85,9 +88,11 @@ static char *find_devtree(const char *filename)
 		if (vdev) {
 			sprintf(vdev, "%s%s", filename, "/vdevice");
 			error = stat(vdev, &dt_stat);
-			if (error)
-				devtree = NULL;
 			free(vdev);
+			if (error) {
+				free(devtree);
+				return NULL;
+			}
 		}
 	} else
 		devtree[chop_at - devtree] = 0;
@@ -114,7 +119,7 @@ static int locate_mac(const char *devtree, struct ofw_dev *ofwdev)
 	mac_file = malloc(mac_path_len);
 	if (!mac_file) {
 		error = ENOMEM;
-		fprintf(stderr, "%s: malloc %s, %s\n", __func__, filename,
+		fprintf(stderr, "%s: malloc , %s\n", __func__,
 			strerror(errno));
 		goto lpm_bail;
 	}
@@ -283,18 +288,18 @@ static int find_file(const char *filename)
 	if (fd < 0) {
 		fprintf(stderr, "%s: Could not open %s: %s (%d)\n",
 			__func__, filename, strerror(errno), errno);
+		free(bootpath_val);
 		return -1;
 	}
 
 	bytes_read = read(fd, bootpath_val, bootpath_stat.st_size);
 	close(fd);
+	free(bootpath_val);
 	if (bytes_read != bootpath_stat.st_size) {
 		fprintf(stderr, "%s: Could not open %s: %s (%d)\n",
 			__func__, filename, strerror(EIO), EIO);
 		return -1;
 	}
-
-	close(fd);
 
 	return 1;
 }
@@ -341,6 +346,7 @@ static int loop_devs(const char *devtree)
 	int i;
 	char prefix[256];
 
+	nic_count = 0;
 	error = nftw(devtree, find_nics, 20, 0);
 	if (error)
 		return error;
@@ -352,6 +358,7 @@ static int loop_devs(const char *devtree)
 	qsort(niclist, nic_count, sizeof(char *), nic_cmp);
 
 	snprintf(prefix, sizeof(prefix), "%s/%s", devtree, "aliases");
+	dev_count = 0;
 	error = nftw(prefix, find_initiator, 20, 0);
 	if (error)
 		return error;
@@ -366,8 +373,6 @@ static int loop_devs(const char *devtree)
 
 		}
 	}
-	if (!error)
-		putchar('\n');
 	return error;
 }
 
@@ -422,10 +427,10 @@ static void fill_context(struct boot_context *context, struct ofw_dev *ofwdev)
 
 }
 
-int fwparam_ppc(struct boot_context *context, const char *filepath)
+int fwparam_ppc_boot_info(struct boot_context *context)
 {
+	char filename[FILENAMESZ];
 	int error;
-	int fplen = 0;
 	char *devtree;
 
 	/*
@@ -435,17 +440,8 @@ int fwparam_ppc(struct boot_context *context, const char *filepath)
 	 * systems that can support iscsi are the ones that provide
 	 * the appropriate FCODE with a load method.
 	 */
-	if (filepath) {
-		strncat(filename, filepath, FILENAMESZ - 1);
-		filename[FILENAMESZ - 1] = '\0';
-		fplen = strlen(filename);
-	} else {
-		strncat(filename, DT_TOP, FILENAMESZ - 1);
-		filename[FILENAMESZ - 1] = '\0';
-		fplen = strlen(filename);
-	}
-
-	strncat(filename + fplen, BOOTPATH, FILENAMESZ - fplen);
+	memset(filename, 0, FILENAMESZ);
+	snprintf(filename, FILENAMESZ, "%s%s", DT_TOP, BOOTPATH);
 
 	if (debug)
 		fprintf(stderr, "%s: file:%s; debug:%d\n", __func__, filename,
@@ -453,18 +449,17 @@ int fwparam_ppc(struct boot_context *context, const char *filepath)
 
 	devtree = find_devtree(filename);
 	if (!devtree)
-		return 2;
+		return EINVAL;
 
 	/*
 	 * Always search the device-tree to find the capable nic devices.
 	 */
 	error = loop_devs(devtree);
 	if (error)
-		return error;
+		goto free_devtree;
 
-	dev_count = find_file(filename);
-	if (dev_count < 1)
-		error = 3;
+	if (find_file(filename) < 1)
+		error = ENODEV;
 	else {
 		if (debug)
 			printf("%s:\n%s\n\n", filename, bootpath_val);
@@ -473,26 +468,107 @@ int fwparam_ppc(struct boot_context *context, const char *filepath)
 		 * bootpath, save the mac-address.
 		 */
 
-		if (strstr(bootpath_val, "iscsi")) {
-			ofwdevs[0] = calloc(1, sizeof(struct ofw_dev));
-			if (!ofwdevs[0])
-				return ENOMEM;
+		if (!strstr(bootpath_val, "iscsi")) {
+			error = EINVAL;
+			goto free_devtree;
+		}
+		ofwdevs[0] = calloc(1, sizeof(struct ofw_dev));
+		if (!ofwdevs[0]) {
+			error = ENOMEM;
+			goto free_devtree;
+		}
 
-			error = parse_params(bootpath_val, ofwdevs[0]);
-			if (!error)
-				error = locate_mac(devtree, ofwdevs[0]);
-
-		} else
-			/*
-			 * yikes! we did not boot from iscsi.
-			 * tsk, tsk.
-			 */
-			error = 1;
-
+		error = parse_params(bootpath_val, ofwdevs[0]);
 		if (!error)
-			fill_context(context, ofwdevs[0]);
-
+			error = locate_mac(devtree, ofwdevs[0]);
+		if (!error) {
+			context = calloc(1, sizeof(*context));
+			if (!context)
+				error = ENOMEM;
+			else
+				fill_context(context, ofwdevs[0]);
+		}
+		free(ofwdevs[0]);
 	}
 
+free_devtree:
+	free(devtree);
+	return error;
+}
+
+/*
+ * Due to lack of time this is just fwparam_ppc_boot_info which
+ * adds the target used for boot to the list. It does not add
+ * all possible targets (IBM please add).
+ */
+int fwparam_ppc_get_targets(struct list_head *list)
+{
+	char filename[FILENAMESZ];
+	struct boot_context *context;
+	int error;
+	char *devtree;
+
+	/*
+	 * For powerpc, our operations are fundamentally to locate
+	 * either the one boot target (the singleton disk), or to find
+	 * the nics that support iscsi boot.  The only nics in IBM
+	 * systems that can support iscsi are the ones that provide
+	 * the appropriate FCODE with a load method.
+	 */
+	memset(filename, 0, FILENAMESZ);
+	snprintf(filename, FILENAMESZ, "%s%s", DT_TOP, BOOTPATH);
+
+	if (debug)
+		fprintf(stderr, "%s: file:%s; debug:%d\n", __func__, filename,
+			debug);
+
+	devtree = find_devtree(filename);
+	if (!devtree)
+		return EINVAL;
+
+	/*
+	 * Always search the device-tree to find the capable nic devices.
+	 */
+	error = loop_devs(devtree);
+	if (error)
+		goto free_devtree;
+
+	if (find_file(filename) < 1)
+		error = ENODEV;
+	else {
+		if (debug)
+			printf("%s:\n%s\n\n", filename, bootpath_val);
+		/*
+		 * We find *almost* everything we need in the
+		 * bootpath, save the mac-address.
+		 */
+
+		if (!strstr(bootpath_val, "iscsi")) {
+			error = EINVAL;
+			goto free_devtree;
+		}
+		ofwdevs[0] = calloc(1, sizeof(struct ofw_dev));
+		if (!ofwdevs[0]) {
+			error = ENOMEM;
+			goto free_devtree;
+		}
+
+		error = parse_params(bootpath_val, ofwdevs[0]);
+		if (!error)
+			error = locate_mac(devtree, ofwdevs[0]);
+		if (!error) {
+			context = calloc(1, sizeof(*context));
+			if (!context)
+				error = ENOMEM;
+			else {
+				fill_context(context, ofwdevs[0]);
+				list_add_tail(&context->list, list);
+			}
+		}
+		free(ofwdevs[0]);
+	}
+
+free_devtree:
+	free(devtree);
 	return error;
 }

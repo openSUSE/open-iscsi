@@ -22,6 +22,7 @@
 #ifndef _SYSFS_
 #define _SYSFS_
 
+#include <stdint.h>
 #include "list.h"
 #include "string.h"
 
@@ -49,5 +50,16 @@ extern struct sysfs_device *sysfs_device_get_parent_with_subsystem(struct sysfs_
 extern char *sysfs_attr_get_value(const char *devpath, const char *attr_name);
 extern int sysfs_resolve_link(char *path, size_t size);
 extern int sysfs_lookup_devpath_by_subsys_id(char *devpath, size_t len, const char *subsystem, const char *id);
+
+extern char *sysfs_get_value(char *id, char *subsys, char *param);
+extern int sysfs_get_uint(char *id, char *subsys, char *param,
+			  unsigned int *value);
+extern int sysfs_get_int(char *id, char *subsys, char *param, int *value);
+extern int sysfs_get_str(char *id, char *subsys, char *param, char *value,
+			 int value_size);
+extern int sysfs_get_uint64(char *id, char *subsys, char *param,
+			    uint64_t *value);
+extern int sysfs_set_param(char *id, char *subsys, char *attr_name,
+			   char *write_buf, ssize_t buf_size);
 
 #endif

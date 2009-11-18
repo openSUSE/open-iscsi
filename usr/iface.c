@@ -35,6 +35,9 @@
 #include "transport.h"
 #include "idbm.h"
 #include "iface.h"
+#include "session_info.h"
+#include "host.h"
+#include "sysdeps.h"
 
 /*
  * Default ifaces for use with transports that do not bind to hardware
@@ -48,8 +51,6 @@
 static struct iface_rec iface_default = {
 	.name		= "default",
 	.transport_name	= "tcp",
-	.netdev		= DEFAULT_NETDEV,
-	.hwaddress	= DEFAULT_HWADDRESS,
 };
 
 /*
@@ -58,24 +59,11 @@ static struct iface_rec iface_default = {
 static struct iface_rec iface_iser = {
 	.name		= "iser",
 	.transport_name	= "iser",
-	.netdev		= DEFAULT_NETDEV,
-	.hwaddress	= DEFAULT_HWADDRESS,
-};
-
-/*
- * Broadcom bnx2i
- */
-static struct iface_rec iface_bnx2i = {
-	.name		= "bnx2i",
-	.transport_name	= "bnx2i",
-	.netdev		= DEFAULT_NETDEV,
-	.hwaddress	= DEFAULT_HWADDRESS,
 };
 
 static struct iface_rec *default_ifaces[] = {
 	&iface_default,
 	&iface_iser,
-	&iface_bnx2i,
 	NULL,
 };
 
@@ -103,9 +91,6 @@ static void iface_init(struct iface_rec *iface)
  */
 void iface_setup_defaults(struct iface_rec *iface)
 {
-	sprintf(iface->netdev, DEFAULT_NETDEV);
-	sprintf(iface->ipaddress, DEFAULT_IPADDRESS);
-	sprintf(iface->hwaddress, DEFAULT_HWADDRESS);
 	sprintf(iface->transport_name, DEFAULT_TRANSPORT);
 	iface_init(iface);
 }
@@ -125,7 +110,7 @@ struct iface_rec *iface_alloc(char *ifname, int *err)
 		return NULL;
 	}
 
-	strncpy(iface->name, ifname, ISCSI_MAX_IFACE_LEN);
+	strlcpy(iface->name, ifname, ISCSI_MAX_IFACE_LEN);
 	INIT_LIST_HEAD(&iface->list);
 	return iface;
 }
@@ -208,7 +193,10 @@ int iface_conf_read(struct iface_rec *iface)
 		return 0;
 	}
 
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		return rc;
+
 	rc = __iface_conf_read(iface);
 	idbm_unlock();
 	return rc;
@@ -232,11 +220,15 @@ int iface_conf_delete(struct iface_rec *iface)
 		return ENOMEM;
 
 	sprintf(iface_conf, "%s/%s", IFACE_CONFIG_DIR, iface->name);
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		goto free_conf;
+
 	if (unlink(iface_conf))
 		rc = errno;
 	idbm_unlock();
 
+free_conf:
 	free(iface_conf);
 	return rc;
 }
@@ -267,10 +259,14 @@ int iface_conf_write(struct iface_rec *iface)
 		goto free_conf;
 	}
 
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		goto close_f;
+
 	idbm_print(IDBM_PRINT_TYPE_IFACE, iface, 1, f);
 	idbm_unlock();
 
+close_f:
 	fclose(f);
 free_conf:
 	free(iface_conf);
@@ -424,38 +420,37 @@ int iface_get_by_net_binding(struct iface_rec *pattern,
 	return ENODEV;
 }
 
-static int __iface_setup_host_bindings(void *data, struct host_info *info)
+static int __iface_setup_host_bindings(void *data, struct host_info *hinfo)
 {
+	struct iface_rec *def_iface;
 	struct iface_rec iface;
 	struct iscsi_transport *t;
-	int id;
+	int i = 0;
 
-	t = iscsi_sysfs_get_transport_by_hba(info->host_no);
+	t = iscsi_sysfs_get_transport_by_hba(hinfo->host_no);
 	if (!t)
 		return 0;
-	/*
-	 * if software or partial offload do not touch the bindngs.
-	 * They do not need it and may not support it
-	 */
-	if (!(t->caps & CAP_FW_DB))
-		return 0;
 
-	/*
-	 * since this is only for qla4xxx we only care about finding
-	 * a iface with a matching hwaddress.
-	 */
-	if (iface_get_by_net_binding(&info->iface, &iface) == ENODEV) {
+	/* do not setup binding for hosts using non offload drivers */
+	while ((def_iface = default_ifaces[i++])) {
+		if (!strcmp(t->name, def_iface->transport_name))
+			return 0;
+	}
+
+	if (iface_get_by_net_binding(&hinfo->iface, &iface) == ENODEV) {
 		/* Must be a new port */
-		id = iface_get_next_id();
-		if (id < 0) {
-			log_error("Could not add iface for %s.",
-				  info->iface.hwaddress);
+		if (!strlen(hinfo->iface.hwaddress)) {
+			log_error("Invalid offload iSCSI host %u. Missing "
+				  "hwaddress. Try upgrading %s driver.\n",
+				  hinfo->host_no, t->name);
 			return 0;
 		}
+
 		memset(&iface, 0, sizeof(struct iface_rec));
-		strcpy(iface.hwaddress, info->iface.hwaddress);
-		strcpy(iface.transport_name, info->iface.transport_name);
-		sprintf(iface.name, "iface%d", id);
+		strcpy(iface.hwaddress, hinfo->iface.hwaddress);
+		strcpy(iface.transport_name, hinfo->iface.transport_name);
+		snprintf(iface.name, sizeof(iface.name), "%s.%s",
+			 t->name, hinfo->iface.hwaddress);
 		if (iface_conf_write(&iface))
 			log_error("Could not write iface conf for %s %s",
 				  iface.name, iface.hwaddress);
@@ -465,13 +460,16 @@ static int __iface_setup_host_bindings(void *data, struct host_info *info)
 }
 
 /*
- * sync hw/offload iscsi scsi_hosts with iface values
+ * Create a default iface for offload cards. We assume that we will
+ * be able identify each host by MAC.
  */
 void iface_setup_host_bindings(void)
 {
 	int nr_found = 0;
 
-	idbm_lock();
+	if (idbm_lock())
+		return;
+
 	if (access(IFACE_CONFIG_DIR, F_OK) != 0) {
 		if (mkdir(IFACE_CONFIG_DIR, 0660) != 0) {
 			log_error("Could not make %s. HW/OFFLOAD iscsi "
@@ -485,7 +483,8 @@ void iface_setup_host_bindings(void)
 	if (iscsi_sysfs_for_each_host(NULL, &nr_found,
 				      __iface_setup_host_bindings))
 		log_error("Could not scan scsi hosts. HW/OFFLOAD iscsi "
-			  "operations may not be supported.");
+			  "operations may not be supported, or please "
+			  "see README for instructions on setting up ifaces.");
 }
 
 void iface_copy(struct iface_rec *dst, struct iface_rec *src)
@@ -570,16 +569,66 @@ int iface_is_bound_by_netdev(struct iface_rec *iface)
 
 int iface_is_bound_by_ipaddr(struct iface_rec *iface)
 {
-	return 0;
-/*	if (iface && strlen(iface->ipaddress) &&
-	   strcmp(iface->ipaddress, DEFAULT_NETDEV))
+	if (iface && strlen(iface->ipaddress) &&
+	   strcmp(iface->ipaddress, DEFAULT_IPADDRESS))
 		return 1;
 	return 0;
-*/
+}
+
+void iface_print(struct iface_rec *iface, char *prefix)
+{
+	if (strlen(iface->name))
+		printf("%sIface Name: %s\n", prefix, iface->name);
+	else
+		printf("%sIface Name: %s\n", prefix, UNKNOWN_VALUE);
+
+	if (strlen(iface->transport_name))
+		printf("%sIface Transport: %s\n", prefix,
+		      iface->transport_name);
+	else
+		printf("%sIface Transport: %s\n", prefix, UNKNOWN_VALUE);
+
+	if (strlen(iface->iname))
+		printf("%sIface Initiatorname: %s\n", prefix, iface->iname);
+	else
+		printf("%sIface Initiatorname: %s\n", prefix, UNKNOWN_VALUE);
+
+	if (!strlen(iface->ipaddress))
+		printf("%sIface IPaddress: %s\n", prefix, UNKNOWN_VALUE);
+	else if (strchr(iface->ipaddress, '.'))
+		printf("%sIface IPaddress: %s\n", prefix, iface->ipaddress);
+	else
+		printf("%sIface IPaddress: [%s]\n", prefix, iface->ipaddress);
+
+	if (strlen(iface->hwaddress))
+		printf("%sIface HWaddress: %s\n", prefix, iface->hwaddress);
+	else
+		printf("%sIface HWaddress: %s\n", prefix, UNKNOWN_VALUE);
+
+	if (strlen(iface->netdev))
+		printf("%sIface Netdev: %s\n", prefix, iface->netdev);
+	else
+		printf("%sIface Netdev: %s\n", prefix, UNKNOWN_VALUE);
+}
+
+struct iface_print_node_data {
+	struct node_rec *last_rec;
+	struct iface_rec *match_iface;
+};
+
+static int iface_print_nodes(void *data, node_rec_t *rec)
+{
+	struct iface_print_node_data *print_data = data;
+
+	if (!iface_match(print_data->match_iface, &rec->iface))
+		return -1;
+
+	idbm_print_node_tree(print_data->last_rec, rec, "\t");
+	return 0;
 }
 
 /**
- * iface_print_node_tree - print out binding info
+ * iface_print_tree - print out binding info
  * @iface: iface to print out
  *
  * Currently this looks like the iface conf print, because we only
@@ -588,18 +637,18 @@ int iface_is_bound_by_ipaddr(struct iface_rec *iface)
  */
 int iface_print_tree(void *data, struct iface_rec *iface)
 {
-	printf("Name: %s\n", iface->name);
-	printf("\tTransport Name: %s\n",
-	       strlen(iface->transport_name) ? iface->transport_name :
-	       UNKNOWN_VALUE);
-	printf("\tHW Address: %s\n",
-	       strlen(iface->hwaddress) ? iface->hwaddress : UNKNOWN_VALUE);
-	printf("\tIP Address: %s\n",
-	       strlen(iface->ipaddress) ? iface->ipaddress : UNKNOWN_VALUE);
-	printf("\tNetdev: %s\n",
-	       strlen(iface->netdev) ? iface->netdev : UNKNOWN_VALUE);
-	printf("\tInitiator Name: %s\n",
-	       strlen(iface->iname) ? iface->iname : UNKNOWN_VALUE);
+	struct node_rec last_rec;
+	struct iface_print_node_data print_data;
+	int num_found = 0;
+
+	printf("Iface: %s\n", iface->name);
+
+	memset(&last_rec, 0, sizeof(struct node_rec ));
+
+	print_data.match_iface = iface;
+	print_data.last_rec = &last_rec;
+
+	idbm_for_each_rec(&num_found, &print_data, iface_print_nodes);
 	return 0;
 }
 
@@ -661,7 +710,12 @@ int iface_for_each_iface(void *data, int *nr_found, iface_op_fn *fn)
 			continue;
 		}
 
-		idbm_lock();
+		err = idbm_lock();
+		if (err) {
+			free(iface);
+			continue;
+		}
+
 		err = __iface_conf_read(iface);
 		idbm_unlock();
 		if (err) {

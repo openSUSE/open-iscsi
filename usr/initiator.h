@@ -154,6 +154,7 @@ typedef struct iscsi_conn {
          * transports (eg iser) which does these ops from the kernel.
          * In the case of TCP, it is just the transport_fd casted to u64. */
 	uint64_t transport_ep_handle;
+	int bind_ep;
 
 	/* timeouts */
 	int login_timeout;
@@ -253,6 +254,7 @@ typedef struct iscsi_session {
 	uint32_t replacement_timeout;
 
 	int host_reset_timeout;
+	int tgt_reset_timeout;
 	int lu_reset_timeout;
 	int abort_timeout;
 

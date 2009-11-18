@@ -88,7 +88,7 @@ struct iscsi_transport {
 	uint64_t host_param_mask;
 	struct iscsi_cls_session *(*create_session) (struct iscsi_endpoint *ep,
 					uint16_t cmds_max, uint16_t qdepth,
-					uint32_t sn, uint32_t *hn);
+					uint32_t sn);
 	void (*destroy_session) (struct iscsi_cls_session *session);
 	struct iscsi_cls_conn *(*create_conn) (struct iscsi_cls_session *sess,
 				uint32_t cid);
@@ -113,17 +113,27 @@ struct iscsi_transport {
 			 char *data, uint32_t data_size);
 	void (*get_stats) (struct iscsi_cls_conn *conn,
 			   struct iscsi_stats *stats);
+
 	int (*init_task) (struct iscsi_task *task);
 	int (*xmit_task) (struct iscsi_task *task);
-	void (*cleanup_task) (struct iscsi_conn *conn,
-				  struct iscsi_task *task);
+	void (*cleanup_task) (struct iscsi_task *task);
+
+	int (*alloc_pdu) (struct iscsi_task *task, uint8_t opcode);
+	int (*xmit_pdu) (struct iscsi_task *task);
+	int (*init_pdu) (struct iscsi_task *task, unsigned int offset,
+			 unsigned int count);
+	void (*parse_pdu_itt) (struct iscsi_conn *conn, itt_t itt,
+			       int *index, int *age);
+
 	void (*session_recovery_timedout) (struct iscsi_cls_session *session);
-	struct iscsi_endpoint *(*ep_connect) (struct sockaddr *dst_addr,
+	struct iscsi_endpoint *(*ep_connect) (struct Scsi_Host *shost,
+					      struct sockaddr *dst_addr,
 					      int non_blocking);
 	int (*ep_poll) (struct iscsi_endpoint *ep, int timeout_ms);
 	void (*ep_disconnect) (struct iscsi_endpoint *ep);
 	int (*tgt_dscvr) (struct Scsi_Host *shost, enum iscsi_tgt_dscvr type,
 			  uint32_t enable, struct sockaddr *dst_addr);
+	int (*set_path) (struct Scsi_Host *shost, struct iscsi_path *params);
 };
 
 /*
@@ -135,9 +145,14 @@ extern int iscsi_unregister_transport(struct iscsi_transport *tt);
 /*
  * control plane upcalls
  */
-extern void iscsi_conn_error(struct iscsi_cls_conn *conn, enum iscsi_err error);
+extern void iscsi_conn_error_event(struct iscsi_cls_conn *conn,
+				   enum iscsi_err error);
 extern int iscsi_recv_pdu(struct iscsi_cls_conn *conn, struct iscsi_hdr *hdr,
 			  char *data, uint32_t data_size);
+
+extern int iscsi_offload_mesg(struct Scsi_Host *shost,
+			      struct iscsi_transport *transport, uint32_t type,
+			      char *data, uint16_t data_size);
 
 struct iscsi_cls_conn {
 	struct list_head conn_list;	/* item in connlist */
@@ -197,8 +212,6 @@ struct iscsi_cls_session {
 struct iscsi_cls_host {
 	atomic_t nr_scans;
 	struct mutex mutex;
-	struct workqueue_struct *scan_workq;
-	char scan_workq_name[20];
 };
 
 extern void iscsi_host_for_each_session(struct Scsi_Host *shost,

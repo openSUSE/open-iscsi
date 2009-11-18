@@ -14,6 +14,8 @@ iscsiadm \- open-iscsi administration utility
 
 \fBiscsiadm\fR -m fw [-l]
 
+\fBiscsiadm\fR -m host [ -P printlevel ] [ -H hostno ]
+
 \fBiscsiadm\fR -k priority
 
 .SH "DESCRIPTION"
@@ -48,7 +50,8 @@ display help text and exit
 \fB\-I\fR, \fB\-\-interface\fI[iface]\fR
 The interface argument specifies the iSCSI interface to use for the operation.
 iSCSI interfaces (iface) are defined in /etc/iscsi/ifaces. For hardware
-or the iface config must have the hardware address (iface.hwaddress)
+iSCSI (qla4xxx) the iface config must have the hardware address
+(iface.hwaddress = port's MAC address)
 and the driver/transport_name (iface.transport_name). The iface's name is
 then the filename of the iface config. For software iSCSI, the iface config
 must have either the hardware address (iface.hwaddress), or the network
@@ -64,8 +67,7 @@ to decide what to do. There is no need to create a iface config with the default
 behavior. If you do not specify a iface, then the default behavior is used.
 
 As mentioned above there is a special iface name default. There are three
-others -- cxgb3i, bnx2i and iser, which does not bind the session to a specific
-card, but will bind the session to the cxgb3i, bnx2i or iser transport. These
+others -- cxgb3i, bnx2i and iser, which does not bind the session to a specific card, but will bind the session to the cxgb3i, bnx2i or iser transport. These
 are experimental and the use is not supported as a stable interface yet.
 
 In discovery mode multiple interfaces can be specific by passing in multiple
@@ -108,12 +110,13 @@ for session mode).
 .TP
 \fB\-m, \-\-mode \fIop\fR
 specify the mode. \fIop\fR
-must be one of \fIdiscovery\fR, \fInode\fR, \fIfw\fR or \fIsession\fR.
+must be one of \fIdiscovery\fR, \fInode\fR, \fIfw\fR, \fIhost\fR \fIiface\fR or \fIsession\fR.
 .IP
 If no other options are specified: for \fIdiscovery\fR and \fInode\fR, all
 of their respective records are displayed; for \fIsession\fR, all active
 sessions and connections are displayed; for \fIfw\fR, all boot firmware
-values are displayed.
+values are displayed; for \fIhost\fR, all iSCSI hosts are displayed; and
+for \fIiface\fR, all ifaces setup in /etc/iscsi/ifaces are displayed.
 
 .TP
 \fB\-n\fR, \fB\-\-name=\fIname\fR
@@ -131,9 +134,9 @@ record.
 .IP
 \fInew\fR creates a new database record for a given \fIportal\fR (IP address and port number). In discovery mode, iscsiadm will create new records for portals returned by the target.
 .IP
-\fIdelete\fR deletes a specified \fIrecid\fR. In discovery node, iscsiadm will delete records for portals that are no longer returned.
+\fIdelete\fR deletes a specified \fIrecid\fR. In discovery node, if iscsiadm is performing discovery it will delete records for portals that are no longer returned.
 .IP
-\fIupdate\fR will update the \fIrecid\fR with \fIname\fR to the specified \fIvalue\fR. In discovery node the \fIrecid\fR, \fIname\fR  and \fIvalue\fR arguments are not needed. The update operation will operate on the portals returned by the target, and will update the record with info from the config file and command line.
+\fIupdate\fR will update the \fIrecid\fR with \fIname\fR to the specified \fIvalue\fR. In discovery node, if iscsiadm is performing discovery the \fIrecid\fR, \fIname\fR  and \fIvalue\fR arguments are not needed. The update operation will operate on the portals returned by the target, and will update the node records with info from the config file and command line.
 .IP
 \fIshow\fR is the default behaviour for node, discovery and iface mode. It is
 also used when there are no commands passed into session mode and a running

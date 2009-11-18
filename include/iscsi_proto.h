@@ -21,6 +21,9 @@
 #ifndef ISCSI_PROTO_H
 #define ISCSI_PROTO_H
 
+#ifndef __KERNEL__
+#include <stdint.h>
+#endif
 #include <linux/types.h>
 
 #define ISCSI_DRAFT20_VERSION	0x00
@@ -292,6 +295,8 @@ struct iscsi_tm {
 #define ISCSI_TM_FUNC_TARGET_WARM_RESET		6
 #define ISCSI_TM_FUNC_TARGET_COLD_RESET		7
 #define ISCSI_TM_FUNC_TASK_REASSIGN		8
+
+#define ISCSI_TM_FUNC_VALUE(hdr) ((hdr)->flags & ISCSI_FLAG_TM_FUNC_MASK)
 
 /* SCSI Task Management Response Header */
 struct iscsi_tm_rsp {

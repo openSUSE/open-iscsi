@@ -255,7 +255,7 @@ kwritev(enum iscsi_uevent_e type, struct iovec *iovp, int count)
 static int
 __kipc_call(void *iov_base, int iov_len)
 {
-	int rc;
+	int rc, iferr;
 	struct iovec iov;
 	struct iscsi_uevent *ev = iov_base;
 	enum iscsi_uevent_e type = ev->type;
@@ -280,18 +280,22 @@ __kipc_call(void *iov_base, int iov_len)
 							 sizeof(*ev), 0)) < 0) {
 					return rc;
 				}
-				if (ev->iferror == -ENOSYS)
+				/*
+				 * iferror is u32, but the kernel returns
+				 * negative errno values for errors.
+				 */
+				iferr = ev->iferror;
+
+				if (iferr == -ENOSYS)
 					/* not fatal so let caller handle log */
-					log_debug(1, "Recieved iferror %d: %s",
-						  ev->iferror,
-						  strerror(ev->iferror));
-				else if (ev->iferror < 0)
-					log_error("Received iferror %d: %s",
-						   ev->iferror,
-						   strerror(ev->iferror));
+					log_debug(1, "Recieved iferror %d: %s.",
+						  iferr, strerror(-iferr));
+				else if (iferr < 0)
+					log_error("Received iferror %d: %s.",
+						   iferr, strerror(-iferr));
 				else
-					log_error("Received iferror %d",
-						   ev->iferror);
+					log_error("Received iferror %d.",
+						   iferr);
 				return ev->iferror;
 			}
 			/*
@@ -757,8 +761,16 @@ ktransport_ep_connect(iscsi_conn_t *conn, int non_blocking)
 
 	memset(setparam_buf, 0, NLM_SETPARAM_DEFAULT_MAX);
 	ev = (struct iscsi_uevent *)setparam_buf;
-	ev->type = ISCSI_UEVENT_TRANSPORT_EP_CONNECT;
 	ev->transport_handle = conn->session->t->handle;
+
+	if (conn->bind_ep) {
+		ev->type = ISCSI_UEVENT_TRANSPORT_EP_CONNECT_THROUGH_HOST;
+		ev->u.ep_connect_through_host.non_blocking = non_blocking;
+		ev->u.ep_connect_through_host.host_no = conn->session->hostno;
+	} else {
+		ev->type = ISCSI_UEVENT_TRANSPORT_EP_CONNECT;
+		ev->u.ep_connect.non_blocking = non_blocking;
+	}
 
 	if (dst_addr->sa_family == PF_INET)
 		addrlen = sizeof(struct sockaddr_in);
@@ -770,7 +782,6 @@ ktransport_ep_connect(iscsi_conn_t *conn, int non_blocking)
 		return -EINVAL;
 	}
 	memcpy(setparam_buf + sizeof(*ev), dst_addr, addrlen);
-	ev->u.ep_connect.non_blocking = non_blocking;
 
 	if ((rc = __kipc_call(ev, sizeof(*ev) + addrlen)) < 0)
 		return rc;
@@ -929,13 +940,17 @@ static int ctldev_handle(void)
 	case ISCSI_KEVENT_CONN_ERROR:
 		sid = ev->r.connerror.sid;
 		cid = ev->r.connerror.cid;
+		break;
 	case ISCSI_KEVENT_UNBIND_SESSION:
 		sid = ev->r.unbind_session.sid;
 		/* session wide event so cid is 0 */
 		cid = 0;
 		break;
 	default:
-		; /* fall through */
+		log_error("Unknown kernel event %d. You may want to upgrade "
+			  "your iscsi tools.", ev->type);
+		drop_data(nlh);
+		return -EINVAL;
 	}
 
 	/* verify connection */

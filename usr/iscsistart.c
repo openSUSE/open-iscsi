@@ -35,6 +35,7 @@
 
 #include "initiator.h"
 #include "iscsi_ipc.h"
+#include "event_poll.h"
 #include "transport.h"
 #include "log.h"
 #include "util.h"
@@ -43,6 +44,7 @@
 #include "iscsi_sysfs.h"
 #include "iscsi_settings.h"
 #include "fw_context.h"
+#include "sysdeps.h"
 
 /* global config info */
 /* initiator needs initiator name/alias */
@@ -50,6 +52,7 @@ struct iscsi_daemon_config daemon_config;
 struct iscsi_daemon_config *dconfig = &daemon_config;
 
 static node_rec_t config_rec;
+static LIST_HEAD(targets);
 
 static char program_name[] = "iscsistart";
 static int mgmt_ipc_fd;
@@ -112,7 +115,7 @@ static int stop_event_loop(void)
 
 	memset(&req, 0, sizeof(req));
 	req.command = MGMT_IPC_IMMEDIATE_STOP;
-	rc = do_iscsid(&req, &rsp);
+	rc = do_iscsid(&req, &rsp, 0);
 	if (rc) {
 		iscsid_handle_error(rc);
 		log_error("Could not stop event_loop\n");
@@ -120,12 +123,12 @@ static int stop_event_loop(void)
 	return rc;
 }
 
-static int setup_session(void)
+
+static int login_session(void)
 {
 	iscsiadm_req_t req;
 	iscsiadm_rsp_t rsp;
-	int rc;
-
+	int rc, retries = 0;
 	/*
 	 * For root boot we cannot change this so increase to account
 	 * for boot using static setup.
@@ -138,14 +141,61 @@ static int setup_session(void)
 	printf("%s: Logging into %s %s:%d,%d\n", program_name, config_rec.name,
 		config_rec.conn[0].address, config_rec.conn[0].port,
 		config_rec.tpgt);
-
 	memset(&req, 0, sizeof(req));
 	req.command = MGMT_IPC_SESSION_LOGIN;
 	memcpy(&req.u.session.rec, &config_rec, sizeof(node_rec_t));
-	rc = do_iscsid(&req, &rsp);
-	if (rc)
-		iscsid_handle_error(rc);
 
+retry:
+	rc = do_iscsid(&req, &rsp, 0);
+	/*
+	 * handle race where iscsid proc is starting up while we are
+	 * trying to connect.
+	 */
+	if (rc == MGMT_IPC_ERR_ISCSID_NOTCONN && retries < 30) {
+		retries++;
+		sleep(1);
+		goto retry;
+	} else if (rc)
+		iscsid_handle_error(rc);
+	return rc;
+}
+
+static int setup_session(void)
+{
+	struct boot_context *context;
+	struct iscsi_auth_config *auth;
+	int rc = 0, rc2 = 0;
+
+	if (list_empty(&targets))
+		return login_session();
+
+	list_for_each_entry(context, &targets, list) {
+		idbm_node_setup_defaults(&config_rec);
+
+		auth = &config_rec.session.auth;
+		strlcpy(config_rec.name, context->targetname,
+			sizeof(context->targetname));
+		strlcpy(config_rec.conn[0].address, context->target_ipaddr,
+			sizeof(context->target_ipaddr));
+		config_rec.conn[0].port = context->target_port;
+		/* this seems broken ??? */
+		config_rec.tpgt = 1;
+		strlcpy(auth->username, context->chap_name,
+			sizeof(context->chap_name));
+		strlcpy((char *)auth->password, context->chap_password,
+			sizeof(context->chap_password));
+		auth->password_length = strlen((char *)auth->password);
+		strlcpy(auth->username_in, context->chap_name_in,
+			sizeof(context->chap_name_in));
+		strlcpy((char *)auth->password_in, context->chap_password_in,
+			sizeof(context->chap_password_in));
+		auth->password_in_length = strlen((char *)auth->password_in);
+
+		rc2 = login_session();
+		if (rc2)
+			rc = rc2;
+	}
+	fw_free_targets(&targets);
 	return rc;
 }
 
@@ -194,9 +244,9 @@ int main(int argc, char *argv[])
 	struct iscsi_auth_config *auth;
 	char *initiatorname = NULL;
 	int ch, longindex, ret;
+	struct boot_context *context, boot_context;
 	struct sigaction sa_old;
 	struct sigaction sa_new;
-	struct boot_context context;
 	pid_t pid;
 
 	idbm_node_setup_defaults(&config_rec);
@@ -210,6 +260,14 @@ int main(int argc, char *argv[])
 	sa_new.sa_flags = 0;
 	sigaction(SIGINT, &sa_new, &sa_old );
 
+	/* initialize logger */
+	log_daemon = 0;
+	log_init(program_name, DEFAULT_AREA_SIZE);
+
+	sysfs_init();
+	if (iscsi_sysfs_check_class_version())
+		exit(1);
+
 	while ((ch = getopt_long(argc, argv, "i:t:g:a:p:d:u:w:U:W:bfvh",
 				 long_options, &longindex)) >= 0) {
 		switch (ch) {
@@ -219,14 +277,14 @@ int main(int argc, char *argv[])
 		case 't':
 			check_str_param_len(optarg, TARGET_NAME_MAXLEN,
 					    "targetname");
-			strncpy(config_rec.name, optarg, TARGET_NAME_MAXLEN);
+			strlcpy(config_rec.name, optarg, TARGET_NAME_MAXLEN);
 			break;
 		case 'g':
 			config_rec.tpgt = atoi(optarg);
 			break;
 		case 'a':
 			check_str_param_len(optarg, NI_MAXHOST, "address");
-			strncpy(config_rec.conn[0].address, optarg, NI_MAXHOST);
+			strlcpy(config_rec.conn[0].address, optarg, NI_MAXHOST);
 			break;
 		case 'p':
 			config_rec.conn[0].port = atoi(optarg);
@@ -234,14 +292,14 @@ int main(int argc, char *argv[])
 		case 'w':
 			check_str_param_len(optarg, AUTH_STR_MAX_LEN,
 					   "password");
-			strncpy((char *)auth->password, optarg,
+			strlcpy((char *)auth->password, optarg,
 				AUTH_STR_MAX_LEN);
 			auth->password_length = strlen((char *)auth->password);
 			break;
 		case 'W':
 			check_str_param_len(optarg, AUTH_STR_MAX_LEN,
 					   "password_in");
-			strncpy((char *)auth->password_in, optarg,
+			strlcpy((char *)auth->password_in, optarg,
 				AUTH_STR_MAX_LEN);
 			auth->password_in_length =
 				strlen((char *)auth->password_in);
@@ -249,53 +307,43 @@ int main(int argc, char *argv[])
 		case 'u':
 			check_str_param_len(optarg, AUTH_STR_MAX_LEN,
 					    "username");
-			strncpy(auth->username, optarg, AUTH_STR_MAX_LEN);
+			strlcpy(auth->username, optarg, AUTH_STR_MAX_LEN);
 			break;
 		case 'U':
 			check_str_param_len(optarg, AUTH_STR_MAX_LEN,
 					    "username_in");
-			strncpy(auth->username_in, optarg, AUTH_STR_MAX_LEN);
+			strlcpy(auth->username_in, optarg, AUTH_STR_MAX_LEN);
 			break;
 		case 'd':
 			log_level = atoi(optarg);
 			break;
 		case 'b':
-			ret = fw_get_entry(&context, NULL);
+			memset(&boot_context, 0, sizeof(boot_context));
+			ret = fw_get_entry(&boot_context);
 			if (ret) {
-				printf("Could not setup fw entries.");
-				exit(-1);
+				printf("Could not get boot entry.\n");
+				exit(1);
 			}
 
-			initiatorname = context.initiatorname;
-			strncpy(config_rec.name, context.targetname,
-				sizeof(context.targetname));
-			strncpy(config_rec.conn[0].address,
-				context.target_ipaddr,
-				sizeof(context.target_ipaddr));
-			config_rec.conn[0].port = context.target_port;
-			/* this seems broken ??? */
-			config_rec.tpgt = 1;
-			strncpy(auth->username, context.chap_name,
-				sizeof(context.chap_name));
-			strncpy((char *)auth->password, context.chap_password,
-				sizeof(context.chap_password));
-			auth->password_length = strlen((char *)auth->password);
-			strncpy(auth->username_in, context.chap_name_in,
-				sizeof(context.chap_name_in));
-			strncpy((char *)auth->password_in,
-				context.chap_password_in,
-				sizeof(context.chap_password_in));
-			auth->password_in_length =
-					strlen((char *)auth->password_in);
+			initiatorname = boot_context.initiatorname;
+			ret = fw_get_targets(&targets);
+			if (ret || list_empty(&targets)) {
+				printf("Could not setup fw entries.\n");
+				exit(1);
+			}
 			break;
 		case 'f':
-			ret = fw_get_entry(&context, NULL);
-			if (ret) {
-				printf("Could not read fw values.\n");
-				exit(-1);
+			ret = fw_get_targets(&targets);
+			if (ret || list_empty(&targets)) {
+				printf("Could not get list of targets from "
+				       "firmware.\n");
+				exit(1);
 			}
 
-			fw_print_entry(&context);
+			list_for_each_entry(context, &targets, list)
+				fw_print_entry(context);
+
+			fw_free_targets(&targets);
 			exit(0);
 		case 'v':
 			printf("%s version %s\n", program_name,
@@ -310,15 +358,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	/* initialize logger */
-	log_daemon = 0;
-	log_init(program_name, DEFAULT_AREA_SIZE);
-
-	sysfs_init();
-	if (iscsi_sysfs_check_class_version())
-		exit(1);
-
-	if (check_params(initiatorname))
+	if (list_empty(&targets) && check_params(initiatorname))
 		exit(1);
 
 	pid = fork();

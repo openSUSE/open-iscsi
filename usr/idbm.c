@@ -31,12 +31,14 @@
 #include <sys/file.h>
 
 #include "idbm.h"
+#include "idbm_fields.h"
 #include "log.h"
 #include "util.h"
 #include "iscsi_settings.h"
 #include "transport.h"
 #include "iscsi_sysfs.h"
 #include "iface.h"
+#include "sysdeps.h"
 
 #define IDBM_HIDE	0    /* Hide parameter when print. */
 #define IDBM_SHOW	1    /* Show parameter when print. */
@@ -46,9 +48,9 @@ static struct idbm *db;
 
 #define __recinfo_str(_key, _info, _rec, _name, _show, _n, _mod) do { \
 	_info[_n].type = TYPE_STR; \
-	strncpy(_info[_n].name, _key, NAME_MAXVAL); \
+	strlcpy(_info[_n].name, _key, NAME_MAXVAL); \
 	if (strlen((char*)_rec->_name)) \
-		strncpy((char*)_info[_n].value, (char*)_rec->_name, \
+		strlcpy((char*)_info[_n].value, (char*)_rec->_name, \
 			VALUE_MAXVAL); \
 	_info[_n].data = &_rec->_name; \
 	_info[_n].data_len = sizeof(_rec->_name); \
@@ -59,7 +61,7 @@ static struct idbm *db;
 
 #define __recinfo_int(_key, _info, _rec, _name, _show, _n, _mod) do { \
 	_info[_n].type = TYPE_INT; \
-	strncpy(_info[_n].name, _key, NAME_MAXVAL); \
+	strlcpy(_info[_n].name, _key, NAME_MAXVAL); \
 	snprintf(_info[_n].value, VALUE_MAXVAL, "%d", _rec->_name); \
 	_info[_n].data = &_rec->_name; \
 	_info[_n].data_len = sizeof(_rec->_name); \
@@ -70,9 +72,9 @@ static struct idbm *db;
 
 #define __recinfo_int_o2(_key,_info,_rec,_name,_show,_op0,_op1,_n, _mod) do { \
 	_info[_n].type = TYPE_INT_O; \
-	strncpy(_info[_n].name, _key, NAME_MAXVAL); \
-	if (_rec->_name == 0) strncpy(_info[_n].value, _op0, VALUE_MAXVAL); \
-	if (_rec->_name == 1) strncpy(_info[_n].value, _op1, VALUE_MAXVAL); \
+	strlcpy(_info[_n].name, _key, NAME_MAXVAL); \
+	if (_rec->_name == 0) strlcpy(_info[_n].value, _op0, VALUE_MAXVAL); \
+	if (_rec->_name == 1) strlcpy(_info[_n].value, _op1, VALUE_MAXVAL); \
 	_info[_n].data = &_rec->_name; \
 	_info[_n].data_len = sizeof(_rec->_name); \
 	_info[_n].visible = _show; \
@@ -87,7 +89,7 @@ static struct idbm *db;
 			 _mod) do { \
 	__recinfo_int_o2(_key,_info,_rec,_name,_show,_op0,_op1,_n, _mod); \
 	_n--; \
-	if (_rec->_name == 2) strncpy(_info[_n].value, _op2, VALUE_MAXVAL);\
+	if (_rec->_name == 2) strlcpy(_info[_n].value, _op2, VALUE_MAXVAL);\
 	_info[_n].opts[2] = _op2; \
 	_info[_n].numopts = 3; \
 	_n++; \
@@ -97,7 +99,7 @@ static struct idbm *db;
 			 _mod) do { \
 	__recinfo_int_o3(_key,_info,_rec,_name,_show,_op0,_op1,_op2,_n, _mod); \
 	_n--; \
-	if (_rec->_name == 3) strncpy(_info[_n].value, _op3, VALUE_MAXVAL); \
+	if (_rec->_name == 3) strlcpy(_info[_n].value, _op3, VALUE_MAXVAL); \
 	_info[_n].opts[3] = _op3; \
 	_info[_n].numopts = 4; \
 	_n++; \
@@ -108,7 +110,7 @@ static struct idbm *db;
 	__recinfo_int_o4(_key,_info,_rec,_name,_show,_op0,_op1,_op2,_op3, \
 			  _n,_mod); \
 	_n--; \
-	if (_rec->_name == 4) strncpy(_info[_n].value, _op4, VALUE_MAXVAL); \
+	if (_rec->_name == 4) strlcpy(_info[_n].value, _op4, VALUE_MAXVAL); \
 	_info[_n].opts[4] = _op4; \
 	_info[_n].numopts = 5; \
 	_n++; \
@@ -119,72 +121,11 @@ static struct idbm *db;
 	__recinfo_int_o5(_key,_info,_rec,_name,_show,_op0,_op1,_op2,_op3, \
 			 _op4,_n,_mod); \
 	_n--; \
-	if (_rec->_name == 5) strncpy(_info[_n].value, _op5, VALUE_MAXVAL); \
+	if (_rec->_name == 5) strlcpy(_info[_n].value, _op5, VALUE_MAXVAL); \
 	_info[_n].opts[5] = _op5; \
 	_info[_n].numopts = 6; \
 	_n++; \
 } while(0)
-
-/*
- * from linux kernel
- */
-static char *strstrip(char *s)
-{
-	size_t size;
-	char *end;
-
-	size = strlen(s);
-	if (!size)
-		return s;
-
-	end = s + size - 1;
-	while (end >= s && isspace(*end))
-		end--;
-	*(end + 1) = '\0';
-
-	while (*s && isspace(*s))
-		s++;
-
-	return s;
-}
-
-static char *get_global_string_param(char *pathname, const char *key)
-{
-	FILE *f = NULL;
-	int len;
-	char *line, buffer[1024];
-	char *name = NULL;
-
-	if (!pathname) {
-		log_error("No pathname to load %s from", key);
-		return NULL;
-	}
-
-	len = strlen(key);
-	if ((f = fopen(pathname, "r"))) {
-		while ((line = fgets(buffer, sizeof (buffer), f))) {
-
-			line = strstrip(line);
-
-			if (strncmp(line, key, len) == 0) {
-				char *end = line + len;
-
-				/*
-				 * make sure ther is something after the
-				 * key.
-				 */
-				if (strlen(end))
-					name = strdup(line + len);
-			}
-		}
-		fclose(f);
-		if (name)
-			log_debug(5, "%s=%s", key, name);
-	} else
-		log_error("can't open %s configuration file %s", key, pathname);
-
-	return name;
-}
 
 char *get_iscsi_initiatorname(char *pathname)
 {
@@ -207,48 +148,47 @@ idbm_recinfo_discovery(discovery_rec_t *r, recinfo_t *ri)
 {
 	int num = 0;
 
-	__recinfo_int_o2("discovery.startup", ri, r, startup, IDBM_SHOW,
+	__recinfo_int_o2(DISC_STARTUP, ri, r, startup, IDBM_SHOW,
 			"manual", "automatic", num, 1);
-	__recinfo_int_o6("discovery.type", ri, r, type, IDBM_SHOW,
+	__recinfo_int_o6(DISC_TYPE, ri, r, type, IDBM_SHOW,
 			"sendtargets", "offload_send_targets", "slp", "isns",
 			"static", "fw", num, 0);
 	if (r->type == DISCOVERY_TYPE_SENDTARGETS) {
-		__recinfo_str("discovery.sendtargets.address", ri, r,
+		__recinfo_str(DISC_ST_ADDR, ri, r,
 			address, IDBM_SHOW, num, 0);
-		__recinfo_int("discovery.sendtargets.port", ri, r,
+		__recinfo_int(DISC_ST_PORT, ri, r,
 			port, IDBM_SHOW, num, 0);
-		__recinfo_int_o2("discovery.sendtargets.auth.authmethod", ri, r,
+		__recinfo_int_o2(DISC_ST_AUTH_METHOD, ri, r,
 			u.sendtargets.auth.authmethod,
 			IDBM_SHOW, "None", "CHAP", num, 1);
-		__recinfo_str("discovery.sendtargets.auth.username", ri, r,
+		__recinfo_str(DISC_ST_USERNAME, ri, r,
 			u.sendtargets.auth.username, IDBM_SHOW, num, 1);
-		__recinfo_str("discovery.sendtargets.auth.password", ri, r,
+		__recinfo_str(DISC_ST_PASSWORD, ri, r,
 			u.sendtargets.auth.password, IDBM_MASKED, num, 1);
-		__recinfo_int("discovery.sendtargets.auth.password_length",
-			ri, r, u.sendtargets.auth.password_length,
-			IDBM_HIDE, num, 1);
-		__recinfo_str("discovery.sendtargets.auth.username_in", ri, r,
+		__recinfo_int(DISC_ST_PASSWORD_LEN, ri, r,
+			u.sendtargets.auth.password_length, IDBM_HIDE, num, 1);
+		__recinfo_str(DISC_ST_USERNAME_IN, ri, r,
 			u.sendtargets.auth.username_in, IDBM_SHOW, num, 1);
-		__recinfo_str("discovery.sendtargets.auth.password_in", ri, r,
+		__recinfo_str(DISC_ST_PASSWORD_IN, ri, r,
 			u.sendtargets.auth.password_in, IDBM_MASKED, num, 1);
-		__recinfo_int("discovery.sendtargets.auth.password_in_length",
-			ri, r, u.sendtargets.auth.password_in_length,
-			IDBM_HIDE, num, 1);
-		__recinfo_int("discovery.sendtargets.timeo.login_timeout",ri, r,
+		__recinfo_int(DISC_ST_PASSWORD_IN_LEN, ri, r,
+			u.sendtargets.auth.password_in_length, IDBM_HIDE,
+			num, 1);
+		__recinfo_int(DISC_ST_LOGIN_TMO, ri, r,
 			u.sendtargets.conn_timeo.login_timeout,
 			IDBM_SHOW, num, 1);
-		__recinfo_int("discovery.sendtargets.reopen_max",ri, r,
+		__recinfo_int(DISC_ST_REOPEN_MAX,ri, r,
 			u.sendtargets.reopen_max,
 			IDBM_SHOW, num, 1);
-		__recinfo_int("discovery.sendtargets.timeo.auth_timeout", ri, r,
+		__recinfo_int(DISC_ST_AUTH_TMO, ri, r,
 			u.sendtargets.conn_timeo.auth_timeout,
 			IDBM_SHOW, num, 1);
-		__recinfo_int("discovery.sendtargets.timeo.active_timeout",ri,r,
+		__recinfo_int(DISC_ST_ACTIVE_TMO, ri, r,
 			      u.sendtargets.conn_timeo.active_timeout,
 			      IDBM_SHOW, num, 1);
-		__recinfo_int("discovery.sendtargets.iscsi.MaxRecvDataSegmentLength",
-			ri, r, u.sendtargets.iscsi.MaxRecvDataSegmentLength,
-			IDBM_SHOW, num, 1);
+		__recinfo_int(DISC_ST_MAX_RECV_DLEN, ri, r,
+			      u.sendtargets.iscsi.MaxRecvDataSegmentLength,
+			      IDBM_SHOW, num, 1);
 	}
 }
 
@@ -257,9 +197,9 @@ idbm_recinfo_node(node_rec_t *r, recinfo_t *ri)
 {
 	int num = 0, i;
 
-	__recinfo_str("node.name", ri, r, name, IDBM_SHOW, num, 0);
-	__recinfo_int("node.tpgt", ri, r, tpgt, IDBM_SHOW, num, 0);
-	__recinfo_int_o3("node.startup", ri, r, startup,
+	__recinfo_str(NODE_NAME, ri, r, name, IDBM_SHOW, num, 0);
+	__recinfo_int(NODE_TPGT, ri, r, tpgt, IDBM_SHOW, num, 0);
+	__recinfo_int_o3(NODE_STARTUP, ri, r, startup,
 			IDBM_SHOW, "manual", "automatic", "onboot", num, 1);
 	/*
 	 * Note: because we do not add the iface.iscsi_ifacename to
@@ -272,136 +212,136 @@ idbm_recinfo_node(node_rec_t *r, recinfo_t *ri)
 	 * the iface mode which will do the right thing (althought that
 	 * needs some locking).
 	 */
-	__recinfo_str("iface.hwaddress", ri, r, iface.hwaddress, IDBM_SHOW,
-		      num, 1);
-	__recinfo_str("iface.ipaddress", ri, r, iface.ipaddress, IDBM_SHOW,
-		      num, 1);
-	__recinfo_str("iface.iscsi_ifacename", ri, r, iface.name, IDBM_SHOW,
-		      num, 1);
-	__recinfo_str("iface.net_ifacename", ri, r, iface.netdev, IDBM_SHOW,
-		      num, 1);
+	__recinfo_str(IFACE_HWADDR, ri, r, iface.hwaddress, IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_IPADDR, ri, r, iface.ipaddress, IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_ISCSINAME, ri, r, iface.name, IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_NETNAME, ri, r, iface.netdev, IDBM_SHOW, num, 1);
 	/*
 	 * svn 780 compat: older versions used node.transport_name and
 	 * rec->transport_name
 	 */
-	__recinfo_str("iface.transport_name", ri, r, iface.transport_name,
+	__recinfo_str(IFACE_TRANSPORTNAME, ri, r, iface.transport_name,
 		      IDBM_SHOW, num, 1);
-	__recinfo_str("iface.initiatorname", ri, r, iface.iname,
-		      IDBM_SHOW, num, 1);
-	__recinfo_str("node.discovery_address", ri, r, disc_address, IDBM_SHOW,
+	__recinfo_str(IFACE_INAME, ri, r, iface.iname, IDBM_SHOW, num, 1);
+	__recinfo_str(NODE_DISC_ADDR, ri, r, disc_address, IDBM_SHOW,
 		      num, 0);
-	__recinfo_int("node.discovery_port", ri, r, disc_port, IDBM_SHOW,
+	__recinfo_int(NODE_DISC_PORT, ri, r, disc_port, IDBM_SHOW,
 		      num, 0);
-	__recinfo_int_o6("node.discovery_type", ri, r, disc_type,
+	__recinfo_int_o6(NODE_DISC_TYPE, ri, r, disc_type,
 			 IDBM_SHOW, "send_targets", "offload_send_targets",
 			 "slp", "isns", "static", "fw", num, 0);
-	__recinfo_int("node.session.initial_cmdsn", ri, r,
+	__recinfo_int(SESSION_INIT_CMDSN, ri, r,
 		      session.initial_cmdsn, IDBM_SHOW, num, 1);
-	__recinfo_int("node.session.initial_login_retry_max", ri, r,
+	__recinfo_int(SESSION_INIT_LOGIN_RETRY, ri, r,
 		      session.initial_login_retry_max, IDBM_SHOW, num, 1);
-	__recinfo_int("node.session.cmds_max", ri, r,
+	__recinfo_int(SESSION_XMIT_THREAD_PRIORITY, ri, r,
+		      session.xmit_thread_priority, IDBM_SHOW, num, 1);
+	__recinfo_int(SESSION_CMDS_MAX, ri, r,
 		      session.cmds_max, IDBM_SHOW, num, 1);
-	__recinfo_int("node.session.queue_depth", ri, r,
+	__recinfo_int(SESSION_QDEPTH, ri, r,
 		       session.queue_depth, IDBM_SHOW, num, 1);
-	__recinfo_int_o2("node.session.auth.authmethod", ri, r,
-		session.auth.authmethod, IDBM_SHOW, "None", "CHAP", num, 1);
-	__recinfo_str("node.session.auth.username", ri, r,
+	__recinfo_int_o2(SESSION_AUTH_METHOD, ri, r, session.auth.authmethod,
+			 IDBM_SHOW, "None", "CHAP", num, 1);
+	__recinfo_str(SESSION_USERNAME, ri, r,
 		      session.auth.username, IDBM_SHOW, num, 1);
-	__recinfo_str("node.session.auth.password", ri, r,
+	__recinfo_str(SESSION_PASSWORD, ri, r,
 		      session.auth.password, IDBM_MASKED, num, 1);
-	__recinfo_int("node.session.auth.password_length", ri, r,
+	__recinfo_int(SESSION_PASSWORD_LEN, ri, r,
 		      session.auth.password_length, IDBM_HIDE, num, 1);
-	__recinfo_str("node.session.auth.username_in", ri, r,
+	__recinfo_str(SESSION_USERNAME_IN, ri, r,
 		      session.auth.username_in, IDBM_SHOW, num, 1);
-	__recinfo_str("node.session.auth.password_in", ri, r,
+	__recinfo_str(SESSION_PASSWORD_IN, ri, r,
 		      session.auth.password_in, IDBM_MASKED, num, 1);
-	__recinfo_int("node.session.auth.password_in_length", ri, r,
+	__recinfo_int(SESSION_PASSWORD_IN_LEN, ri, r,
 		      session.auth.password_in_length, IDBM_HIDE, num, 1);
-	__recinfo_int("node.session.timeo.replacement_timeout", ri, r,
+	__recinfo_int(SESSION_REPLACEMENT_TMO, ri, r,
 		      session.timeo.replacement_timeout,
 		      IDBM_SHOW, num, 1);
-	__recinfo_int("node.session.err_timeo.abort_timeout", ri, r,
+	__recinfo_int(SESSION_ABORT_TMO, ri, r,
 		      session.err_timeo.abort_timeout,
 		      IDBM_SHOW, num, 1);
-	__recinfo_int("node.session.err_timeo.lu_reset_timeout", ri, r,
+	__recinfo_int(SESSION_LU_RESET_TMO, ri, r,
 		      session.err_timeo.lu_reset_timeout,
 		      IDBM_SHOW, num, 1);
-	__recinfo_int("node.session.err_timeo.host_reset_timeout", ri, r,
+	__recinfo_int(SESSION_TGT_RESET_TMO, ri, r,
+		      session.err_timeo.tgt_reset_timeout,
+		      IDBM_SHOW, num, 1);
+	__recinfo_int(SESSION_HOST_RESET_TMO, ri, r,
 		      session.err_timeo.host_reset_timeout,
 		      IDBM_SHOW, num, 1);
-	__recinfo_int_o2("node.session.iscsi.FastAbort", ri, r,
+	__recinfo_int_o2(SESSION_FAST_ABORT, ri, r,
 			 session.iscsi.FastAbort, IDBM_SHOW, "No", "Yes",
 			 num, 1);
-	__recinfo_int_o2("node.session.iscsi.InitialR2T", ri, r,
-			 session.iscsi.InitialR2T, IDBM_SHOW,
+	__recinfo_int_o2(SESSION_INITIAL_R2T, ri, r,
+			session.iscsi.InitialR2T, IDBM_SHOW,
 			"No", "Yes", num, 1);
-	__recinfo_int_o2("node.session.iscsi.ImmediateData",
-			 ri, r, session.iscsi.ImmediateData, IDBM_SHOW,
-			"No", "Yes", num, 1);
-	__recinfo_int("node.session.iscsi.FirstBurstLength", ri, r,
+	__recinfo_int_o2(SESSION_IMM_DATA, ri, r,
+			session.iscsi.ImmediateData,
+			IDBM_SHOW, "No", "Yes", num, 1);
+	__recinfo_int(SESSION_FIRST_BURST, ri, r,
 		      session.iscsi.FirstBurstLength, IDBM_SHOW, num, 1);
-	__recinfo_int("node.session.iscsi.MaxBurstLength", ri, r,
+	__recinfo_int(SESSION_MAX_BURST, ri, r,
 		      session.iscsi.MaxBurstLength, IDBM_SHOW, num, 1);
-	__recinfo_int("node.session.iscsi.DefaultTime2Retain", ri, r,
+	__recinfo_int(SESSION_DEF_TIME2RETAIN, ri, r,
 		      session.iscsi.DefaultTime2Retain, IDBM_SHOW, num, 1);
-	__recinfo_int("node.session.iscsi.DefaultTime2Wait", ri, r,
+	__recinfo_int(SESSION_DEF_TIME2WAIT, ri, r,
 		      session.iscsi.DefaultTime2Wait, IDBM_SHOW, num, 1);
-	__recinfo_int("node.session.iscsi.MaxConnections", ri, r,
+	__recinfo_int(SESSION_MAX_CONNS, ri, r,
 		      session.iscsi.MaxConnections, IDBM_SHOW, num, 1);
-	__recinfo_int("node.session.iscsi.MaxOutstandingR2T", ri, r,
+	__recinfo_int(SESSION_MAX_R2T, ri, r,
 		      session.iscsi.MaxOutstandingR2T, IDBM_SHOW, num, 1);
-	__recinfo_int("node.session.iscsi.ERL", ri, r,
+	__recinfo_int(SESSION_ERL, ri, r,
 		      session.iscsi.ERL, IDBM_SHOW, num, 1);
 
 	for (i = 0; i < ISCSI_CONN_MAX; i++) {
 		char key[NAME_MAXVAL];
 
-		sprintf(key, "node.conn[%d].address", i);
+		sprintf(key, CONN_ADDR, i);
 		__recinfo_str(key, ri, r, conn[i].address, IDBM_SHOW, num, 0);
-		sprintf(key, "node.conn[%d].port", i);
+		sprintf(key, CONN_PORT, i);
 		__recinfo_int(key, ri, r, conn[i].port, IDBM_SHOW, num, 0);
-		sprintf(key, "node.conn[%d].startup", i);
+		sprintf(key, CONN_STARTUP, i);
 		__recinfo_int_o3(key, ri, r, conn[i].startup, IDBM_SHOW,
 				 "manual", "automatic", "onboot", num, 1);
-		sprintf(key, "node.conn[%d].tcp.window_size", i);
+		sprintf(key, CONN_WINDOW_SIZE, i);
 		__recinfo_int(key, ri, r, conn[i].tcp.window_size,
 			      IDBM_SHOW, num, 1);
-		sprintf(key, "node.conn[%d].tcp.type_of_service", i);
+		sprintf(key, CONN_SERVICE_TYPE, i);
 		__recinfo_int(key, ri, r, conn[i].tcp.type_of_service,
 				IDBM_SHOW, num, 1);
-		sprintf(key, "node.conn[%d].timeo.logout_timeout", i);
+		sprintf(key, CONN_LOGOUT_TMO, i);
 		__recinfo_int(key, ri, r, conn[i].timeo.logout_timeout,
 				IDBM_SHOW, num, 1);
-		sprintf(key, "node.conn[%d].timeo.login_timeout", i);
+		sprintf(key, CONN_LOGIN_TMO, i);
 		__recinfo_int(key, ri, r, conn[i].timeo.login_timeout,
 				IDBM_SHOW, num, 1);
-		sprintf(key, "node.conn[%d].timeo.auth_timeout", i);
+		sprintf(key, CONN_AUTH_TMO, i);
 		__recinfo_int(key, ri, r, conn[i].timeo.auth_timeout,
 				IDBM_SHOW, num, 1);
 
-		sprintf(key, "node.conn[%d].timeo.noop_out_interval", i);
+		sprintf(key, CONN_NOP_INT, i);
 		__recinfo_int(key, ri, r, conn[i].timeo.noop_out_interval,
 				IDBM_SHOW, num, 1);
-		sprintf(key, "node.conn[%d].timeo.noop_out_timeout", i);
+		sprintf(key, CONN_NOP_TMO, i);
 		__recinfo_int(key, ri, r, conn[i].timeo.noop_out_timeout,
 				IDBM_SHOW, num, 1);
 
-		sprintf(key, "node.conn[%d].iscsi.MaxRecvDataSegmentLength", i);
+		sprintf(key, CONN_MAX_RECV_DLEN, i);
 		__recinfo_int(key, ri, r,
 			conn[i].iscsi.MaxRecvDataSegmentLength, IDBM_SHOW,
 			num, 1);
-		sprintf(key, "node.conn[%d].iscsi.HeaderDigest", i);
+		sprintf(key, CONN_HDR_DIGEST, i);
 		__recinfo_int_o4(key, ri, r, conn[i].iscsi.HeaderDigest,
 				 IDBM_SHOW, "None", "CRC32C", "CRC32C,None",
 				 "None,CRC32C", num, 1);
-		sprintf(key, "node.conn[%d].iscsi.DataDigest", i);
+		sprintf(key, CONN_DATA_DIGEST, i);
 		__recinfo_int_o4(key, ri, r, conn[i].iscsi.DataDigest, IDBM_SHOW,
 				 "None", "CRC32C", "CRC32C,None",
 				 "None,CRC32C", num, 1);
-		sprintf(key, "node.conn[%d].iscsi.IFMarker", i);
+		sprintf(key, CONN_IFMARKER, i);
 		__recinfo_int_o2(key, ri, r, conn[i].iscsi.IFMarker, IDBM_SHOW,
 				"No", "Yes", num, 1);
-		sprintf(key, "node.conn[%d].iscsi.OFMarker", i);
+		sprintf(key, CONN_OFMARKER, i);
 		__recinfo_int_o2(key, ri, r, conn[i].iscsi.OFMarker, IDBM_SHOW,
 				"No", "Yes", num, 1);
 	}
@@ -411,13 +351,13 @@ void idbm_recinfo_iface(iface_rec_t *r, recinfo_t *ri)
 {
 	int num = 0;
 
-	__recinfo_str("iface.iscsi_ifacename", ri, r, name, IDBM_SHOW, num, 0);
-	__recinfo_str("iface.net_ifacename", ri, r, netdev, IDBM_SHOW, num, 1);
-	__recinfo_str("iface.ipaddress", ri, r, ipaddress, IDBM_SHOW, num, 1);
-	__recinfo_str("iface.hwaddress", ri, r, hwaddress, IDBM_SHOW, num, 1);
-	__recinfo_str("iface.transport_name", ri, r, transport_name,
+	__recinfo_str(IFACE_ISCSINAME, ri, r, name, IDBM_SHOW, num, 0);
+	__recinfo_str(IFACE_NETNAME, ri, r, netdev, IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_IPADDR, ri, r, ipaddress, IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_HWADDR, ri, r, hwaddress, IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_TRANSPORTNAME, ri, r, transport_name,
 		      IDBM_SHOW, num, 1);
-	__recinfo_str("iface.initiatorname", ri, r, iname, IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_INAME, ri, r, iname, IDBM_SHOW, num, 1);
 }
 
 recinfo_t *idbm_recinfo_alloc(int max_keys)
@@ -452,6 +392,7 @@ void idbm_print(int type, void *rec, int show, FILE *f)
 		break;
 	}
 
+	fprintf(f, "%s\n", ISCSI_BEGIN_REC);
 	for (i = 0; i < MAX_KEYS; i++) {
 		if (!info[i].visible)
 			continue;
@@ -468,6 +409,7 @@ void idbm_print(int type, void *rec, int show, FILE *f)
 		else if (f == stdout)
 			fprintf(f, "%s = <empty>\n", info[i].name);
 	}
+	fprintf(f, "%s\n", ISCSI_END_REC);
 
 	free(info);
 }
@@ -527,7 +469,7 @@ setup_passwd_len:
 				if (!info[i].data)
 					continue;
 
-				strncpy((char*)info[i].data,
+				strlcpy((char*)info[i].data,
 					value, info[i].data_len);
 				goto updated;
 			}
@@ -553,6 +495,8 @@ setup_passwd_len:
 	return 1;
 
 updated:
+	strlcpy((char*)info[i].value, value, VALUE_MAXVAL);
+
 #define check_password_param(_param) \
 	if (!passwd_done && !strcmp(#_param, name)) { \
 		passwd_done = 1; \
@@ -773,12 +717,11 @@ int idbm_print_node_flat(void *data, node_rec_t *rec)
 	return 0;
 }
 
-int idbm_print_node_tree(void *data, node_rec_t *rec)
+int idbm_print_node_tree(struct node_rec *last_rec, struct node_rec *rec,
+			 char *prefix)
 {
-	node_rec_t *last_rec = data;
-
 	if (!last_rec || strcmp(last_rec->name, rec->name)) {
-		printf("Target: %s\n", rec->name);
+		printf("%sTarget: %s\n", prefix, rec->name);
 		if (last_rec)
 			memset(last_rec, 0, sizeof(node_rec_t));
 	}
@@ -787,17 +730,24 @@ int idbm_print_node_tree(void *data, node_rec_t *rec)
 	     ((strcmp(last_rec->conn[0].address, rec->conn[0].address) ||
 	     last_rec->conn[0].port != rec->conn[0].port))) {
 		if (strchr(rec->conn[0].address, '.'))
-			printf("\tPortal: %s:%d,%d\n", rec->conn[0].address,
+			printf("%s\tPortal: %s:%d,%d\n", prefix,
+			       rec->conn[0].address,
 			       rec->conn[0].port, rec->tpgt);
 		else
-			printf("\tPortal: [%s]:%d,%d\n", rec->conn[0].address,
+			printf("%s\tPortal: [%s]:%d,%d\n", prefix,
+			       rec->conn[0].address,
 			       rec->conn[0].port, rec->tpgt);
 	}
 
-	printf("\t\tIface Name: %s\n", rec->iface.name);
-
 	if (last_rec)
 		memcpy(last_rec, rec, sizeof(node_rec_t));
+	return 0;
+}
+
+int idbm_print_node_and_iface_tree(void *data, node_rec_t *rec)
+{
+	idbm_print_node_tree(data, rec, "");
+	printf("\t\tIface Name: %s\n", rec->iface.name);
 	return 0;
 }
 
@@ -837,7 +787,7 @@ int idbm_lock(void)
 	if (access(LOCK_DIR, F_OK) != 0) {
 		if (mkdir(LOCK_DIR, 0660) != 0) {
 			log_error("Could not open %s. Exiting\n", LOCK_DIR);
-			exit(-1);
+			return errno;
 		}
 	}
 
@@ -851,10 +801,10 @@ int idbm_lock(void)
 			break;
 
 		if (errno != EEXIST) {
+			log_error("Maybe you are not root?");
 			log_error("Could not lock discovery DB: %s: %s",
 					LOCK_WRITE_FILE, strerror(errno));
-			log_error("Maybe you are not root?");
-			exit(-1);
+			return errno;
 		} else if (i == 0)
 			log_debug(2, "Waiting for discovery DB lock");
 
@@ -893,8 +843,8 @@ static FILE *idbm_open_rec_r(char *portal, char *config)
 	}
 
 	if (S_ISDIR(statb.st_mode)) {
-		strncat(portal, "/", PATH_MAX);
-		strncat(portal, config, PATH_MAX);
+		strlcat(portal, "/", PATH_MAX);
+		strlcat(portal, config, PATH_MAX);
 	}
 	return fopen(portal, "r");
 }
@@ -909,7 +859,10 @@ static int __idbm_rec_read(node_rec_t *out_rec, char *conf)
 	if (!info)
 		return ENOMEM;
 
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		goto free_info;
+
 	f = fopen(conf, "r");
 	if (!f) {
 		log_debug(5, "Could not open %s err %d\n", conf, errno);
@@ -925,6 +878,7 @@ static int __idbm_rec_read(node_rec_t *out_rec, char *conf)
 
 unlock:
 	idbm_unlock();
+free_info:
 	free(info);
 	return rc;
 }
@@ -969,124 +923,68 @@ free_portal:
 	return rc;
 }
 
-static int st_disc_filter(const struct dirent *dir)
+static int print_discovered_flat(void *data, node_rec_t *rec)
 {
-	return strcmp(dir->d_name, ".") && strcmp(dir->d_name, "..") &&
-	       strcmp(dir->d_name, ST_CONFIG_NAME);
-}
+	struct discovery_rec *drec = data;
 
-static int print_discovered(char *disc_path, int info_level)
-{
-	char *tmp_port = NULL, *last_address = NULL, *last_target = NULL;
-	char *target = NULL, *address = NULL, *ifaceid = NULL, *tpgt = NULL;
-	char *portal;
-	int n, i, last_port = -1;
-	struct dirent **namelist;
-	node_rec_t *rec;
+	if (rec->disc_type != drec->type)
+		goto no_match;
 
-	n = scandir(disc_path, &namelist, st_disc_filter, direntcmp);
-	if (n < 0)
-		return 0;
-
-	rec = malloc(sizeof(*rec));
-	if (!rec)
-		goto free_namelist;
-
-	portal = malloc(PATH_MAX);
-	if (!portal)
-		goto free_rec;
-
-	for (i = 0; i < n; i++) {
-		if (get_params_from_disc_link(namelist[i]->d_name, &target,
-					      &tpgt, &address, &tmp_port,
-					      &ifaceid)) {
-			log_error("Improperly formed disc to node link");
-			continue;
-		}
-
-		memset(portal, 0, PATH_MAX);
-		snprintf(portal, PATH_MAX, "%s/%s/%s,%s,%s/%s", NODE_CONFIG_DIR,
-			 target, address, tmp_port, tpgt, ifaceid);
-		if (__idbm_rec_read(rec, portal)) {
-			log_error("Could not read node record for %s "
-				  "%s %d %s", target, address, atoi(tmp_port),
-				  ifaceid);
-			continue;
-		}
-
-		if (info_level < 1) {
-			if (strchr(address, '.'))
-				printf("%s:%d,%d %s\n", address, atoi(tmp_port),
-					rec->tpgt, target);
-			else
-				printf("[%s]:%d,%d %s\n", address,
-					atoi(tmp_port), rec->tpgt, target);
-			continue;
-		}
-
-		if (!last_target || strcmp(last_target, target)) {
-			printf("    Target: %s\n", target);
-			last_target = namelist[i]->d_name;
-			last_port = -1;
-			last_address = NULL;
-		}
-
-		if (!last_address || strcmp(last_address, address) ||
-		    last_port == -1 || last_port != atoi(tmp_port)) {
-			last_port = atoi(tmp_port);
-			printf("        ");
-			if (strchr(address, '.'))
-				printf("Portal: %s:%d,%d\n", address,
-					last_port, rec->tpgt);
-			else
-				printf("Portal: [%s]:%d,%d\n", address,
-					last_port, rec->tpgt);
-			last_address = address;
-		}
-
-		printf("           Iface Name: %s\n", rec->iface.name);
+	if (drec->type == DISCOVERY_TYPE_SENDTARGETS) {
+		if (rec->disc_port != drec->port ||
+		    strcmp(rec->disc_address, drec->address))
+			goto no_match;
 	}
 
-	free(portal);
-free_rec:
-	free(rec);
-free_namelist:
-	for (i = 0; i < n; i++)
-		free(namelist[i]);
-	free(namelist);
-	return n;
+	idbm_print_node_flat(NULL, rec);
+	return 0;
+no_match:
+	return -1;
 }
 
-int idbm_print_discovered(discovery_rec_t *drec, int info_level)
+struct discovered_tree_info {
+	struct discovery_rec *drec;
+	struct node_rec *last_rec;
+};
+
+static int print_discovered_tree(void *data, node_rec_t *rec)
 {
-	char *disc_path;
-	int rc;
+	struct discovered_tree_info *tree_info = data;
+	struct discovery_rec *drec = tree_info->drec;
 
-	disc_path = calloc(1, PATH_MAX);
-	if (!disc_path)
-		return 0;
+	if (rec->disc_type != drec->type)
+		goto no_match;
 
-	switch (drec->type) {
-	case DISCOVERY_TYPE_SENDTARGETS:
-		snprintf(disc_path, PATH_MAX, "%s/%s,%d", ST_CONFIG_DIR,
-			 drec->address, drec->port);
-		break;
-	case DISCOVERY_TYPE_STATIC:
-		snprintf(disc_path, PATH_MAX, "%s", STATIC_CONFIG_DIR);
-		break;
-	case DISCOVERY_TYPE_ISNS:
-		snprintf(disc_path, PATH_MAX, "%s", ISNS_CONFIG_DIR);
-		break;
-	case DISCOVERY_TYPE_SLP:
-	default:
-		rc = 0;
-		goto done;
+	if (drec->type == DISCOVERY_TYPE_SENDTARGETS) {
+		if (rec->disc_port != drec->port ||
+		    strcmp(rec->disc_address, drec->address))
+			goto no_match;
 	}
 
-	rc = print_discovered(disc_path, info_level);
-done:
-	free(disc_path);
-	return rc;
+	idbm_print_node_and_iface_tree(tree_info->last_rec, rec);
+	return 0;
+no_match:
+	return -1;
+}
+
+int idbm_print_discovered(struct discovery_rec *drec, int info_level)
+{
+	int num_found = 0;
+
+	if (info_level < 1)
+		idbm_for_each_rec(&num_found, drec, print_discovered_flat);
+	else {
+		struct discovered_tree_info tree_info;
+		struct node_rec last_rec;
+
+		memset(&last_rec, 0, sizeof(struct node_rec));
+
+		tree_info.drec = drec;
+		tree_info.last_rec = &last_rec;
+
+		idbm_for_each_rec(&num_found, &tree_info,							  print_discovered_tree);
+	}
+	return num_found;
 }
 
 static int idbm_print_all_st(int info_level)
@@ -1095,6 +993,7 @@ static int idbm_print_all_st(int info_level)
 	struct dirent *entity_dent;
 	int found = 0;
 	char *disc_dir;
+	char *tmp_port;
 
 	disc_dir = malloc(PATH_MAX);
 	if (!disc_dir)
@@ -1110,23 +1009,28 @@ static int idbm_print_all_st(int info_level)
 			continue;
 
 		log_debug(5, "found %s\n", entity_dent->d_name);
+
+		tmp_port = strchr(entity_dent->d_name, ',');
+		if (!tmp_port)
+			continue;
+		*tmp_port++ = '\0';
+
 		if (info_level >= 1) {
-			memset(disc_dir, 0, PATH_MAX);
-			snprintf(disc_dir, PATH_MAX, "%s/%s", ST_CONFIG_DIR,
-				 entity_dent->d_name);
+			struct discovery_rec drec;
 
-			printf("DiscoveryAddress: %s\n", entity_dent->d_name);
-			found += print_discovered(disc_dir, info_level);
+			printf("DiscoveryAddress: %s,%s\n",
+				entity_dent->d_name, tmp_port);
+
+			memset(&drec, 0, sizeof(struct discovery_rec));
+			strlcpy(drec.address, entity_dent->d_name,
+				sizeof(drec.address));
+			drec.port = atoi(tmp_port);
+			drec.type = DISCOVERY_TYPE_SENDTARGETS;
+
+			found += idbm_print_discovered(&drec, info_level);
 		} else {
-			char *tmp_port;
-
-			tmp_port = strchr(entity_dent->d_name, ',');
-			if (!tmp_port)
-				continue;
-			*tmp_port++ = '\0';
-
-			printf("%s:%d via sendtargets\n", entity_dent->d_name,
-			       atoi(tmp_port));
+			printf("%s:%s via sendtargets\n", entity_dent->d_name,
+			       tmp_port);
 			found++;
 		}
 	}
@@ -1166,6 +1070,14 @@ int idbm_print_all_discovery(int info_level)
 
 	printf("STATIC:\n");
 	drec->type = DISCOVERY_TYPE_STATIC;
+	tmp = idbm_print_discovered(drec, info_level);
+	if (!tmp)
+		printf("No targets found.\n");
+	found += tmp;
+	tmp = 0;
+
+	printf("FIRMWARE:\n");
+	drec->type = DISCOVERY_TYPE_FW;
 	tmp = idbm_print_discovered(drec, info_level);
 	if (!tmp)
 		printf("No targets found.\n");
@@ -1379,14 +1291,18 @@ idbm_discovery_read(discovery_rec_t *out_rec, char *addr, int port)
 		return ENOMEM;
 
 	portal = malloc(PATH_MAX);
-	if (!portal)
+	if (!portal) {
+		rc = ENOMEM;
 		goto free_info;
+	}
 
 	snprintf(portal, PATH_MAX, "%s/%s,%d", ST_CONFIG_DIR,
 		 addr, port);
 	log_debug(5, "Looking for config file %s\n", portal);
 
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		goto free_info;
 
 	f = idbm_open_rec_r(portal, ST_CONFIG_NAME);
 	if (!f) {
@@ -1444,8 +1360,8 @@ mkdir_portal:
 		}
 	}
 
-	strncat(portal, "/", PATH_MAX);
-	strncat(portal, config, PATH_MAX);
+	strlcat(portal, "/", PATH_MAX);
+	strlcat(portal, config, PATH_MAX);
 	f = fopen(portal, "w");
 	if (!f)
 		log_error("Could not open %s err %d\n", portal, errno);
@@ -1487,7 +1403,9 @@ static int idbm_rec_write(node_rec_t *rec)
 		 rec->name, rec->conn[0].address, rec->conn[0].port);
 	log_debug(5, "Looking for config file %s", portal);
 
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		goto free_portal;
 
 	rc = stat(portal, &statb);
 	if (rc) {
@@ -1572,13 +1490,16 @@ idbm_discovery_write(discovery_rec_t *rec)
 		return ENOMEM;
 	}
 
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		goto free_portal;
+
 	snprintf(portal, PATH_MAX, "%s", ST_CONFIG_DIR);
 	if (access(portal, F_OK) != 0) {
 		if (mkdir(portal, 0660) != 0) {
 			log_error("Could not make %s\n", portal);
 			rc = errno;
-			goto free_portal;
+			goto unlock;
 		}
 	}
 
@@ -1589,28 +1510,27 @@ idbm_discovery_write(discovery_rec_t *rec)
 	if (!f) {
 		log_error("Could not open %s err %d\n", portal, errno);
 		rc = errno;
-		goto free_portal;
+		goto unlock;
 	}
 
 	idbm_print(IDBM_PRINT_TYPE_DISCOVERY, rec, 1, f);
 	fclose(f);
-free_portal:
+unlock:
 	idbm_unlock();
+free_portal:
 	free(portal);
 	return rc;
 }
 
-int
-idbm_add_discovery(discovery_rec_t *newrec, int overwrite)
+int idbm_add_discovery(discovery_rec_t *newrec)
 {
 	discovery_rec_t rec;
 	int rc;
 
 	if (!idbm_discovery_read(&rec, newrec->address,
 				newrec->port)) {
-		if (!overwrite)
-			return 0;
-		log_debug(7, "overwriting existing record");
+		log_debug(7, "disc rec already exists");
+		return 0;
 	} else
 		log_debug(7, "adding new DB record");
 
@@ -1628,6 +1548,20 @@ static int setup_disc_to_node_link(char *disc_portal, node_rec_t *rec)
 		snprintf(disc_portal, PATH_MAX, "%s/%s,%d/%s,%s,%d,%d,%s",
 			 ST_CONFIG_DIR,
 			 rec->disc_address, rec->disc_port, rec->name,
+			 rec->conn[0].address, rec->conn[0].port, rec->tpgt,
+			 rec->iface.name);
+		break;
+	case DISCOVERY_TYPE_FW:
+		if (access(FW_CONFIG_DIR, F_OK) != 0) {
+			if (mkdir(FW_CONFIG_DIR, 0660) != 0) {
+				log_error("Could not make %s\n",
+					  FW_CONFIG_DIR);
+				rc = errno;
+			}
+		}
+
+		snprintf(disc_portal, PATH_MAX, "%s/%s,%s,%d,%d,%s",
+			 FW_CONFIG_DIR, rec->name,
 			 rec->conn[0].address, rec->conn[0].port, rec->tpgt,
 			 rec->iface.name);
 		break;
@@ -1715,7 +1649,10 @@ int idbm_add_node(node_rec_t *newrec, discovery_rec_t *drec, int overwrite)
 	log_debug(7, "node addition making link from %s to %s", node_portal,
 		 disc_portal);
 
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		goto free_portal;
+
 	if (symlink(node_portal, disc_portal)) {
 		if (errno == EEXIST)
 			log_debug(7, "link from %s to %s exists", node_portal,
@@ -1732,25 +1669,30 @@ free_portal:
 	return rc;
 }
 
-static int idbm_bind_iface_to_node(struct node_rec *new_rec,
-				   struct iface_rec *iface,
-				   struct list_head *bound_recs)
+static int idbm_bind_iface_to_nodes(idbm_disc_nodes_fn *disc_node_fn,
+				    struct discovery_rec *drec,
+				    struct iface_rec *iface,
+				    struct list_head *bound_recs)
 {
-	struct node_rec *clone_rec;
+	struct node_rec *rec, *tmp;
+	struct list_head new_recs;
 
-	clone_rec = calloc(1, sizeof(*clone_rec));
-	if (!clone_rec)
-		return ENOMEM;
+	INIT_LIST_HEAD(&new_recs);
+	if (disc_node_fn(drec, iface, &new_recs))
+		return ENODEV;
 
-	memcpy(clone_rec, new_rec, sizeof(*clone_rec));
-	INIT_LIST_HEAD(&clone_rec->list);
-	iface_copy(&clone_rec->iface, iface);
-	list_add_tail(&clone_rec->list, bound_recs);
+	list_for_each_entry_safe(rec, tmp, &new_recs, list) {
+		list_del_init(&rec->list);
+		list_add_tail(&rec->list, bound_recs);
+		iface_copy(&rec->iface, iface);
+	}
 	return 0;
 }
 
-int idbm_bind_ifaces_to_node(struct node_rec *new_rec, struct list_head *ifaces,
-			     struct list_head *bound_recs)
+int idbm_bind_ifaces_to_nodes(idbm_disc_nodes_fn *disc_node_fn,
+			      struct discovery_rec *drec,
+			      struct list_head *ifaces,
+			      struct list_head *bound_recs)
 {
 	struct iface_rec *iface, *tmp;
 	struct iscsi_transport *t;
@@ -1775,8 +1717,8 @@ int idbm_bind_ifaces_to_node(struct node_rec *new_rec, struct list_head *ifaces,
 				continue;
 			}
 
-			rc = idbm_bind_iface_to_node(new_rec, iface,
-						     bound_recs);
+			rc = idbm_bind_iface_to_nodes(disc_node_fn, drec, iface,
+						      bound_recs);
 			free(iface);
 			if (rc)
 				return rc;
@@ -1787,9 +1729,11 @@ int idbm_bind_ifaces_to_node(struct node_rec *new_rec, struct list_head *ifaces,
 		if (!found) {
 			struct iface_rec def_iface;
 
+			//log_error("no ifaces using default\n");
+			memset(&def_iface, 0, sizeof(struct iface_rec));
 			iface_setup_defaults(&def_iface);
-			return idbm_bind_iface_to_node(new_rec, &def_iface,
-						       bound_recs);
+			return idbm_bind_iface_to_nodes(disc_node_fn, drec,
+							&def_iface, bound_recs);
 		}
 	} else {
 		list_for_each_entry(iface, ifaces, list) {
@@ -1802,8 +1746,8 @@ int idbm_bind_ifaces_to_node(struct node_rec *new_rec, struct list_head *ifaces,
 				continue;
 			}
 
-			rc = idbm_bind_iface_to_node(new_rec, iface,
-						     bound_recs);
+			rc = idbm_bind_iface_to_nodes(disc_node_fn, drec, iface,
+						      bound_recs);
 			if (rc)
 				return rc;
 		}
@@ -1903,11 +1847,11 @@ static void idbm_rm_disc_node_links(char *disc_dir)
 			  target, address, port, iface_id);
 
 		memset(rec, 0, sizeof(*rec));	
-		strncpy(rec->name, target, TARGET_NAME_MAXLEN);
+		strlcpy(rec->name, target, TARGET_NAME_MAXLEN);
 		rec->tpgt = atoi(tpgt);
 		rec->conn[0].port = atoi(port);
-		strncpy(rec->conn[0].address, address, NI_MAXHOST);
-		strncpy(rec->iface.name, iface_id, ISCSI_MAX_IFACE_LEN);
+		strlcpy(rec->conn[0].address, address, NI_MAXHOST);
+		strlcpy(rec->iface.name, iface_id, ISCSI_MAX_IFACE_LEN);
 
 		if (idbm_delete_node(rec))
 			log_error("Could not delete node %s/%s/%s,%s/%s",
@@ -1941,8 +1885,8 @@ int idbm_delete_discovery(discovery_rec_t *drec)
 	}
 
 	if (S_ISDIR(statb.st_mode)) {
-		strncat(portal, "/", PATH_MAX);
-		strncat(portal, ST_CONFIG_NAME, PATH_MAX);
+		strlcat(portal, "/", PATH_MAX);
+		strlcat(portal, ST_CONFIG_NAME, PATH_MAX);
 	}
 
 	if (unlink(portal))
@@ -2002,7 +1946,10 @@ static int idbm_remove_disc_to_node_link(node_rec_t *rec,
 	if (rc)
 		goto done;
 
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		goto done;
+
 	if (!stat(portal, &statb)) {
 		if (unlink(portal)) {
 			log_error("Could not remove link %s err %d\n",
@@ -2017,6 +1964,12 @@ static int idbm_remove_disc_to_node_link(node_rec_t *rec,
 done:
 	free(tmprec);
 	return rc;
+}
+
+static int st_disc_filter(const struct dirent *dir)
+{
+	return strcmp(dir->d_name, ".") && strcmp(dir->d_name, "..") &&
+		strcmp(dir->d_name, ST_CONFIG_NAME);
 }
 
 int idbm_delete_node(node_rec_t *rec)
@@ -2039,7 +1992,10 @@ int idbm_delete_node(node_rec_t *rec)
 	log_debug(5, "Removing config file %s iface id %s\n",
 		  portal, rec->iface.name);
 
-	idbm_lock();
+	rc = idbm_lock();
+	if (rc)
+		goto free_portal;
+
 	if (!stat(portal, &statb))
 		goto rm_conf;
 
@@ -2075,7 +2031,7 @@ rm_conf:
 		snprintf(portal, PATH_MAX, "%s/%s/%s,%d,%d", NODE_CONFIG_DIR,
 			 rec->name, rec->conn[0].address, rec->conn[0].port,
 			 rec->tpgt);
-		n = scandir(portal, &namelist, st_disc_filter, direntcmp);
+		n = scandir(portal, &namelist, st_disc_filter, alphasort);
 		if (n < 0)
 			goto free_portal;
 		if (n == 0)

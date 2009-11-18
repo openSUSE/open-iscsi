@@ -24,6 +24,8 @@
 #include "iscsi_proto.h"
 #include "config.h"
 
+struct session_info;
+struct host_info;
 struct iscsi_session;
 struct iscsi_conn;
 struct iscsi_session_operational_config;
@@ -32,27 +34,6 @@ struct iscsi_auth_config;
 
 #define SCSI_MAX_STATE_VALUE 32
 
-struct session_info {
-	struct list_head list;
-	/* local info */
-	struct iface_rec iface;
-	int sid;
-
-	/* remote info */
-	char targetname[TARGET_NAME_MAXLEN + 1];
-	int tpgt;
-	char address[NI_MAXHOST + 1];
-	int port;
-	char persistent_address[NI_MAXHOST + 1];
-	int persistent_port;
-};
-
-struct host_info {
-	struct iface_rec iface;
-	int host_no;
-};
-
-extern int direntcmp(const void *d1, const void *d2);
 extern void free_transports(void);
 extern char *iscsi_sysfs_get_iscsi_kernel_version(void);
 extern int iscsi_sysfs_check_class_version(void);
@@ -68,8 +49,9 @@ extern int iscsi_sysfs_for_each_session(void *data, int *nr_found,
 extern int iscsi_sysfs_for_each_host(void *data, int *nr_found,
 				     iscsi_sysfs_host_op_fn *fn);
 extern uint32_t iscsi_sysfs_get_host_no_from_sid(uint32_t sid, int *err);
-extern uint32_t iscsi_sysfs_get_host_no_from_iface(struct iface_rec *iface,
-						   int *rc);
+extern uint32_t iscsi_sysfs_get_host_no_from_hwinfo(struct iface_rec *iface,
+						    int *rc);
+extern int iscsi_sysfs_get_hostinfo_by_host_no(struct host_info *hinfo);
 extern int iscsi_sysfs_get_sid_from_path(char *session);
 extern char *iscsi_sysfs_get_blockdev_from_lun(int hostno, int target, int sid);
 
@@ -89,11 +71,16 @@ extern int iscsi_sysfs_get_host_state(char *state, int host_no);
 extern int iscsi_sysfs_get_device_state(char *state, int host_no, int target,
 					int lun);
 extern int iscsi_sysfs_get_exp_statsn(int sid);
-extern void iscsi_sysfs_set_device_online(int hostno, int target, int lun);
-extern void iscsi_sysfs_rescan_device(int hostno, int target, int lun);
-extern int iscsi_sysfs_for_each_device(int host_no, uint32_t sid,
-				void (* fn)(int host_no, int target, int lun));
-extern struct iscsi_transport *iscsi_sysfs_get_transport_by_hba(long host_no);
+extern void iscsi_sysfs_set_queue_depth(void *data, int hostno, int target,
+					int lun);
+extern void iscsi_sysfs_set_device_online(void *data, int hostno, int target,
+					  int lun);
+extern void iscsi_sysfs_rescan_device(void *data, int hostno, int target,
+				      int lun);
+extern int iscsi_sysfs_for_each_device(void *data, int host_no, uint32_t sid,
+				void (* fn)(void *, int host_no, int target,
+					    int lun));
+extern struct iscsi_transport *iscsi_sysfs_get_transport_by_hba(uint32_t host_no);
 extern struct iscsi_transport *iscsi_sysfs_get_transport_by_session(char *sys_session);
 extern struct iscsi_transport *iscsi_sysfs_get_transport_by_sid(uint32_t sid);
 extern struct iscsi_transport *iscsi_sysfs_get_transport_by_name(char *transport_name);
