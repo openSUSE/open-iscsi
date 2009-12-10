@@ -261,17 +261,22 @@ static void log_syslog (void * buff)
 static void dolog(int prio, const char *fmt, va_list ap)
 {
 	if (log_daemon) {
-		la->ops[0].sem_op = -1;
-		if (semop(la->semid, la->ops, 1) < 0) {
-			syslog(LOG_ERR, "semop up failed %d", errno);
+		struct sembuf ops[1];
+
+		ops[0].sem_num = la->ops[0].sem_num;
+		ops[0].sem_flg = la->ops[0].sem_flg;
+
+		ops[0].sem_op = -1;
+		if (semop(la->semid, ops, 1) < 0) {
+			syslog(LOG_ERR, "semop down failed %d", errno);
 			return;
 		}
 
 		log_enqueue(prio, fmt, ap);
 
-		la->ops[0].sem_op = 1;
-		if (semop(la->semid, la->ops, 1) < 0) {
-			syslog(LOG_ERR, "semop down failed");
+		ops[0].sem_op = 1;
+		if (semop(la->semid, ops, 1) < 0) {
+			syslog(LOG_ERR, "semop up failed");
 			return;
 		}
 	} else {
@@ -345,17 +350,22 @@ static void __dump_char(int level, unsigned char *buf, int *cp, int ch)
 static void log_flush(void)
 {
 	int msglen;
+	struct sembuf ops[1];
+
+	ops[0].sem_num = la->ops[0].sem_num;
+	ops[0].sem_flg = la->ops[0].sem_flg;
+
 
 	while (!la->empty) {
-		la->ops[0].sem_op = -1;
-		if (semop(la->semid, la->ops, 1) < 0) {
-			syslog(LOG_ERR, "semop up failed %d", errno);
+		ops[0].sem_op = -1;
+		if (semop(la->semid, ops, 1) < 0) {
+			syslog(LOG_ERR, "semop down failed %d", errno);
 			exit(1);
 		}
 		msglen = log_dequeue(la->buff);
-		la->ops[0].sem_op = 1;
-		if (semop(la->semid, la->ops, 1) < 0) {
-			syslog(LOG_ERR, "semop down failed");
+		ops[0].sem_op = 1;
+		if (semop(la->semid, ops, 1) < 0) {
+			syslog(LOG_ERR, "semop up failed");
 			exit(1);
 		}
 		if (msglen)
