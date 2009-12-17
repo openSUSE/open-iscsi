@@ -74,12 +74,14 @@ if [ "${root_iscsi}" ]; then
 		for if in $ibft_if/device/net/* ; do
 		    if [ -d $if ] ; then
 			interface="${if##*/}"
+			break;
 		    fi
 		done
 	    fi
-	    # Bit 3 of 'origin' is DHCP
+	    [ "$interface" ] || continue
+	    # Type 3 of 'origin' is DHCP
 	    read ibft_origin < $ibft_if/origin
-	    if (( $ibft_origin & 8 )) ; then
+	    if [ $ibft_origin == 3 ] ; then
 		nettype="dhcp"
 	    else
 		nettype="static"
