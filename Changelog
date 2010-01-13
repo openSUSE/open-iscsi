@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+open-iscsi-2.0-871.1 - open-iscsi-2.0.871.2
+
+Mike Christie (1):
+      Fix regression with ibft netdev parsing
+
+
+-------------------------------------------------------------------
 open-iscsi-2.0-871 - open-iscsi-2.0.871.1
 
 Mike Christie (7):
