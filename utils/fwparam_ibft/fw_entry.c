@@ -21,10 +21,72 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <stddef.h>
+#include <errno.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <net/route.h>
 
 #include "fw_context.h"
 #include "fwparam.h"
 #include "idbm_fields.h"
+#include "iscsi_net_util.h"
+
+/**
+ * fw_setup_nics - setup nics (ethXs) based on ibft net info
+ *
+ * Currently does not support vlans.
+ *
+ * If this is a offload card, this function does nothing. The
+ * net info is used by the iscsi iface settings for the iscsi
+ * function.
+ */
+int fw_setup_nics(void)
+{
+	struct boot_context *context;
+	struct list_head targets;
+	char *iface_prev = NULL, transport[16];
+	int needs_bringup = 0, ret = 0, err;
+
+	INIT_LIST_HEAD(&targets);
+
+	ret = fw_get_targets(&targets);
+	if (ret || list_empty(&targets)) {
+		printf("Could not setup fw entries.\n");
+		return ENODEV;
+	}
+
+	/*
+	 * For each target in iBFT bring up required NIC and use routing
+	 * to force iSCSI traffic through correct NIC
+	 */
+	list_for_each_entry(context, &targets, list) {			
+	        /* if it is a offload nic ignore it */
+	        if (!net_get_transport_name_from_netdev(context->iface,
+							transport))
+			continue;
+
+		if (iface_prev == NULL || strcmp(context->iface, iface_prev)) {
+			/* Note: test above works because there is a
+ 			 * maximum of two targets in the iBFT
+ 			 */
+			iface_prev = context->iface;
+			needs_bringup = 1;
+		}
+
+		err = net_setup_netdev(context->iface, context->ipaddr,
+				       context->mask, context->gateway,
+				       context->target_ipaddr, needs_bringup);
+		if (err)
+			ret = err;
+	}
+
+	fw_free_targets(&targets);
+	return ret;
+}
 
 /**
  * fw_get_entry - return boot context of portal used for boot

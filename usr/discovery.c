@@ -36,7 +36,6 @@
 #include "types.h"
 #include "iscsi_proto.h"
 #include "initiator.h"
-#include "iscsiadm.h"
 #include "log.h"
 #include "idbm.h"
 #include "iscsi_settings.h"
@@ -79,7 +78,7 @@ int discovery_fw(struct discovery_rec *drec, struct iface_rec *iface,
 	 */
 
 	list_for_each_entry(bcontext, &targets, list) {
-		rec = fw_create_rec_by_entry(bcontext);
+		rec = idbm_create_rec_from_boot_context(bcontext);
 		if (!rec) {
 			log_error("Could not convert firmware info to "
 				  "node record.\n");
@@ -666,8 +665,7 @@ setup_authentication(iscsi_session_t *session,
 		session->bidirectional_auth = 1;
 
 		/* sanity check the config */
-		if ((config->auth.username[0] == '\0')
-		    || (config->auth.password_length == 0)) {
+		if (config->auth.password_length == 0) {
 			log_error(
 			       "discovery process to %s:%d has incoming "
 			       "authentication credentials but has no outgoing "

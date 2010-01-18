@@ -19,6 +19,7 @@
  */
 
 #define  _XOPEN_SOURCE 500
+#define _SVID_SOURCE
 #include <ftw.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,14 +29,17 @@
 #include <errno.h>
 #include <dirent.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 #include "sysfs.h"
 #include "fw_context.h"
 #include "fwparam.h"
 #include "sysdeps.h"
+#include "iscsi_net_util.h"
 
 #define IBFT_MAX 255
 #define IBFT_SYSFS_ROOT "/sys/firmware/ibft/"
+#define NET_SYSFS_ROOT "/sys/class/net/"
 #define IBFT_SUBSYS "ibft"
 
 static char *target_list[IBFT_MAX];
@@ -76,7 +80,7 @@ static int find_sysfs_dirs(const char *fpath, const struct stat *sb,
 
 	return 0;
 }
-
+ 
 static int get_iface_from_device(char *id, struct boot_context *context)
 {
 	char dev_dir[FILENAMESZ];
@@ -96,7 +100,7 @@ static int get_iface_from_device(char *id, struct boot_context *context)
 
 	while ((dent = readdir(dirfd))) {
 		if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, "..") ||
-		    strncmp(dent->d_name, "net", 3))
+		    strncmp(dent->d_name, "net:", 4))
 			continue;
 
 		if (!strncmp(dent->d_name, "net:", 4)) {
@@ -113,7 +117,7 @@ static int get_iface_from_device(char *id, struct boot_context *context)
 			rc = 0;
 			break;
 		} else {
-			printf("Could not read ethernet to net link\n.");
+			printf("Could not read ethernet to net link.\n");
 			rc = EOPNOTSUPP;
 			break;
 		}
@@ -152,7 +156,6 @@ static int get_iface_from_device(char *id, struct boot_context *context)
 	}
 
 	closedir(dirfd);
-
 	return rc;
 }
 
@@ -168,9 +171,21 @@ static int fill_nic_context(char *id, struct boot_context *context)
 	if (rc)
 		return rc;
 
+	/*
+	 * Some offload cards like bnx2i use different MACs for the net and
+	 * iscsi functions, so we have to follow the sysfs links.
+	 *
+	 * Other ibft implementations may not be tied to a pci function,
+	 * so there will not be any device/net link, so we drop down to
+	 * the MAC matching.
+	 */
 	rc = get_iface_from_device(id, context);
-	if (rc)
-		return rc;
+	if (rc) {
+		rc = net_get_netdev_from_hwaddress(context->mac,
+						   context->iface);
+		if (rc)
+			return rc;
+	}
 
 	sysfs_get_str(id, IBFT_SUBSYS, "ip-addr", context->ipaddr,
 		      sizeof(context->ipaddr));

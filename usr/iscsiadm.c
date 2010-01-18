@@ -29,7 +29,7 @@
 #include <sys/stat.h>
 
 #include "initiator.h"
-#include "iscsiadm.h"
+#include "discovery.h"
 #include "log.h"
 #include "mgmt_ipc.h"
 #include "idbm.h"
@@ -44,6 +44,7 @@
 #include "session_info.h"
 #include "host.h"
 #include "sysdeps.h"
+#include "idbm_fields.h"
 
 struct iscsi_ipc *ipc = NULL; /* dummy */
 static char program_name[] = "iscsiadm";
@@ -548,44 +549,6 @@ static int logout_portals(struct node_rec *pattern_rec)
 	int nr_found;
 
 	return __logout_portals(pattern_rec, &nr_found, logout_portal);
-}
-
-static struct node_rec *
-create_node_record(char *targetname, int tpgt, char *ip, int port,
-		   struct iface_rec *iface, int verbose)
-{
-	struct node_rec *rec;
-
-	rec = calloc(1, sizeof(*rec));
-	if (!rec) {
-		log_error("Could not not allocate memory to create node "
-			  "record.");
-		return NULL;
-	}
-
-	idbm_node_setup_defaults(rec);
-	if (targetname)
-		strlcpy(rec->name, targetname, TARGET_NAME_MAXLEN);
-	rec->tpgt = tpgt;
-	rec->conn[0].port = port;
-	if (ip)
-		strlcpy(rec->conn[0].address, ip, NI_MAXHOST);
-	memset(&rec->iface, 0, sizeof(struct iface_rec));
-	if (iface) {
-		iface_copy(&rec->iface, iface);
-		if (strlen(iface->name)) {
-			if (iface_conf_read(&rec->iface)) {
-				if (verbose)
-					log_error("Could not read iface info "
-						  "for %s.", iface->name);
-				goto free_rec;
-			}
-		}
-	}
-	return rec;
-free_rec:
-	free(rec);
-	return NULL;
 }
 
 static int login_portal(void *data, struct list_head *list,
@@ -1341,7 +1304,7 @@ static int exec_iface_op(int op, int do_show, int info_level,
 			return EINVAL;
 		}
 
-		rec = create_node_record(NULL, -1, NULL, -1, iface, 0);
+		rec = idbm_create_rec(NULL, -1, NULL, -1, iface, 0);
 		if (rec && check_for_session_through_iface(rec)) {
 			rc = EBUSY;
 			goto new_fail;
@@ -1363,7 +1326,7 @@ new_fail:
 			return EINVAL;
 		}
 
-		rec = create_node_record(NULL, -1, NULL, -1, iface, 1);
+		rec = idbm_create_rec(NULL, -1, NULL, -1, iface, 1);
 		if (!rec) {
 			rc = EINVAL;
 			goto delete_fail;
@@ -1392,18 +1355,19 @@ delete_fail:
 			break;
 		}
 
-		rec = create_node_record(NULL, -1, NULL, -1, iface, 1);
+		rec = idbm_create_rec(NULL, -1, NULL, -1, iface, 1);
 		if (!rec) {
 			rc = EINVAL;
 			goto update_fail;
 		}
 
-		if (check_for_session_through_iface(rec)) {
-			rc = EINVAL;
-			goto update_fail;
-		}
+		if (check_for_session_through_iface(rec))
+			log_warning("Updating iface while iscsi sessions "
+				    "are using it. You must logout the running "
+				    "sessions then log back in for the "
+				    "new settings to take affect.");
 
-		if (!strcmp(name, "iface.iscsi_ifacename")) {
+		if (!strcmp(name, IFACE_ISCSINAME)) {
 			log_error("Can not update "
 				  "iface.iscsi_ifacename. Delete it, "
 				  "and then create a new one.");
@@ -1412,7 +1376,7 @@ delete_fail:
 		}
 
 		if (iface_is_bound_by_hwaddr(&rec->iface) &&
-		    !strcmp(name, "iface.net_ifacename")) {
+		    !strcmp(name, IFACE_NETNAME)) {
 			log_error("Can not update interface binding "
 				  "from hwaddress to net_ifacename. ");
 			log_error("You must delete the interface and "
@@ -1422,7 +1386,7 @@ delete_fail:
 		}
 
 		if (iface_is_bound_by_netdev(&rec->iface) &&
-		    !strcmp(name, "iface.hwaddress")) {
+		    !strcmp(name, IFACE_HWADDR)) {
 			log_error("Can not update interface binding "
 				  "from net_ifacename to hwaddress. ");
 			log_error("You must delete the interface and "
@@ -1596,59 +1560,29 @@ out:
 	return rc;
 }
 
-struct node_rec *fw_create_rec_by_entry(struct boot_context *context)
+static int exec_fw_disc_op(discovery_rec_t *drec, struct list_head *ifaces,
+			   int info_level, int do_login, int op)
 {
-	struct node_rec *rec;
-
-	/* tpgt hard coded to 1 ??? */
-	rec = create_node_record(context->targetname, 1,
-				 context->target_ipaddr, context->target_port,
-				 NULL, 1);
-	if (!rec) {
-		log_error("Could not setup rec for fw discovery login.");
-		return NULL;
-	}
-
-	/* todo - grab mac and set that here */
-	iface_setup_defaults(&rec->iface);
-	strlcpy(rec->iface.iname, context->initiatorname,
-		sizeof(context->initiatorname));
-	strlcpy(rec->session.auth.username, context->chap_name,
-		sizeof(context->chap_name));
-	strlcpy((char *)rec->session.auth.password, context->chap_password,
-		sizeof(context->chap_password));
-	strlcpy(rec->session.auth.username_in, context->chap_name_in,
-		sizeof(context->chap_name_in));
-	strlcpy((char *)rec->session.auth.password_in,
-		context->chap_password_in,
-		sizeof(context->chap_password_in));
-	rec->session.auth.password_length =
-				strlen((char *)context->chap_password);
-	rec->session.auth.password_in_length =
-				strlen((char *)context->chap_password_in);
-	return rec;
-}
-
-static int exec_fw_op(discovery_rec_t *drec, struct list_head *ifaces,
-		      int info_level, int do_login, int op)
-{
-	struct boot_context *context;
-	struct list_head targets, rec_list;
+	struct list_head targets, rec_list, new_ifaces;
 	struct iface_rec *iface, *tmp_iface;
 	struct node_rec *rec, *tmp_rec;
 	int rc = 0;
 
 	INIT_LIST_HEAD(&targets);
 	INIT_LIST_HEAD(&rec_list);
+	INIT_LIST_HEAD(&new_ifaces);
+	/*
+	 * compat: if the user did not pass any op then we do all
+	 * ops for them
+	 */
+	if (!op)
+		op = OP_NEW | OP_DELETE | OP_UPDATE;
 
-	if (drec) {
-		/*
-		 * compat: if the user did not pass any op then we do all
-		 * ops for them
-		 */
-		if (!op)
-			op = OP_NEW | OP_DELETE | OP_UPDATE;
-
+	/*
+	 * if a user passed in ifaces then we use them and ignore the ibft
+	 * net info
+	 */
+	if (!list_empty(ifaces)) {
 		list_for_each_entry_safe(iface, tmp_iface, ifaces, list) {
 			rc = iface_conf_read(iface);
 			if (rc) {
@@ -1662,21 +1596,70 @@ static int exec_fw_op(discovery_rec_t *drec, struct list_head *ifaces,
 				continue;
 			}
 		}
+		goto discover_fw_tgts;
+	}
 
-		rc = idbm_bind_ifaces_to_nodes(discovery_fw, drec,
-					       ifaces, &rec_list);
-		if (rc)
-			log_error("Could not perform fw discovery.\n");
-		else
-			rc = exec_disc_op_on_recs(drec, &rec_list, info_level,
-						   do_login, op);
-
-		list_for_each_entry_safe(rec, tmp_rec, &rec_list, list) {
-			list_del(&rec->list);
-			free(rec);
-		}
+	/*
+	 * Next, check if we see any offload cards. If we do then
+	 * we make a iface if needed.
+	 *
+	 * Note1: if there is not a offload card we do not setup
+	 * software iscsi binding with the nic used for booting,
+	 * because we do not know if that was intended.
+	 *
+	 * Note2: we assume that the user probably wanted to access
+	 * all targets through all the ifaces instead of being limited
+	 * to what you can export in ibft.
+	 */
+	rc = fw_get_targets(&targets);
+	if (rc) {
+		log_error("Could not get list of targets from firmware. "
+			  "(err %d)\n", rc);
 		return rc;
 	}
+	rc = iface_create_ifaces_from_boot_contexts(&new_ifaces, &targets);
+	if (rc)
+		goto done;
+	if (!list_empty(&new_ifaces))
+		ifaces = &new_ifaces;
+
+discover_fw_tgts:
+	rc = idbm_bind_ifaces_to_nodes(discovery_fw, drec,
+				       ifaces, &rec_list);
+	if (rc)
+		log_error("Could not perform fw discovery.\n");
+	else
+		rc = exec_disc_op_on_recs(drec, &rec_list, info_level,
+					   do_login, op);
+
+done:
+	fw_free_targets(&targets);
+
+	list_for_each_entry_safe(iface, tmp_iface, &new_ifaces, list) {
+		list_del(&iface->list);
+		free(iface);
+	}
+
+	list_for_each_entry_safe(rec, tmp_rec, &rec_list, list) {
+		list_del(&rec->list);
+		free(rec);
+	}
+	return rc;
+}
+
+static int exec_fw_op(discovery_rec_t *drec, struct list_head *ifaces,
+		      int info_level, int do_login, int op)
+{
+	struct boot_context *context;
+	struct list_head targets, rec_list;
+	struct node_rec *rec;
+	int rc = 0;
+
+	INIT_LIST_HEAD(&targets);
+	INIT_LIST_HEAD(&rec_list);
+
+	if (drec)
+		return exec_fw_disc_op(drec, ifaces, info_level, do_login, op);
 
 	/* The following ops do not interact with the DB */
 	rc = fw_get_targets(&targets);
@@ -1688,7 +1671,7 @@ static int exec_fw_op(discovery_rec_t *drec, struct list_head *ifaces,
 
 	if (do_login) {
 		list_for_each_entry(context, &targets, list) {
-			rec = fw_create_rec_by_entry(context);
+			rec = idbm_create_rec_from_boot_context(context);
 			if (!rec) {
 				log_error("Could not convert firmware info to "
 					  "node record.\n");
@@ -1891,8 +1874,6 @@ main(int argc, char **argv)
 		goto free_ifaces;
 	}
 
-	iface_setup_host_bindings();
-
 	switch (mode) {
 	case MODE_HOST:
 		if ((rc = verify_mode_params(argc, argv, "HdmP", 0))) {
@@ -1905,6 +1886,8 @@ main(int argc, char **argv)
 		rc = host_info_print(info_level, host_no);
 		break;
 	case MODE_IFACE:
+		iface_setup_host_bindings();
+
 		if ((rc = verify_mode_params(argc, argv, "IdnvmPo", 0))) {
 			log_error("iface mode: option '-%c' is not "
 				  "allowed/supported", rc);
@@ -2073,7 +2056,7 @@ main(int argc, char **argv)
 					  iface->hwaddress, iface->ipaddress);
 		}
 
-		rec = create_node_record(targetname, tpgt, ip, port, iface, 1);
+		rec = idbm_create_rec(targetname, tpgt, ip, port, iface, 1);
 		if (!rec) {
 			rc = -1;
 			goto out;
@@ -2127,11 +2110,11 @@ main(int argc, char **argv)
 				goto free_info;
 			}
 
-			rec = create_node_record(info->targetname,
-						 info->tpgt,
-						 info->persistent_address,
-						 info->persistent_port,
-						 &info->iface, 1);
+			rec = idbm_create_rec(info->targetname,
+					      info->tpgt,
+					      info->persistent_address,
+					      info->persistent_port,
+					      &info->iface, 1);
 			if (!rec) {
 				rc = -1;
 				goto free_info;
