@@ -35,5 +35,6 @@ extern int __iscsi_match_session(struct node_rec *rec, char *targetname,
 
 extern char *strstrip(char *s);
 extern char *get_global_string_param(char *pathname, const char *key);
+extern int uip_broadcast(void *buf, size_t buf_len);
 
 #endif

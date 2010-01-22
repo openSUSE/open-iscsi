@@ -1,0 +1,100 @@
+Broadcom iSCSI Userspace Tools
+Version 0.5.2
+Dec 10, 2009
+------------------------------------------------------
+
+This tools is to be used in conjunction with the Broadcom NetXtreme II Linux
+driver (Kernel module name: 'bnx2' and 'bnx2x'), Broadcom CNIC driver,
+and the Broadcom iSCSI driver (Kernel module name: 'bnx2i'). 
+This user space driver is used  in conjunction with the following
+Broadcom Network Controllers:
+  bnx2:  BCM5708, BCM5709 devices
+  bnx2x: BCM57710, BCM57711, BCM57711E devices
+
+This utility will provide the ARP and DHCP functionality for the iSCSI offload.
+The communication to the driver is done via Userspace I/O (Kernel module name
+'uio').
+
+There are two components to this application:
+
+1.  'brcm_iscsiuio' - This is the daemon which aids in creating iSCSI offloaded
+                      connections.
+
+Dependencies:
+=======================================
+
+Linux Kernel Dependencies:
+1.  Broadcom CNIC driver (cnic)
+1.  Broadcom iSCSI offload driver (bnx2i)
+2.  Userspace I/O driver (uio)
+
+Directory Structure of this Package:
+=======================================
+
+<root>
+  |
+  +-doc (documentation directory: man pages)
+  |
+  +-src 
+     |
+     +- uip - the uIP stack
+     |
+     +- unix - brcm_iscsiuio source
+     
+
+
+Compiling / Installing
+=======================================
+
+1.  Please untar the tarball.
+2.  Run the configure script.  This will create the Makefiles and proper
+    header files needed for the build.
+3.  Run 'make'.  This will create 2 binaries, 'brcm_iscsiuio' and
+    'admin_client'
+4.  Run 'make install' to place the binaries in their installed location.
+
+iscsid IFACE Configuration File:
+=======================================
+The network interface configuration files are driven by the iscsid iface
+files.  The configuration data is parsed by iscsid and passed to the uIP
+stack when the connection is established.
+
+One can use the following iscsiadm commands to create/set the configuration
+using the iface files:
+
+To create the iface file:
+      iscsiadm -m iface -I <iface name> --op=new
+
+To update the iface file:
+
+  To use a static IPv4 address:
+      iscsiadm -m iface -I <iface name> --op=update --name=iface.ipaddress --value=<static IPv4 address ie: 192.168.0.1>
+
+  To use a DHCP address:
+      iscsiadm -m iface -I <iface name> --op=update --name=iface.ipaddress --value=0.0.0.0
+
+  The following values are required.
+
+  To specify the bnx2i as the transport:
+      iscsiadm -m iface -I <iface name> --op=update --name=iface.transport_name --value=bnx2i
+
+  To specify the network interface name:
+      iscsiadm -m iface -I <iface name> --op=update --name=iface.net_ifacename --value=<network interface name>
+
+  Now all the settings should be set so that one could connect to their
+  desired iSCSI target.
+      iscsiadm -m node -p <iSCSI target IP address> -T <target name> -I <iface name> --login
+
+Limitations:
+=======================================
+*  RX iSCSI ring:
+      *  default ring size is 3 entries
+      *  default buffer size is 0x400 bytes
+*  TX iSCSI ring:
+      *  default ring size of 1 entry
+      *  default buffer size is 0x400 bytes
+
+Any packets larger then the buffer size will not be sent/received by the
+hardware and will be dropped.
+
+There is no IPv6 support.

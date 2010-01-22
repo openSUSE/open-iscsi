@@ -45,6 +45,7 @@
 #include "iscsi_sysfs.h"
 #include "iscsi_settings.h"
 #include "iface.h"
+#include "host.h"
 #include "sysdeps.h"
 
 #define ISCSI_CONN_ERR_REOPEN_DELAY	3
@@ -713,6 +714,37 @@ static int iscsi_conn_connect(struct iscsi_conn *conn, queue_task_t *qtask)
 	return 0;
 }
 
+static int __set_net_config(struct iscsi_transport *t,
+			    iscsi_session_t *session,
+			    struct iface_rec *iface)
+{
+	if (t->template->set_net_config) {
+		/* uip needs the netdev name */
+		struct host_info hinfo;
+		int hostno, rc;
+
+		/* this assumes that the netdev or hw address is going to be
+		   set */
+		hostno = iscsi_sysfs_get_host_no_from_hwinfo(iface, &rc);
+		if (rc) {
+			log_debug(4, "Couldn't get host no.\n");
+			return rc;
+		}
+
+		/* uip needs the netdev name */
+		if (!strlen(iface->netdev)) {
+			memset(&hinfo, 0, sizeof(hinfo));
+			hinfo.host_no = hostno;
+			iscsi_sysfs_get_hostinfo_by_host_no(&hinfo);
+			strcpy(iface->netdev, hinfo.iface.netdev);
+		}
+
+		return t->template->set_net_config(t, iface, session);
+	}
+
+	return 0;
+}
+
 static void
 __session_conn_reopen(iscsi_conn_t *conn, queue_task_t *qtask, int do_stop,
 		      int redirected)
@@ -753,6 +785,11 @@ __session_conn_reopen(iscsi_conn_t *conn, queue_task_t *qtask, int do_stop,
 
 	if (!redirected)
 		session->reopen_cnt++;
+
+	/* uIP will needs to be re-triggered on the connection re-open */
+	if (__set_net_config(conn->session->t, conn->session,
+			      &conn->session->nrec.iface) != 0)
+		goto queue_reopen;
 
 	if (iscsi_conn_connect(conn, qtask)) {
 		delay = ISCSI_CONN_ERR_REOPEN_DELAY;
@@ -2102,6 +2139,10 @@ static int iface_set_param(struct iscsi_transport *t, struct iface_rec *iface,
 		return rc;
 	session->conn[0].bind_ep = 1;
 	session->hostno = hostno;
+
+	rc = __set_net_config(t, session, iface);
+	if (rc != 0)
+		return rc;
 
 	rc = __iscsi_host_set_param(t, session->hostno,
 				    ISCSI_HOST_PARAM_IPADDRESS,
