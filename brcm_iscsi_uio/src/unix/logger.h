@@ -72,7 +72,7 @@ extern struct logger main_log;
 
 int init_logger(char *);
 void log_uip(char *level_str, char *fmt, ...);
-void fini_logger();
+void fini_logger(int);
 
 int backup_logger_settings(struct logger *src, struct logger *dest);
 int restore_backup(struct logger *src, struct logger *dest);

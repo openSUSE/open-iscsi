@@ -25,9 +25,12 @@ int from_netdev_name_find_nic(char *interface_name,
 			      nic_t **nic);
 
 int from_host_no_find_associated_eth_device(int host_no,
-                                            nic_t **nic);
+					    nic_t **nic);
 
 int from_phys_name_find_assoicated_uio_device(nic_t *nic);
+
+int from_uio_find_associated_eth_device(int uio_minor, char *name,
+					size_t name_size);
 
 int nic_queue_tx_packet(nic_t *nic,
 			nic_interface_t *nic_iface,
@@ -35,7 +38,7 @@ int nic_queue_tx_packet(nic_t *nic,
 
 packet_t * nic_dequeue_tx_packet(nic_t *nic);
 nic_interface_t * nic_find_nic_iface(nic_t *nic,
-                                     uint16_t vlan_id);
+				     uint16_t vlan_id);
 int add_vlan_interfaces(nic_t *nic);
 
 int nic_verify_uio_sysfs_name(nic_t *nic);

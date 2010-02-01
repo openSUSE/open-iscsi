@@ -28,6 +28,7 @@
 
 #include "uip_arp.h"
 #include "nic.h"
+#include "nic_nl.h"
 #include "logger.h"
 #include "options.h"
 #include "uevent.h"

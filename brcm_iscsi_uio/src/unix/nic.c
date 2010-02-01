@@ -407,7 +407,7 @@ nic_t *nic_init()
 	return nic;
 }
 
-int nic_remove(nic_t *nic, int locked)
+void nic_remove(nic_t *nic, int locked)
 {
 	int rc;
 	nic_t *prev, *current;
@@ -425,7 +425,7 @@ int nic_remove(nic_t *nic, int locked)
 		LOG_ERR(PFX "%s: Coudln't join to canceled nic thread",
 			nic->log_name);
 
-	nic->thread == INVALID_THREAD;
+	nic->thread = INVALID_THREAD;
 
 	if(!locked)
 		pthread_mutex_lock(&nic_list_mutex);
@@ -506,7 +506,7 @@ void nic_close(nic_t *nic, NIC_SHUTDOWN_T graceful)
  *                     structure cnic_uio
  *  @return 0 on success, <0 on failure
  */
-nic_interface_t * nic_iface_init()
+nic_interface_t * nic_iface_init(void)
 {
 	nic_interface_t *nic_iface = malloc(sizeof(*nic_iface));
 	if(nic_iface == NULL)

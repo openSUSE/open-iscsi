@@ -258,14 +258,14 @@ typedef struct nic {
  *****************************************************************************/
 int load_all_nic_libraries();
 
-nic_t *nic_init();
-int nic_remove(nic_t * nic, int locked);
+nic_t *nic_init(void);
+void nic_remove(nic_t * nic, int locked);
 
 int nic_add_nic_iface(nic_t *nic,
                       nic_interface_t *nic_iface);
 int nic_process_intr(nic_t *nic, int discard_check);
 
-nic_interface_t * nic_iface_init();
+nic_interface_t * nic_iface_init(void);
 
 typedef enum {
 	NIC_LIBRARY_EXSITS	= 1,
@@ -297,7 +297,7 @@ void nic_close(nic_t *nic, NIC_SHUTDOWN_T graceful);
 /*  Use this function to fill in minor number and uio, and eth names */
 int nic_fill_name(nic_t *nic);
 
-int detemine_initial_uio_events();
+int determine_initial_uio_events(nic_t *nic, uint32_t *num_of_events);
 
 int enable_multicast(nic_t *nic);
 int disable_multicast(nic_t *nic);

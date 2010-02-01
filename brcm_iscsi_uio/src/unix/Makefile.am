@@ -6,7 +6,7 @@ INCLUDES = -I${top_srcdir}/src/uip		\
 	   -I${top_srcdir}/include		\
 	   -I${top_srcdir}/src/unix/libs/
 
-bin_PROGRAMS = brcm_iscsiuio
+sbin_PROGRAMS = brcm_iscsiuio
 
 brcm_iscsiuio_SOURCES =	build_date.c		\
 			main.c			\

@@ -27,6 +27,7 @@
 #include "cnic.h"
 #include "logger.h"
 #include "nic.h"
+#include "nic_id.h"
 #include "nic_utils.h"
 #include "options.h"
 
@@ -500,7 +501,7 @@ static int bnx2x_open(nic_t *nic)
 		  nic->log_name, bp->rx_ring_size, bp->rx_buffer_size);
 
 	/*  Determine the number of UIO events that have already occured */
-	rc = detemine_initial_uio_events(nic, &nic->intr_count);
+	rc = determine_initial_uio_events(nic, &nic->intr_count);
 	if(rc != 0) {
 		LOG_ERR("Could not determine the number ofinitial UIO events");
 		nic->intr_count = 0;
@@ -892,7 +893,7 @@ void bnx2x_start_xmit(nic_t *nic, size_t len)
  *  @return 0 if successful, <0 if failed
  */
 int bnx2x_write(nic_t *nic, nic_interface_t *nic_iface,
-		packet_t *pkt)
+		struct packet *pkt)
 {
 	bnx2x_t *bp = (bnx2x_t *) nic->priv;
 	struct uip_stack *uip = &nic_iface->ustack;

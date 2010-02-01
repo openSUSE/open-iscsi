@@ -874,30 +874,29 @@ void nic_close_all()
  *****************************************************************************/
 /**
  * determine_initial_uio_events() - This utility function will
- *    determine the number of uio events that have occured on the 
+ *    determine the number of uio events that have occured on the
  *    given device.  This value is read from the UIO sysfs entry
  * @param dev - device to read from
  * @param num_of_event - number of UIO events
  * @return 0 is success, <0 failure
  */
-int detemine_initial_uio_events(nic_t *nic,
-			        uint32_t *num_of_events)
+int determine_initial_uio_events(nic_t *nic, uint32_t *num_of_events)
 {
-        char *raw = NULL;
+	char *raw = NULL;
 	uint32_t raw_size = 0;
 	ssize_t elements_read;
 	char temp_path[sizeof(cnic_sysfs_uio_event_template) + 8];
 	int rc;
 
 	/*  Capture RX buffer size */
-	snprintf(temp_path, sizeof(temp_path), 
+	snprintf(temp_path, sizeof(temp_path),
 		 cnic_sysfs_uio_event_template, nic->uio_minor);
 
-        rc = capture_file(&raw, &raw_size, temp_path);
-        if(rc != 0)
-        {
-                goto error;
-        }
+	rc = capture_file(&raw, &raw_size, temp_path);
+	if(rc != 0)
+	{
+		goto error;
+	}
 
 	elements_read = sscanf(raw, "%d", num_of_events);
 	if(elements_read != 1)
@@ -963,7 +962,7 @@ int add_vlan_interfaces(nic_t *nic)
 
 			if(found_entry->found == VLAN_ENTRY_FOUND)
 			{
-	                        nic_iface = nic_iface_init(nic);
+				nic_iface = nic_iface_init();
 				if(nic_iface == NULL)
 				{
 					LOG_ERR("Couldn't allocate space for net_iface");

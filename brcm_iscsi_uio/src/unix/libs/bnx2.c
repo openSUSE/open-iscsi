@@ -459,7 +459,7 @@ static int bnx2_open(nic_t *nic)
 		  nic->log_name, bp->rx_ring_size, bp->rx_buffer_size);
 
 	/*  Determine the number of UIO events that have already occured */
-	rc = detemine_initial_uio_events(nic, &nic->intr_count);
+	rc = determine_initial_uio_events(nic, &nic->intr_count);
 	if(rc != 0) {
 		LOG_ERR("Could not determine the number ofinitial UIO events");
 		nic->intr_count = 0;
@@ -688,8 +688,7 @@ static int bnx2_uio_close_resources(nic_t *nic, NIC_SHUTDOWN_T graceful)
 	/*  Check if there is an assoicated CNIC device */
 	if(bp == NULL) {
 		LOG_WARN(PFX "%s: when closing resources there is "
-		             "no assoicated bnx2",
-			     nic->log_name);
+			 "no associated bnx2", nic->log_name);
 		return -EIO;
 	}
 
@@ -722,7 +721,7 @@ static int bnx2_uio_close_resources(nic_t *nic, NIC_SHUTDOWN_T graceful)
 		bp->tx_ring = NULL;
 	}
 
-	if (bp->status_blk.msix != NULL || 
+	if (bp->status_blk.msix != NULL ||
 	    bp->status_blk.msi  != NULL) {
 		rc = munmap(bp->sblk_map, bp->status_blk_size);
 		if (rc != 0)
@@ -879,7 +878,7 @@ void bnx2_start_xmit(nic_t *nic, size_t len)
  *  @return 0 if successful, <0 if failed
  */
 int bnx2_write(nic_t *nic, nic_interface_t *nic_iface,
-		packet_t *pkt)
+	       struct packet *pkt)
 {
 	bnx2_t *bp = (bnx2_t *) nic->priv;
 	struct uip_stack *uip = &nic_iface->ustack;
@@ -1098,10 +1097,10 @@ struct nic_ops bnx2_op = {
 
 	.lib_ops = {
 		.get_library_name	= bnx2_get_library_name,
-        	.get_pci_table		= bnx2_get_pci_table,
-	        .get_library_version	= bnx2_get_library_version,
+		.get_pci_table		= bnx2_get_pci_table,
+		.get_library_version	= bnx2_get_library_version,
 		.get_build_date		= bnx2_get_build_date,
-	        .get_transport_name	= bnx2_get_transport_name,
-	        .get_uio_name		= bnx2_get_uio_name,
+		.get_transport_name	= bnx2_get_transport_name,
+		.get_uio_name		= bnx2_get_uio_name,
 	},
 };
