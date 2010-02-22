@@ -19,6 +19,7 @@
 CONFIG_FILE=/etc/iscsi/iscsid.conf
 DAEMON=/sbin/iscsid
 ISCSIADM=/sbin/iscsiadm
+BRCM_ISCSIUIO=/sbin/brcm_iscsiuio
 ARGS="-c $CONFIG_FILE -n"
 
 # Source LSB init functions
@@ -110,6 +111,10 @@ case "$1" in
 	    echo -n "Starting iSCSI initiator service: "
 	    modprobe iscsi_tcp
 	    modprobe -q ib_iser
+	    if grep -q bnx2 /proc/modules ; then
+		modprobe -q bnx2i
+		startproc $BRCM_ISCSIUIO
+	    fi
 	    startproc $DAEMON $ARGS
 	    RETVAL=$?
 	    rc_status -v
@@ -124,19 +129,34 @@ case "$1" in
 	if iscsi_logout_all_nodes ; then
 	    killproc -KILL $DAEMON
 	    RETVAL=$?
+	    if grep -q bnx2i /proc/modules ; then
+		killproc -KILL $BRCM_ISCSIUIO
+	    fi
+ 	    RETVAL=$?
 	else
 	    RETVAL=1
 	fi
 	if [ "$RETVAL" == "0" ]; then
 	    status=0
-	    modprobe -r iscsi_tcp
-	    if [ "$?" -ne "0" -a "$?" -ne "1" ]; then
-	    	status=1
+	    if grep -q bnx2i /proc/modules ; then
+		modprobe -r bnx2i
+		if [ "$?" -ne "0" -a "$?" -ne "1" ]; then
+	    	    status=1
+		fi
 	    fi
-	    modprobe -q -r ib_iser
-            if [ "$?" -ne "0" -a "$?" -ne "1" ]; then
-	        status=1 
-            fi
+
+	    if [ "$status" -eq 0 ] ; then
+		modprobe -r iscsi_tcp
+		if [ "$?" -ne "0" -a "$?" -ne "1" ]; then
+	    	    status=1
+		fi
+	    fi
+	    if [ "$status" -eq 0 ] ; then
+		modprobe -q -r ib_iser
+		if [ "$?" -ne "0" -a "$?" -ne "1" ]; then
+	            status=1 
+		fi
+	    fi
 	    rc_failed $status
 	else
 	    rc_failed $RETVAL
