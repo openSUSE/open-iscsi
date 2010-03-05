@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+open-iscsi-2.0-871.2 - open-iscsi-2.0.871.3
+
+Mike Christie (2):
+      iscsi modules: Fix recovery slowdown
+      iscsi modules: iscsi_tcp: wake xmit thread when killing session
+
+
+-------------------------------------------------------------------
 open-iscsi-2.0-871.1 - open-iscsi-2.0.871.2
 
 Mike Christie (1):
