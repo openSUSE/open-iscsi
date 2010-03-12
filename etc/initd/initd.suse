@@ -38,28 +38,126 @@ iscsi_login_all_nodes()
 	rc_status -v
 }
 
-iscsi_logout_all_nodes()
+#
+# Set a temporary startmode for ifdown
+#
+iscsi_modify_if_startmode()
 {
-	echo -n "Closing all iSCSI connections: "
-	# Logout from all sessions marked automatic
-	if ! $ISCSIADM -m node --logoutall=automatic 2> /dev/null; then
-		if [ $? == 19 ] ; then
-		    RETVAL=6
-		else
-		    RETVAL=1
-		fi
-		rc_failed $RETVAL
-	fi
-	rc_status -v
+    local ifname=$1
+    local tmp_ifcfg=/dev/.sysconfig/network/if-$ifname
 
-	# Not sure whether this is still needed
-	sleep 1
-	return ${RETVAL:-0}
+    if [ -f "$tmp_ifcfg" ] ; then
+	echo "disabling shutdown on $ifname"
+	echo "startmode=nfsroot" >> $tmp_ifcfg
+    fi
 }
 
-iscsi_umount_all_luns()
+iscsi_get_ifacename_from_session()
 {
-    local d m dev p s
+    local session=$1
+    local ifacename
+
+    ifacename=$(iscsiadm -m session -r ${session##.*/session} 2> /dev/null | \
+	sed -n 's/iface.iscsi_ifacename = \(.*\)/\1/p')
+
+    echo $ifacename
+}
+
+iscsi_get_hwaddress_from_iface()
+{
+    local iface=$1
+    local hwaddress
+
+    hwaddress=$(iscsiadm -m iface -I "$ifacename" 2> /dev/null | sed -n 's/iface.hwaddress = \(.*\)/\1/p')
+
+    echo $hwaddress
+}
+
+#
+# cxgb3i is using the HWAddress to select
+# the correct interface
+#
+iscsi_get_ifname_from_hwaddress()
+{
+    local hwaddress=$1
+
+    for if in /sys/class/net/*; do
+	[ -e "$if" ] || continue
+	read mac < $if/address
+	[ "$mac" = "$hwaddress" ] || continue
+	echo ${if##*/}
+	break
+    done
+}
+
+#
+# Handle 'default' interface:
+# It is basically impossible to determine via which
+# interface the iSCSI traffic will flow, so we take
+# the easy option and ignore _all_ active interfaces
+# during shutdown
+#
+iscsi_modify_all_interfaces()
+{
+    ip link show up | sed -n '/.*LOOPBACK.*/d;s/[0-9]*: \(.*\): .*/\1/p' | while read ifname; do
+	iscsi_modify_if_startmode $ifname
+    done
+}
+
+#
+# Check iface setting and disable
+# affected network interfaces
+#
+iscsi_check_interface()
+{
+    local session=$1
+    local i h n
+
+    i=$(iscsi_get_ifacename_from_session $session)
+    [ -z "$i" ] && continue
+    if [ "$i" = "default" ] ; then
+	iscsi_modify_all_interfaces
+    else
+	h=$(iscsi_get_hwaddress_from_iface $i)
+	if [ -n "$h" ] ; then
+	    n=$(iscsi_get_ifname_from_hwaddress $h)
+	    iscsi_modify_if_startmode $n
+	fi
+    fi
+}
+
+#
+# Check if device 'd' matches device
+# 'm' or one if its slaves
+#
+iscsi_check_device()
+{
+    local p=$1
+    local m=$2
+    local d=$3
+
+    if [ ! -d ${p} ] ; then
+	continue;
+    fi
+
+    if [ "${p##*/}" = "$d" ] ; then
+	echo "$m"
+	return 0
+    fi
+    for s in $p/slaves/* ; do
+	[ -e $s ] || continue
+	iscsi_check_device $s $m $d
+    done
+
+}
+
+#
+# Check if device 'dev' is mounted
+#
+iscsi_check_mounts()
+{
+    local dev=$1
+    local d m t o x p
 
     cat /proc/mounts | sed -ne '/^\/dev\/.*/p' | while read d m t o x; do 
 	if [ "$m" = "/" ] ; then 
@@ -68,25 +166,102 @@ iscsi_umount_all_luns()
 	if [ -L "$d" ] ; then
 	    d=$(readlink -f $d)
 	fi
-	dev=${d##/dev}
+	[ -b "$d" ] || continue
 
-	if [ "${dev##/sd}" = "$dev" ] ; then
-	    continue;
+	b=$(ls -l $d | sed -n 's/.* \([0-9]*\), \([0-9]*\) .*/\1:\2/p')
+	p=$(cd -P /sys/dev/block/$b ; echo $PWD)
+
+	if [ -z "$p" ] ; then
+	    d=${d##/dev}
+	    p="/sys/block${d%%[0-9]*}"
 	fi
-	p="/sys/block${dev%%[0-9]*}"
 
-	if [ ! -d ${p} ] && [ ! -d ${p}/device ] ; then
-	    continue;
+	[ ! -d ${p} ] && continue
+
+	if [ -e $p/partition ] ; then
+	    p=$(cd -P $p/../; echo $PWD)
 	fi
 
-	s=$(cd -P ${p}/device && echo $PWD)
+	iscsi_check_device $p ${p##*/} $dev
+    done
+}
 
-	case "$s" in
-	    */session[0-9]*/*)
-		# This is an iSCSI device
-		umount "$m"
-	    ;;
-	esac
+#
+# Return all targets for a given session
+#
+iscsi_get_target()
+{
+    local session=$1
+    local d
+
+    for d in $session/device/target* ; do
+	[ -e "$d" ] || continue
+	echo "$d"
+    done
+}
+
+#
+# Check if a device presented by a target
+# is mounted and try to umount it.
+# Return the mount point if the call to
+# umount failed.
+#
+iscsi_check_target()
+{
+    local t=$1
+    local d b dev mnt
+
+    for d in $t/* ; do
+	[ -d $d/block ] || continue
+	for b in $d/block/sd* ; do
+	    [ -d "$b" ] || continue
+	    dev=${b##*/}
+	    mnt=$(iscsi_check_mounts $dev)
+	    [ -z "$mnt" ] && continue
+	    case "$mnt" in
+		dm-*)
+		    echo $mnt
+		    return 1
+		    ;;
+		md*)
+		    echo $mnt
+		    return 1
+		    ;;
+		*)
+		    umount $mnt 2> /dev/null
+		    if [ $? -ne 0 ] ; then
+			echo $mnt
+			return 1
+		    fi
+		    ;;
+	    esac
+	done
+    done
+}
+
+#
+# Check all sessions for mounted devices
+# and shutdown the session if the affected
+# devices could be umounted cleanly.
+# If umount fails disable shutdown on all
+# affected network interfaces
+#
+iscsi_stop_sessions()
+{
+    local t m s
+
+    for session in /sys/class/iscsi_session/session* ; do
+	[ -e "$session" ] || continue;
+	[ -e $session/device ] || continue
+	t=$(iscsi_get_target $session)
+	m=$(iscsi_check_target $t)
+	s=${session##*/session}
+	if [ -z "$m" ] ; then
+	    iscsiadm -m session -r ${s} -u
+	else
+	    echo "Failed to umount $m"
+	    iscsi_check_interface $s
+	fi
     done
 }
 
@@ -124,9 +299,10 @@ case "$1" in
 	fi
 	;;
     stop)
-	iscsi_umount_all_luns
 	echo -n "Stopping iSCSI initiator service: "
-	if iscsi_logout_all_nodes ; then
+	iscsi_stop_sessions
+	m=$(iscsiadm -m session 2> /dev/null)
+	if [ -z "$m" ] ; then
 	    killproc -KILL $DAEMON
 	    RETVAL=$?
 	    if grep -q bnx2i /proc/modules ; then
