@@ -452,6 +452,8 @@ void nic_remove(nic_t *nic, int locked)
 
 	if(!locked)
 		pthread_mutex_unlock(&nic_list_mutex);
+
+	return 0;
 }
 
 /** 
@@ -825,10 +827,18 @@ int process_packets(nic_t *nic,
 			if(nic_iface == NULL)
 			{
 				LOG_ERR(PFX "%s: Couldn't find interface for "
-					    "VLAN: %d",
+					    "VLAN: %d trying default stack",
 					nic->log_name, pkt->vlan_tag);
-				rc =0;
-				goto done;
+
+				nic_iface = nic_find_nic_iface(nic, 0);
+				if(nic_iface == NULL)
+				{
+					LOG_ERR(PFX "%s: Couldn't find interface for "
+						    "VLAN: %d",
+						nic->log_name, pkt->vlan_tag);
+					rc =0;
+					goto done;
+				}
 			}
 		}
 
@@ -994,7 +1004,7 @@ void *nic_loop(void *arg)
 				nic->log_name);
 		}
 
-		add_vlan_interfaces(nic);
+//		add_vlan_interfaces(nic);
 		nic_set_all_nic_iface_mac_to_parent(nic);
 
 		rc = alloc_free_queue(nic, 5);
@@ -1080,8 +1090,12 @@ void *nic_loop(void *arg)
 			nic_iface = nic_iface->next;
 		}
 
-                if(nic->flags & NIC_DISABLED)
+                if(nic->flags & NIC_DISABLED) {
+			LOG_WARN(PFX "%s: nic was disabled durin nic loop "
+				     "closing",
+				 nic->log_name);
                         goto dev_close;
+		}
 
 		pthread_mutex_unlock(&nic->nic_iface_mutex);
 
@@ -1095,6 +1109,8 @@ void *nic_loop(void *arg)
 		pthread_mutex_lock(&nic->enable_done_mutex);
 		pthread_cond_broadcast(&nic->enable_done_cond);
 		pthread_mutex_unlock(&nic->enable_done_mutex);
+
+		LOG_INFO(PFX "%s: is now enabled done", nic->log_name);
 
 		while ((nic->state & NIC_RUNNING) && (event_loop_stop == 0)) {
 			/*  Check the periodic and ARP timer */

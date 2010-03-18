@@ -867,7 +867,7 @@ void bnx2x_start_xmit(nic_t *nic, size_t len)
 
 	txbd->vlan = bp->tx_prod;
 
-	bp->tx_prod = BNX2X_NEXT_TX_BD(bp->tx_prod);
+	bp->tx_prod++;
 	bp->tx_bd_prod = BNX2X_NEXT_TX_BD(bp->tx_bd_prod);
 	bp->tx_bd_prod = BNX2X_NEXT_TX_BD(bp->tx_bd_prod);
 
@@ -992,7 +992,15 @@ static int bnx2x_read(nic_t *nic, packet_t *pkt)
 				memcpy(pkt->buf, rx_pkt, len);
 				pkt->buf_size = len;
 
-				/* TODO - VLAN tag info */
+				/*  Properly set the packet flags */
+				/*  check if there is VLAN tagging */
+				if (cqe->fast_path_cqe.vlan_tag != 0) {
+					pkt->vlan_tag = cqe->fast_path_cqe.vlan_tag;
+					pkt->flags |= VLAN_TAGGED;
+				} else {
+ 	                               pkt->vlan_tag = 0;
+				}
+
 				rc = 1;
 
 				LOG_DEBUG(PFX "%s: processing packet length: %d",

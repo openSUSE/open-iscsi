@@ -41,6 +41,18 @@
  ******************************************************************************/
 #define PFX "CNIC "
 
+#ifndef ETHERTYPE_IP
+#define ETHERTYPE_IP			0x0800		/* IP */
+#endif /* ETHERTYPE_IP */
+
+#ifndef ETHERTYPE_ARP
+#define ETHERTYPE_ARP			0x0806		/* Address resolution */
+#endif /* ETHERTYPE_ARP */
+
+#ifndef ETHERTYPE_VLAN
+#define ETHERTYPE_VLAN			0x8100		/* IEEE 802.1Q VLAN tagging */
+#endif /* ETHERTYPE_VLAN */
+
 /*******************************************************************************
  * Constants shared between the bnx2 and bnx2x modules
  ******************************************************************************/
@@ -56,20 +68,45 @@ static int cnic_arp_send(nic_t *nic, nic_interface_t *nic_iface, int fd,
 			 __u8 * mac_addr, __u32 ip_addr, __u16 op)
 {
 	struct ether_header *eth;
+	uint16_t *vlan_hdr;
 	struct ether_arp *arp;
 	__u32 dst_ip = ip_addr;
 	int pkt_size = sizeof(*eth) + sizeof(*arp);
 	int rc;
 
 	rc = pthread_mutex_trylock(&nic->xmit_mutex);
-
-	eth = (*nic->ops->get_tx_pkt)(nic);
-	arp = (struct ether_arp *)(eth + 1);
-
 	if(rc != 0) {
 		LOG_DEBUG(PFX "%s: could not get xmit_mutex", nic->log_name);
 		return -EAGAIN;
 	}
+
+	eth = (*nic->ops->get_tx_pkt)(nic);
+	memcpy(eth->ether_shost, nic->mac_addr, ETH_ALEN);
+
+	vlan_hdr = (uint16_t *)(eth + 1);
+        /*  Determine if we need to insert the VLAN tag */
+        if(nic_iface->vlan_id != 0)
+        {
+		uint16_t insert_tpid = const_htons(ETHERTYPE_ARP);
+		uint16_t insert_vlan_id = htons((0x0FFF & nic_iface->vlan_id) +
+			  ((0x000F & nic_iface->vlan_priority) << 12));
+
+                memcpy(vlan_hdr, &insert_vlan_id, 2);
+		vlan_hdr++;
+                memcpy(vlan_hdr, &insert_tpid, 2);
+		vlan_hdr++;
+
+                pkt_size = pkt_size + 4;
+		eth->ether_type = htons(ETHERTYPE_VLAN);
+
+                LOG_DEBUG(PFX "%s: Inserted vlan tag id: 0x%x",
+                          nic->log_name,
+                          ntohs(insert_vlan_id));
+        } else {
+		eth->ether_type = const_htons(ETHERTYPE_ARP);
+	}
+
+	arp = (struct ether_arp *)(vlan_hdr);
 
 	if (op == ARPOP_REQUEST) {
 		int i;
@@ -79,8 +116,6 @@ static int cnic_arp_send(nic_t *nic, nic_interface_t *nic_iface, int fd,
 	} else
 		memcpy(eth->ether_dhost, mac_addr, 6);
 
-	memcpy(eth->ether_shost, nic->mac_addr, ETH_ALEN);
-	eth->ether_type = htons(ETHERTYPE_ARP);
 	arp->arp_hrd = htons(ARPHRD_ETHER);
 	arp->arp_pro = htons(ETHERTYPE_IP);
 	arp->arp_hln = ETH_ALEN;
@@ -177,12 +212,16 @@ int cnic_handle_iscsi_path_req(nic_t *nic, int fd, struct iscsi_uevent *ev,
 
 	/*  Find the proper interface via VLAN id */
 	nic_iface = nic_find_nic_iface(nic, path->vlan_id);
-//	nic_iface = cnic_find_nic_iface(nic, path->vlan_id);
 	if (nic_iface == NULL) {
-		pthread_mutex_unlock(&nic_list_mutex);
-		LOG_ERR(PFX "%s: Couldn't find net_iface vlan_id: %d",
-			nic->log_name, path->vlan_id);
-		return -EINVAL;
+		nic_iface = nic_find_nic_iface(nic, 0);
+		if (nic_iface == NULL) {
+			pthread_mutex_unlock(&nic_list_mutex);
+			LOG_ERR(PFX "%s: Couldn't find net_iface vlan_id: %d",
+				nic->log_name, path->vlan_id);
+			return -EINVAL;
+		}
+
+		nic_iface->vlan_id = path->vlan_id;
 	}
 
 	memcpy(&addr, &path->dst.v4_addr, sizeof(addr));
@@ -207,7 +246,7 @@ int cnic_handle_iscsi_path_req(nic_t *nic, int fd, struct iscsi_uevent *ev,
 				goto done;
 			}
 
-			for(count=0; count<4; count++) {
+			for(count=0; count<8; count++) {
 				usleep(250000);
 
 				rc = uip_lookup_arp_entry(addr.s_addr,

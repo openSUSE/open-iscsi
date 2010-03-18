@@ -269,6 +269,7 @@ static int ctldev_handle()
 	struct iscsi_path *path;
 	char *msg_type_str;
 	uint32_t host_no;
+	int i;
 
 	/*  Take a quick peek at what how much uIP will need to read */
 	if ((rc = nl_read(nl_sock, nlm_ev,
@@ -325,13 +326,29 @@ static int ctldev_handle()
 		goto error;
 	}
 
-	/*  Ensure that the NIC is RUNNING */
-	if(((nic->state & NIC_RUNNING) != NIC_RUNNING) &&
-	   (ev->type != ISCSI_KEVENT_IF_DOWN)) {
-		LOG_WARN(PFX "%s: is not running so can't issue neigh req, "
-			     "cmd: 0x%d",
-			 nic->log_name, ev->type);
-		goto error;
+	if (ev->type == ISCSI_KEVENT_PATH_REQ) {
+		struct timespec sleep_req, sleep_rem;
+
+		sleep_req.tv_sec  = 0;
+		sleep_req.tv_nsec = 250000000;
+
+		/*  Ensure that the NIC is RUNNING */
+		rc = -EIO;
+		for (i=0; i<10; i++) {
+			if((nic->state & NIC_RUNNING) == NIC_RUNNING) {
+				rc = 0;
+				break;
+			}
+		
+			nanosleep(&sleep_req, &sleep_rem);
+		}
+
+		if (rc !=0) {
+			LOG_WARN(PFX "%s: is not running so can't issue "
+				     "neigh req, cmd: 0x%x state: 0x%x",
+				 nic->log_name, ev->type, nic->state);
+			goto error;
+		}
 	}
 
 	ev = (struct iscsi_uevent *)NLMSG_DATA(data);

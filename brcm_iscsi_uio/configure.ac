@@ -10,9 +10,9 @@ dnl Written by: Benjamin Li  (benli@broadcom.com)
 dnl
 
 PACKAGE=brcm_iscsiuio
-VERSION=0.5.2
+VERSION=0.5.7
 
-AC_INIT(brcm_iscsi, 0.5.2, benli@broadcom.com)
+AC_INIT(brcm_iscsi, 0.5.7, benli@broadcom.com)
 
 AM_INIT_AUTOMAKE($PACKAGE, $VERSION)
 AC_CONFIG_HEADER(config.h)

@@ -1,11 +1,11 @@
-.\" Copyright (c) 200o Broadcom Corporation
+.\" Copyright (c) 2010 Broadcom Corporation
 .\" This is free documentation; you can redistribute it and/or
 .\" modify it under the terms of the GNU General Public License as
 .\" published by the Free Software Foundation.
 .\"
-.\" bnx2.4,v 0.5.0
+.\" bnx2.4,v 0.5.7
 .\"
-.TH brcm_iscsiuio 8 "01/08/09" "Broadcom Corporation"
+.TH brcm_iscsiuio 8 "03/17/2010" "Broadcom Corporation"
 .\"
 .\" NAME part
 .\"
@@ -16,7 +16,7 @@ brcm_iscsiuio \- Broadcom iSCSI UserSpace I/O driver
 .\"
 .SH SYNOPSIS
 .B brcm_iscsiuio
-.RB [ --config --version --help ]
+.RB [ -d -f -v ]
 .PP
 .\"
 .\" DESCRIPTION part
@@ -44,8 +44,19 @@ on how to configure network protocol and address.
 .SH PARAMETERS
 There are very few parameters when running this application.
 .TP
-.BI -d
+.BI -d <debug level>
 This is to enable debug mode where debug messages will be sent to stdout
+The following debug modes are supported
+.P
+.RS
+DEBUG         4 - Print all messages
+.P
+INFO          3 - Print messages needed to follow the uIP code (default)
+.P
+WARN          2 - Print warning messages
+.P
+ERROR         1 - Only print critical errors
+.RE
 .PP
 .TP
 .TP
