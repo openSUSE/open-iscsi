@@ -39,6 +39,37 @@ iscsi_login_all_nodes()
 }
 
 #
+# Try to load all required modules prior to startup
+#
+iscsi_load_transport_modules()
+{
+    loaded=$(sed -n "/^iscsi_tcp/p" /proc/modules)
+    if [ -z "$loaded" ] ; then
+	modprobe iscsi_tcp
+	if [ $? = 0 ] ; then
+	    echo -n " tcp"
+	fi
+    fi
+
+    for iface in /etc/iscsi/ifaces/*; do
+	[ -f "$iface" ] || continue
+	[ "$iface" = "iface.example" ] && continue
+	# Check if the iface has been configured
+	result=$(sed '/#.*/D;/iface.iscsi_ifacename/D;/iface.hwaddress/D;/iface.transport_name/D' $iface)
+	if [ "$result" ] ; then
+	    mod=$(sed -n 's/iface.transport_name *= *\(.*\)/\1/p' $iface)
+	    loaded=$(sed -n "/^$mod/p" /proc/modules)
+	    if [ -z "$loaded" ] ; then
+		modprobe $mod
+		if [ $? = 0 ] ; then
+		    echo -n " $mod"
+		fi
+	    fi
+	fi
+    done
+}
+
+#
 # Set a temporary startmode for ifdown
 #
 iscsi_modify_if_startmode()
@@ -284,10 +315,8 @@ case "$1" in
 	    RETVAL=0
 	else
 	    echo -n "Starting iSCSI initiator service: "
-	    modprobe iscsi_tcp
-	    modprobe -q ib_iser
-	    if grep -q bnx2 /proc/modules ; then
-		modprobe -q bnx2i
+	    iscsi_load_transport_modules
+	    if grep -q bnx2i /proc/modules ; then
 		startproc $BRCM_ISCSIUIO
 	    fi
 	    startproc $DAEMON $ARGS
@@ -299,8 +328,8 @@ case "$1" in
 	fi
 	;;
     stop)
-	echo -n "Stopping iSCSI initiator service: "
 	iscsi_stop_sessions
+	echo -n "Stopping iSCSI initiator service: "
 	m=$(iscsiadm -m session 2> /dev/null)
 	if [ -z "$m" ] ; then
 	    killproc -KILL $DAEMON
@@ -312,31 +341,7 @@ case "$1" in
 	else
 	    RETVAL=1
 	fi
-	if [ "$RETVAL" == "0" ]; then
-	    status=0
-	    if grep -q bnx2i /proc/modules ; then
-		modprobe -r bnx2i
-		if [ "$?" -ne "0" -a "$?" -ne "1" ]; then
-	    	    status=1
-		fi
-	    fi
-
-	    if [ "$status" -eq 0 ] ; then
-		modprobe -r iscsi_tcp
-		if [ "$?" -ne "0" -a "$?" -ne "1" ]; then
-	    	    status=1
-		fi
-	    fi
-	    if [ "$status" -eq 0 ] ; then
-		modprobe -q -r ib_iser
-		if [ "$?" -ne "0" -a "$?" -ne "1" ]; then
-	            status=1 
-		fi
-	    fi
-	    rc_failed $status
-	else
-	    rc_failed $RETVAL
-	fi
+	rc_failed $RETVAL
 	rc_status -v
 	;;
     status)
