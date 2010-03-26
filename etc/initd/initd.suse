@@ -192,6 +192,7 @@ iscsi_check_mounts()
 
     cat /proc/mounts | sed -ne '/^\/dev\/.*/p' | while read d m t o x; do 
 	if [ "$m" = "/" ] ; then 
+	    echo rootfs
 	    continue;
 	fi
 	if [ -L "$d" ] ; then
@@ -250,6 +251,10 @@ iscsi_check_target()
 	    mnt=$(iscsi_check_mounts $dev)
 	    [ -z "$mnt" ] && continue
 	    case "$mnt" in
+		rootfs)
+		    echo $mnt
+		    return 1
+		    ;;
 		dm-*)
 		    echo $mnt
 		    return 1
