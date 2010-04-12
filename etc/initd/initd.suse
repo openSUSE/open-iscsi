@@ -77,10 +77,14 @@ iscsi_modify_if_startmode()
     local ifname=$1
     local tmp_ifcfg=/dev/.sysconfig/network/if-$ifname
 
-    if [ -f "$tmp_ifcfg" ] ; then
-	echo "disabling shutdown on $ifname"
-	echo "startmode=nfsroot" >> $tmp_ifcfg
+    if [ -e "$tmp_ifcfg" ] ; then
+	. $tmp_ifcfg
+	if [ "$startmode" ] ; then
+	    return
+	fi
     fi
+    echo "disabling shutdown on $ifname"
+    echo "startmode=nfsroot" >> $tmp_ifcfg
 }
 
 iscsi_get_ifacename_from_session()
@@ -266,6 +270,7 @@ iscsi_check_target()
 		*)
 		    umount $mnt 2> /dev/null
 		    if [ $? -ne 0 ] ; then
+			echo "Failed to umount $mnt"
 			echo $mnt
 			return 1
 		    fi
@@ -293,9 +298,9 @@ iscsi_stop_sessions()
 	m=$(iscsi_check_target $t)
 	s=${session##*/session}
 	if [ -z "$m" ] ; then
+	    echo "stopping session $s"
 	    iscsiadm -m session -r ${s} -u
 	else
-	    echo "Failed to umount $m"
 	    iscsi_check_interface $s
 	fi
     done
