@@ -38,7 +38,12 @@ print_par() {
 
 if [ -d $ibft_nic ]; then
     if [ -s $ibft_nic/dhcp ]; then
-	nettype='dhcp'
+	read ibft_dhcp < $ibft_nic/dhcp
+	if [ "$ibft_dhcp" = "0.0.0.0" ] ; then
+	    nettype='static'
+	else
+	    nettype='dhcp'
+	fi
     else
 	nettype='static'
     fi
