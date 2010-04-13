@@ -101,10 +101,6 @@ install_initd_suse:
 		$(DESTDIR)$(mkinitrd)/setup-iscsi.sh
 	$(INSTALL) -m 755 etc/mkinitrd/mkinitrd-stop.sh \
 		$(DESTDIR)$(mkinitrd)/boot-killiscsi.sh
-	$(INSTALL) -m 755 etc/mkinitrd/ibft-boot.sh \
-		$(DESTDIR)$(mkinitrd)/boot-ibft.sh
-	$(INSTALL) -m 755 etc/mkinitrd/ibft-setup.sh \
-		$(DESTDIR)$(mkinitrd)/setup-ibft.sh
 
 install_initd_redhat:
 	$(INSTALL) -d $(DESTDIR)$(initddir)
