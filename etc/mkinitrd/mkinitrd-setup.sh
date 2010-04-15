@@ -64,6 +64,8 @@ if [ "${root_iscsi}" ]; then
     done
     # copy the iscsi configuration
     cp -rp /etc/iscsi etc/
+    # Use default interface
+    interface="default"
 
     save_var TargetPort 3260 # in case the port was not defined via command line we assign a default port
 fi
