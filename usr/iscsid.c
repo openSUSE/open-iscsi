@@ -345,14 +345,6 @@ int main(int argc, char *argv[])
 	struct sigaction sa_new;
 	pid_t pid;
 
-	/* do not allow ctrl-c for now... */
-	sa_new.sa_handler = catch_signal;
-	sigemptyset(&sa_new.sa_mask);
-	sa_new.sa_flags = 0;
-	sigaction(SIGINT, &sa_new, &sa_old );
-	sigaction(SIGPIPE, &sa_new, &sa_old );
-	sigaction(SIGTERM, &sa_new, &sa_old );
-
 	while ((ch = getopt_long(argc, argv, "c:i:fd:nu:g:p:vh", long_options,
 				 &longindex)) >= 0) {
 		switch (ch) {
@@ -397,6 +389,14 @@ int main(int argc, char *argv[])
 	log_pid = log_init(program_name, DEFAULT_AREA_SIZE);
 	if (log_pid < 0)
 		exit(1);
+
+	/* do not allow ctrl-c for now... */
+	sa_new.sa_handler = catch_signal;
+	sigemptyset(&sa_new.sa_mask);
+	sa_new.sa_flags = 0;
+	sigaction(SIGINT, &sa_new, &sa_old );
+	sigaction(SIGPIPE, &sa_new, &sa_old );
+	sigaction(SIGTERM, &sa_new, &sa_old );
 
 	sysfs_init();
 	if (idbm_init(iscsid_get_config_file)) {
