@@ -22,6 +22,7 @@
 #ifndef IDBM_H
 #define IDBM_H
 
+#include <stdio.h>
 #include <sys/types.h>
 #include "initiator.h"
 #include "config.h"
@@ -75,7 +76,6 @@ typedef struct idbm {
 	discovery_rec_t	drec_isns;
 	recinfo_t	dinfo_isns[MAX_KEYS];
 } idbm_t;
-
 struct db_set_param {
 	char *name;
 	char *value;
@@ -102,8 +102,6 @@ extern int idbm_for_each_node(int *found, void *data,
 extern int idbm_for_each_rec(int *found, void *data,
 			     idbm_iface_op_fn *fn);
 
-extern char* get_iscsi_initiatorname(char *pathname);
-extern char* get_iscsi_initiatoralias(char *pathname);
 extern int idbm_init(idbm_get_config_file_fn *fn);
 
 extern void idbm_node_setup_from_conf(node_rec_t *rec);
@@ -123,16 +121,11 @@ extern int idbm_delete_node(node_rec_t *rec);
 extern int idbm_add_node(node_rec_t *newrec, discovery_rec_t *drec,
 			 int overwrite);
 struct list_head;
-typedef int (idbm_disc_nodes_fn)(struct discovery_rec *drec,
-				 struct iface_rec *iface,
+typedef int (idbm_disc_nodes_fn)(void *data, struct iface_rec *iface,
 				 struct list_head *recs);
 extern int idbm_bind_ifaces_to_nodes(idbm_disc_nodes_fn *disc_node_fn,
-				     struct discovery_rec *drec,
-				     struct list_head *ifaces,
+				     void *data, struct list_head *ifaces,
 				     struct list_head *bound_recs);
-extern int idbm_add_nodes(node_rec_t *newrec,
-			  discovery_rec_t *drec, struct list_head *ifaces,
-			  int overwrite);
 extern int idbm_add_discovery(discovery_rec_t *newrec);
 extern void idbm_sendtargets_defaults(struct iscsi_sendtargets_config *cfg);
 extern void idbm_slp_defaults(struct iscsi_slp_config *cfg);
@@ -143,6 +136,10 @@ extern int idbm_rec_read(node_rec_t *out_rec, char *target_name,
 			 struct iface_rec *iface);
 extern int idbm_node_set_param(void *data, node_rec_t *rec);
 extern int idbm_discovery_set_param(void *data, discovery_rec_t *rec);
+extern void idbm_node_setup_defaults(node_rec_t *rec);
+extern struct node_rec *idbm_find_rec_in_list(struct list_head *rec_list,
+					      char *targetname, char *addr,
+					      int port, struct iface_rec *iface);
 
 /* lower level idbm functions for use by iface.c */
 extern void idbm_recinfo_config(recinfo_t *info, FILE *f);

@@ -40,7 +40,7 @@
 #include "iscsi_ipc.h"
 #include "idbm.h"
 #include "log.h"
-#include "util.h"
+#include "iscsi_util.h"
 #include "scsi.h"
 #include "iscsi_sysfs.h"
 #include "iscsi_settings.h"
@@ -348,11 +348,6 @@ iscsi_copy_operational_params(iscsi_conn_t *conn)
 	conn_rec_t *conn_rec = &session->nrec.conn[conn->id];
 	node_rec_t *rec = &session->nrec;
 
-	/*
-	 * iSCSI default, unless declared otherwise by the
-	 * target during login
-	 */
-	conn->max_xmit_dlength = ISCSI_DEF_MAX_RECV_SEG_LEN;
 	conn->hdrdgst_en = conn_rec->iscsi.HeaderDigest;
 	conn->datadgst_en = conn_rec->iscsi.DataDigest;
 
@@ -368,6 +363,23 @@ iscsi_copy_operational_params(iscsi_conn_t *conn)
 		conn_rec->iscsi.MaxRecvDataSegmentLength =
 						DEF_INI_MAX_RECV_SEG_LEN;
 		conn->max_recv_dlength = DEF_INI_MAX_RECV_SEG_LEN;
+	}
+
+	/* zero indicates to use the target's value */
+	conn->max_xmit_dlength =
+			__padding(conn_rec->iscsi.MaxXmitDataSegmentLength);
+	if (conn->max_xmit_dlength == 0)
+		conn->max_xmit_dlength = ISCSI_DEF_MAX_RECV_SEG_LEN;
+	if (conn->max_xmit_dlength < ISCSI_MIN_MAX_RECV_SEG_LEN ||
+	    conn->max_xmit_dlength > ISCSI_MAX_MAX_RECV_SEG_LEN) {
+		log_error("Invalid iscsi.MaxXmitDataSegmentLength. Must be "
+			 "within %u and %u. Setting to %u\n",
+			  ISCSI_MIN_MAX_RECV_SEG_LEN,
+			  ISCSI_MAX_MAX_RECV_SEG_LEN,
+			  DEF_INI_MAX_RECV_SEG_LEN);
+		conn_rec->iscsi.MaxXmitDataSegmentLength =
+						DEF_INI_MAX_RECV_SEG_LEN;
+		conn->max_xmit_dlength = DEF_INI_MAX_RECV_SEG_LEN;
 	}
 
 	/* session's operational parameters */
@@ -665,6 +677,13 @@ cleanup:
 			return MGMT_IPC_ERR_INTERNAL;
 		}
 	}
+
+	log_warning("Connection%d:%d to [target: %s, portal: %s,%d] "
+		    "through [iface: %s] is shutdown.",
+		    session->id, conn->id, session->nrec.name,
+		    session->nrec.conn[conn->id].address,
+		    session->nrec.conn[conn->id].port,
+		    session->nrec.iface.name);
 
 	mgmt_ipc_write_rsp(qtask, err);
 	conn_delete_timers(conn);
@@ -1160,7 +1179,7 @@ static void session_scan_host(struct iscsi_session *session, int hostno,
 					iscsi_sysfs_set_queue_depth);
 		exit(0);
 	} else if (pid > 0) {
-		need_reap();
+		reap_inc();
 		if (qtask) {
 			close(qtask->mgmt_ipc_fd);
 			free(qtask);
@@ -1475,8 +1494,12 @@ setup_full_feature_phase(iscsi_conn_t *conn)
 		if (conn->id == 0)
 			session_scan_host(session, session->hostno, c->qtask);
 
-		log_warning("connection%d:%d is operational now",
-			    session->id, conn->id);
+		log_warning("Connection%d:%d to [target: %s, portal: %s,%d] "
+			    "through [iface: %s] is operational now",
+			    session->id, conn->id, session->nrec.name,
+			    session->nrec.conn[conn->id].address,
+			    session->nrec.conn[conn->id].port,
+			    session->nrec.iface.name);
 	} else {
 		session->sync_qtask = NULL;
 
@@ -2075,7 +2098,7 @@ static iscsi_session_t* session_find_by_rec(node_rec_t *rec)
  * a session could be running in the kernel but not in iscsid
  * due to a resync or becuase some other app started the session
  */
-int session_is_running(node_rec_t *rec)
+static int session_is_running(node_rec_t *rec)
 {
 	int nr_found = 0;
 
@@ -2139,11 +2162,8 @@ session_login_task(node_rec_t *rec, queue_task_t *qtask)
 	iscsi_conn_t *conn;
 	struct iscsi_transport *t;
 
-	if (session_is_running(rec)) {
-		log_error("session [%s,%s,%d] already running.", rec->name,
-			  rec->conn[0].address, rec->conn[0].port);
+	if (session_is_running(rec))
 		return MGMT_IPC_ERR_EXISTS;
-	}
 
 	t = iscsi_sysfs_get_transport_by_name(rec->iface.transport_name);
 	if (!t)

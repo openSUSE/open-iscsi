@@ -38,20 +38,21 @@
 
 static int reap_count;
 
-void need_reap(void)
+void reap_inc(void)
 {
 	reap_count++;
 }
 
-static void reaper(void)
+void reap_proc(void)
 {
-	int rc;
+	int rc, i, max_reaps;
 
 	/*
 	 * We don't really need reap_count, but calling wait() all the
 	 * time seems execessive.
 	 */
-	if (reap_count) {
+	max_reaps = reap_count;
+	for (i = 0; i < max_reaps; i++) {
 		rc = waitpid(0, NULL, WNOHANG);
 		if (rc > 0) {
 			reap_count--;
@@ -61,38 +62,92 @@ static void reaper(void)
 	}
 }
 
+static LIST_HEAD(shutdown_callbacks);
+
+struct shutdown_callback {
+	struct list_head list;
+	pid_t pid;
+};
+
+int shutdown_callback(pid_t pid)
+{
+	struct shutdown_callback *cb;
+
+	cb = calloc(1, sizeof(*cb));
+	if (!cb)
+		return ENOMEM;
+
+	INIT_LIST_HEAD(&cb->list);
+	cb->pid = pid;
+	log_debug(1, "adding %d for shutdown cb\n", pid);
+	list_add_tail(&cb->list, &shutdown_callbacks);
+	return 0;
+}
+
+static void shutdown_notify_pids(void)
+{
+	struct shutdown_callback *cb;
+
+	list_for_each_entry(cb, &shutdown_callbacks, list) {
+		log_debug(1, "Killing %d\n", cb->pid);
+		kill(cb->pid, SIGTERM);
+	}
+}
+
+static int shutdown_wait_pids(void)
+{
+	struct shutdown_callback *cb, *tmp;
+
+	list_for_each_entry_safe(cb, tmp, &shutdown_callbacks, list) {
+		/*
+		 * the proc reaper could clean it up, so wait for any
+		 * sign that it is gone.
+		 */
+		if (waitpid(cb->pid, NULL, WNOHANG)) {
+			log_debug(1, "%d done\n", cb->pid);
+			list_del(&cb->list);
+			free(cb);
+		}
+	}
+
+	return list_empty(&shutdown_callbacks);
+}
+
 #define POLL_CTRL	0
 #define POLL_IPC	1
-#define POLL_ISNS	2
-#define POLL_MAX	3
+#define POLL_MAX	2
 
 static int event_loop_stop;
+static queue_task_t *shutdown_qtask; 
 
-void event_loop_exit(void)
+
+void event_loop_exit(queue_task_t *qtask)
 {
+	shutdown_qtask = qtask;
 	event_loop_stop = 1;
 }
 
-void event_loop(struct iscsi_ipc *ipc, int control_fd, int mgmt_ipc_fd,
-		int isns_fd)
+void event_loop(struct iscsi_ipc *ipc, int control_fd, int mgmt_ipc_fd)
 {
 	struct pollfd poll_array[POLL_MAX];
-	int res;
+	int res, has_shutdown_children = 0;
 
 	poll_array[POLL_CTRL].fd = control_fd;
 	poll_array[POLL_CTRL].events = POLLIN;
 	poll_array[POLL_IPC].fd = mgmt_ipc_fd;
 	poll_array[POLL_IPC].events = POLLIN;
 
-	if (isns_fd < 0)
-		poll_array[POLL_ISNS].fd = poll_array[POLL_ISNS].events = 0;
-	else {
-		poll_array[POLL_ISNS].fd = isns_fd;
-		poll_array[POLL_ISNS].events = POLLIN;
-	}
-
 	event_loop_stop = 0;
-	while (!event_loop_stop) {
+	while (1) {
+		if (event_loop_stop) {
+			if (!has_shutdown_children) {
+				has_shutdown_children = 1;
+				shutdown_notify_pids();
+			}
+			if (shutdown_wait_pids())
+				break;
+		}
+
 		res = poll(poll_array, POLL_MAX, ACTOR_RESOLUTION);
 		if (res > 0) {
 			log_debug(6, "poll result %d", res);
@@ -101,10 +156,6 @@ void event_loop(struct iscsi_ipc *ipc, int control_fd, int mgmt_ipc_fd,
 
 			if (poll_array[POLL_IPC].revents)
 				mgmt_ipc_handle(mgmt_ipc_fd);
-
-			if (poll_array[POLL_ISNS].revents)
-				isns_handle(isns_fd);
-
 		} else if (res < 0) {
 			if (errno == EINTR) {
 				log_debug(1, "event_loop interrupted");
@@ -115,11 +166,13 @@ void event_loop(struct iscsi_ipc *ipc, int control_fd, int mgmt_ipc_fd,
 			}
 		} else
 			actor_poll();
-		reaper();
+		reap_proc();
 		/*
 		 * flush sysfs cache since kernel objs may
 		 * have changed as a result of handling op
 		 */
 		sysfs_cleanup();
 	}
+	if (shutdown_qtask)
+		mgmt_ipc_write_rsp(shutdown_qtask, MGMT_IPC_OK);
 }

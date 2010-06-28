@@ -39,9 +39,14 @@
 #include "log.h"
 #include "idbm.h"
 #include "iscsi_settings.h"
-#include "util.h"
 #include "sysdeps.h"
 #include "fw_context.h"
+#include "iscsid_req.h"
+#include "iscsi_util.h"
+/* libisns includes */
+#include "isns.h"
+#include "paths.h"
+#include "message.h"
 
 #ifdef SLP_ENABLE
 #include "iscsi-slp-discovery.h"
@@ -54,9 +59,318 @@ static int rediscover = 0;
 static char initiator_name[TARGET_NAME_MAXLEN + 1];
 static char initiator_alias[TARGET_NAME_MAXLEN + 1];
 
-int discovery_fw(struct discovery_rec *drec, struct iface_rec *iface,
+static int request_initiator_name(void)
+{
+	int rc;
+	iscsiadm_req_t req;
+	iscsiadm_rsp_t rsp;
+
+	memset(initiator_name, 0, sizeof(initiator_name));
+	initiator_name[0] = '\0';
+	memset(initiator_alias, 0, sizeof(initiator_alias));
+	initiator_alias[0] = '\0';
+
+	memset(&req, 0, sizeof(req));
+	req.command = MGMT_IPC_CONFIG_INAME;
+
+	rc = iscsid_exec_req(&req, &rsp, 1);
+	if (rc)
+		return EIO;
+
+	if (rsp.u.config.var[0] != '\0')
+		strcpy(initiator_name, rsp.u.config.var);
+
+	memset(&req, 0, sizeof(req));
+	req.command = MGMT_IPC_CONFIG_IALIAS;
+
+	rc = iscsid_exec_req(&req, &rsp, 0);
+	if (rc)
+		/* alias is optional so return ok */
+		return 0;
+
+	if (rsp.u.config.var[0] != '\0')
+		strcpy(initiator_alias, rsp.u.config.var);
+	return 0;
+}
+
+void discovery_isns_free_servername(void)
+{
+	if (isns_config.ic_server_name)
+		free(isns_config.ic_server_name);
+	isns_config.ic_server_name = NULL;
+}
+
+int discovery_isns_set_servername(char *address, int port)
+{
+	char *server;
+	int len;
+
+	if (port > USHRT_MAX) {
+		log_error("Invalid port %d\n", port);
+		return EINVAL;
+	}
+
+	/* 5 for port and 1 for colon and 1 for null */
+	len = strlen(address) + 7;
+	server = calloc(1, len);
+	if (!server)
+		return ENOMEM;
+
+	snprintf(server, len, "%s:%d", address, port);
+	isns_assign_string(&isns_config.ic_server_name, server);
+	free(server);
+	return 0;
+}
+
+int discovery_isns_query(struct discovery_rec *drec, const char *iname,
+			 const char *targetname, struct list_head *rec_list)
+{
+	isns_attr_list_t key_attrs = ISNS_ATTR_LIST_INIT;
+	isns_object_list_t objects = ISNS_OBJECT_LIST_INIT;
+	isns_source_t *source;
+	isns_simple_t *qry;
+	isns_client_t *clnt;
+	uint32_t status;
+	int rc, i;
+
+	isns_config.ic_security = 0;
+	source = isns_source_create_iscsi(iname);
+	if (!source)
+		return ENOMEM;
+
+	clnt = isns_create_client(NULL, iname); 
+	if (!clnt) {
+		rc = ENOMEM;
+		goto free_src;
+	}
+
+	/* do not retry forever */
+	isns_socket_set_disconnect_fatal(clnt->ic_socket);
+
+	if (targetname)
+		isns_attr_list_append_string(&key_attrs, ISNS_TAG_ISCSI_NAME,
+					     targetname);
+	else
+		/* Query for all visible targets */
+		isns_attr_list_append_uint32(&key_attrs,
+					     ISNS_TAG_ISCSI_NODE_TYPE,
+					     ISNS_ISCSI_TARGET_MASK);
+
+	qry = isns_create_query2(clnt, &key_attrs, source);
+	if (!qry) {
+		rc = ENOMEM;
+		goto free_clnt;
+	}
+
+	isns_query_request_attr_tag(qry, ISNS_TAG_ISCSI_NAME);
+	isns_query_request_attr_tag(qry, ISNS_TAG_ISCSI_NODE_TYPE);
+	isns_query_request_attr_tag(qry, ISNS_TAG_PORTAL_IP_ADDRESS);
+	isns_query_request_attr_tag(qry, ISNS_TAG_PORTAL_TCP_UDP_PORT);
+	isns_query_request_attr_tag(qry, ISNS_TAG_PG_ISCSI_NAME);
+	isns_query_request_attr_tag(qry, ISNS_TAG_PG_PORTAL_IP_ADDR);
+	isns_query_request_attr_tag(qry, ISNS_TAG_PG_PORTAL_TCP_UDP_PORT);
+	isns_query_request_attr_tag(qry, ISNS_TAG_PG_TAG);
+
+	status = isns_client_call(clnt, &qry);
+	switch (status) {
+	case ISNS_SUCCESS:
+		break;
+	case ISNS_SOURCE_UNKNOWN:
+		/* server requires that we are registered but we are not */
+		rc = ENOENT;
+		goto free_query;
+	default:
+		log_error("iSNS discovery failed: %s", isns_strerror(status));
+		rc = EIO;
+		goto free_query;
+	}
+
+	status = isns_query_response_get_objects(qry, &objects);
+	if (status) {
+		log_error("Unable to extract object list from query "
+			  "response: %s\n", isns_strerror(status));
+		rc = EIO;
+		goto free_query;
+	}
+
+	for (i = 0; i < objects.iol_count; ++i) {
+		isns_object_t *obj = objects.iol_data[i];
+		const char *pg_tgt = NULL;
+		struct in6_addr in_addr;
+		uint32_t pg_port = ISCSI_LISTEN_PORT;
+		uint32_t pg_tag = PORTAL_GROUP_TAG_UNKNOWN;
+		char pg_addr[INET6_ADDRSTRLEN + 1];
+		struct node_rec *rec;
+
+		if (!isns_object_is_pg(obj))
+			continue;
+
+		if (!isns_object_get_string(obj, ISNS_TAG_PG_ISCSI_NAME,
+					    &pg_tgt)) {
+			log_debug(1, "Missing target name");
+			continue;
+		}
+
+		if (!isns_object_get_ipaddr(obj, ISNS_TAG_PG_PORTAL_IP_ADDR,
+					    &in_addr)) {
+			log_debug(1, "Missing addr");
+			continue;
+		}
+		if (IN6_IS_ADDR_V4MAPPED(&in_addr) ||
+		    IN6_IS_ADDR_V4COMPAT(&in_addr)) {
+			struct in_addr ipv4;
+
+			ipv4.s_addr = in_addr.s6_addr32[3];
+			inet_ntop(AF_INET, &ipv4, pg_addr, sizeof(pg_addr));
+		} else
+			inet_ntop(AF_INET6, &in_addr, pg_addr, sizeof(pg_addr));
+
+		if (!isns_object_get_uint32(obj,
+					    ISNS_TAG_PG_PORTAL_TCP_UDP_PORT,
+					    &pg_port)) {
+			log_debug(1, "Missing port");
+			continue;
+		}
+
+		if (!isns_object_get_uint32(obj, ISNS_TAG_PG_TAG, &pg_tag)) {
+			log_debug(1, "Missing tag");
+			continue;
+		}
+
+		rec = calloc(1, sizeof(*rec));
+		if (!rec) {
+			rc = ENOMEM;
+			goto destroy_list;
+		}
+
+		idbm_node_setup_from_conf(rec);
+		if (drec) {
+			rec->disc_type = drec->type;
+			rec->disc_port = drec->port;
+			strcpy(rec->disc_address, drec->address);
+		}
+
+		strlcpy(rec->name, pg_tgt, TARGET_NAME_MAXLEN);
+		rec->tpgt = pg_tag;
+		rec->conn[0].port = pg_port;
+		strlcpy(rec->conn[0].address, pg_addr, NI_MAXHOST);
+		list_add_tail(&rec->list, rec_list);
+	}
+	rc = 0;
+
+	isns_flush_events();
+destroy_list:
+	isns_object_list_destroy(&objects);
+free_query:
+	isns_simple_free(qry);
+free_clnt:
+	isns_client_destroy(clnt);
+free_src:
+	isns_source_release(source);
+	return rc;
+}
+
+/*
+ * discovery_isns_reg_node - register/deregister node
+ * @iname: initiator name
+ * @reg: bool indicating if we are supposed to register or deregister node.
+ *
+ * We do a very simple registration just so we can query.
+ */
+static int discovery_isns_reg_node(const char *iname, int op_reg)
+{
+	isns_simple_t *reg;
+	isns_client_t *clnt;
+	isns_source_t *source;
+	int rc = 0, status;
+
+	isns_config.ic_security = 0;
+
+	log_debug(1, "trying to %s %s with iSNS server.",
+		  op_reg ? "register" : "deregister", iname);
+
+	source = isns_source_create_iscsi(iname);
+	if (!source)
+		return ENOMEM;
+
+	clnt = isns_create_client(NULL, iname); 
+	if (!clnt) {
+		rc = ENOMEM;
+		goto free_src;
+	}
+
+	reg = isns_simple_create(op_reg ? ISNS_DEVICE_ATTRIBUTE_REGISTER :
+				 ISNS_DEVICE_DEREGISTER,
+				 source, NULL);
+	if (!reg) {
+		rc = ENOMEM;
+		goto free_clnt;
+	}
+
+	isns_attr_list_append_string(&reg->is_operating_attrs,
+				     ISNS_TAG_ISCSI_NAME, iname);
+	if (op_reg)
+		isns_attr_list_append_uint32(&reg->is_operating_attrs,
+					     ISNS_TAG_ISCSI_NODE_TYPE,
+					     ISNS_ISCSI_INITIATOR_MASK);
+	status = isns_client_call(clnt, &reg);
+	if (status != ISNS_SUCCESS) {
+		log_error("Could not %s %s with iSNS server: %s.",
+			  reg ? "register" : "deregister", iname,
+			  isns_strerror(status));
+		rc = EIO;
+	} else
+		log_debug(1, "%s %s with iSNS server successful.",
+			  op_reg ? "register" : "deregister", iname);
+free_clnt:
+	isns_client_destroy(clnt);
+free_src:
+	isns_source_release(source);
+	return rc;
+}
+
+int discovery_isns(void *data, struct iface_rec *iface,
+		   struct list_head *rec_list)
+{
+	struct discovery_rec *drec = data;
+	char *iname;
+	int rc, registered = 0;
+
+	if (iface && strlen(iface->iname))
+		iname = iface->iname;
+	else {
+		if (request_initiator_name() || initiator_name[0] == '\0') {
+			log_error("Cannot perform discovery. Initiatorname "
+				  "required.");
+			return EINVAL;
+		}
+		iname = initiator_name;
+	}
+
+	rc = discovery_isns_set_servername(drec->address, drec->port);
+	if (rc)
+		return rc;
+retry:
+	rc = discovery_isns_query(drec, iname, NULL, rec_list);
+	if (!registered && rc == ENOENT) {
+		rc = discovery_isns_reg_node(iname, 1);
+		if (!rc) {
+			registered = 1;
+			goto retry;
+		}
+	}
+
+	if (registered)
+		discovery_isns_reg_node(iname, 0);
+
+	discovery_isns_free_servername();
+	return rc;
+}
+
+int discovery_fw(void *data, struct iface_rec *iface,
 		 struct list_head *rec_list)
 {
+	struct discovery_rec *drec = data;
 	struct boot_context *bcontext;
 	struct list_head targets;
 	struct node_rec *rec;
@@ -129,7 +443,7 @@ int discovery_offload_sendtargets(int host_no, int do_login,
 	 * and get back the results. We should do this since it would
 	 * allows us to then process the results like software iscsi.
 	 */
-	rc = do_iscsid(&req, &rsp, 1);
+	rc = iscsid_exec_req(&req, &rsp, 1);
 	if (rc) {
 		log_error("Could not offload sendtargets to %s.\n",
 			  drec->address);
@@ -365,14 +679,14 @@ add_target_record(char *name, char *end, discovery_rec_t *drec,
 }
 
 static int
-process_sendtargets_response(struct string_buffer *sendtargets,
+process_sendtargets_response(struct str_buffer *sendtargets,
 			     int final, discovery_rec_t *drec,
 			     struct list_head *rec_list,
 			     char *default_port)
 {
-	char *start = buffer_data(sendtargets);
+	char *start = str_buffer_data(sendtargets);
 	char *text = start;
-	char *end = text + data_length(sendtargets);
+	char *end = text + str_data_length(sendtargets);
 	char *nul = end - 1;
 	char *record = NULL;
 	int num_targets = 0;
@@ -423,7 +737,7 @@ process_sendtargets_response(struct string_buffer *sendtargets,
 							default_port)) {
 					log_error(
 					       "failed to add target record");
-					truncate_buffer(sendtargets, 0);
+					str_truncate_buffer(sendtargets, 0);
 					goto done;
 				}
 				num_targets++;
@@ -451,10 +765,10 @@ process_sendtargets_response(struct string_buffer *sendtargets,
 					       drec, rec_list, default_port)) {
 				num_targets++;
 				record = NULL;
-				truncate_buffer(sendtargets, 0);
+				str_truncate_buffer(sendtargets, 0);
 			} else {
 				log_error("failed to add target record");
-				truncate_buffer(sendtargets, 0);
+				str_truncate_buffer(sendtargets, 0);
 				goto done;
 			}
 		} else {
@@ -465,11 +779,11 @@ process_sendtargets_response(struct string_buffer *sendtargets,
 			log_debug(7,
 				 "processed %d bytes of sendtargets data, "
 				 "%d remaining",
-				 (int)(record - buffer_data(sendtargets)),
-				 (int)(buffer_data(sendtargets) +
-				 data_length(sendtargets) - record));
-			remove_initial(sendtargets,
-				       record - buffer_data(sendtargets));
+				 (int)(record - str_buffer_data(sendtargets)),
+				 (int)(str_buffer_data(sendtargets) +
+				 str_data_length(sendtargets) - record));
+			str_remove_initial(sendtargets,
+					   record - str_buffer_data(sendtargets));
 		}
 	}
 
@@ -549,40 +863,6 @@ msecs_until(struct timeval *timer)
 	return msecs;
 }
 
-static int request_initiator_name(void)
-{
-	int rc;
-	iscsiadm_req_t req;
-	iscsiadm_rsp_t rsp;
-
-	memset(initiator_name, 0, sizeof(initiator_name));
-	initiator_name[0] = '\0';
-	memset(initiator_alias, 0, sizeof(initiator_alias));
-	initiator_alias[0] = '\0';
-
-	memset(&req, 0, sizeof(req));
-	req.command = MGMT_IPC_CONFIG_INAME;
-
-	rc = do_iscsid(&req, &rsp, 1);
-	if (rc)
-		return EIO;
-
-	if (rsp.u.config.var[0] != '\0')
-		strcpy(initiator_name, rsp.u.config.var);
-
-	memset(&req, 0, sizeof(req));
-	req.command = MGMT_IPC_CONFIG_IALIAS;
-
-	rc = do_iscsid(&req, &rsp, 0);
-	if (rc)
-		/* alias is optional so return ok */
-		return 0;
-
-	if (rsp.u.config.var[0] != '\0')
-		strcpy(initiator_alias, rsp.u.config.var);
-	return 0;
-}
-
 static iscsi_session_t *
 init_new_session(struct iscsi_sendtargets_config *config,
 		 struct iface_rec *iface)
@@ -615,7 +895,7 @@ init_new_session(struct iscsi_sendtargets_config *config,
 	}
 	session->conn[0].max_xmit_dlength = ISCSI_DEF_MAX_RECV_SEG_LEN;
 
-	session->reopen_cnt = config->reopen_max;
+	session->reopen_cnt = config->reopen_max + 1;
 
 	/* OUI and uniqifying number */
 	session->isid[0] = DRIVER_ISID_0;
@@ -737,7 +1017,7 @@ process_recvd_pdu(struct iscsi_hdr *pdu,
 		  discovery_rec_t *drec,
 		  struct list_head *rec_list,
 		  iscsi_session_t *session,
-		  struct string_buffer *sendtargets,
+		  struct str_buffer *sendtargets,
 		  char *default_port,
 		  int *active,
 		  int *valid_text,
@@ -767,9 +1047,15 @@ process_recvd_pdu(struct iscsi_hdr *pdu,
 			/* mark how much more data in the sendtargets
 			 * buffer is now valid
 			 */
-			curr_data_length = data_length(sendtargets);
-			enlarge_data(sendtargets, dlength);
-			memcpy(buffer_data(sendtargets) + curr_data_length,
+			curr_data_length = str_data_length(sendtargets);
+			if (str_enlarge_data(sendtargets, dlength)) {
+				log_error("Could not allocate memory to "
+					  "process SendTargets response.");
+				rc = 0;
+				goto done;
+			}
+
+			memcpy(str_buffer_data(sendtargets) + curr_data_length,
 			       data, dlength);
 
 			*valid_text = 1;
@@ -868,9 +1154,10 @@ done:
 	iscsi_io_disconnect(&session->conn[0]);
 }
 
-int discovery_sendtargets(discovery_rec_t *drec, struct iface_rec *iface,
+int discovery_sendtargets(void *fndata, struct iface_rec *iface,
 			  struct list_head *rec_list)
 {
+	discovery_rec_t *drec = fndata;
 	iscsi_session_t *session;
 	struct pollfd pfd;
 	struct iscsi_hdr pdu_buffer;
@@ -880,7 +1167,7 @@ int discovery_sendtargets(discovery_rec_t *drec, struct iface_rec *iface,
 	struct timeval connection_timer;
 	int timeout;
 	int rc;
-	struct string_buffer sendtargets;
+	struct str_buffer sendtargets;
 	uint8_t status_class = 0, status_detail = 0;
 	unsigned int login_failures = 0, data_len;
 	int login_delay = 0;
@@ -917,7 +1204,7 @@ int discovery_sendtargets(discovery_rec_t *drec, struct iface_rec *iface,
 	}
 	data_len = session->conn[0].max_recv_dlength;
 
-	init_string_buffer(&sendtargets, 0);
+	str_init_buffer(&sendtargets, 0);
 
 	sprintf(default_port, "%d", drec->port);
 	/* resolve the DiscoveryAddress to an IP address */
@@ -948,7 +1235,7 @@ set_address:
 reconnect:
 
 	if (--session->reopen_cnt < 0) {
-		log_error("connection login retries (reopen_max) %d exceeded",
+		log_error("connection login retries (reopen_max %d) exceeded",
 			  config->reopen_max);
 		rc = 1;
 		goto free_sendtargets;
@@ -1101,7 +1388,7 @@ redirect_reconnect:
 	}
 
 	/* reinitialize */
-	truncate_buffer(&sendtargets, 0);
+	str_truncate_buffer(&sendtargets, 0);
 
 	/* ask for targets */
 	if (!request_targets(session)) {
@@ -1221,7 +1508,7 @@ repoll:
 	rc = 0;
 
 free_sendtargets:
-	free_string_buffer(&sendtargets);
+	str_free_buffer(&sendtargets);
 	free(data);
 free_session:
 	free(session);

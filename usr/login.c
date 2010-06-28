@@ -388,8 +388,19 @@ get_op_params_text_keys(iscsi_session_t *session, int cid,
 	} else if (iscsi_find_key_value("MaxRecvDataSegmentLength", text, end,
 				     &value, &value_end)) {
 		if (session->type == ISCSI_SESSION_TYPE_DISCOVERY ||
-		    !session->t->template->rdma)
-			conn->max_xmit_dlength = strtoul(value, NULL, 0);
+		    !session->t->template->rdma) {
+			int tgt_max_xmit;
+			conn_rec_t *conn_rec = &session->nrec.conn[cid];
+
+			tgt_max_xmit = strtoul(value, NULL, 0);
+			/*
+			 * if the rec value is zero it means to use
+			 * what the target gave us.
+			 */
+			if (!conn_rec->iscsi.MaxXmitDataSegmentLength ||
+			    tgt_max_xmit < conn->max_xmit_dlength)
+				conn->max_xmit_dlength = tgt_max_xmit;
+		}
 		text = value_end;
 	} else if (iscsi_find_key_value("FirstBurstLength", text, end, &value,
 					 &value_end)) {

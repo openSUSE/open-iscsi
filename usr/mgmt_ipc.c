@@ -74,7 +74,7 @@ mgmt_ipc_listen(void)
 void
 mgmt_ipc_close(int fd)
 {
-	event_loop_exit();
+	event_loop_exit(NULL);
 	if (fd >= 0)
 		close(fd);
 }
@@ -190,8 +190,7 @@ mgmt_ipc_conn_add(queue_task_t *qtask)
 static mgmt_ipc_err_e
 mgmt_ipc_immediate_stop(queue_task_t *qtask)
 {
-	event_loop_exit();
-	mgmt_ipc_write_rsp(qtask, MGMT_IPC_OK);
+	event_loop_exit(qtask);
 	return MGMT_IPC_OK;
 }
 
@@ -200,13 +199,6 @@ mgmt_ipc_conn_remove(queue_task_t *qtask)
 {
 	return MGMT_IPC_ERR;
 }
-
-static mgmt_ipc_err_e
-mgmt_ipc_isns_dev_attr_query(queue_task_t *qtask)
-{
-	return isns_dev_attr_query_task(qtask);
-}
-
 
 static mgmt_ipc_err_e
 mgmt_ipc_host_set_param(queue_task_t *qtask)
@@ -518,7 +510,6 @@ static mgmt_ipc_fn_t *	mgmt_ipc_functions[__MGMT_IPC_MAX_COMMAND] = {
 [MGMT_IPC_CONFIG_IALIAS]	= mgmt_ipc_cfg_initiatoralias,
 [MGMT_IPC_CONFIG_FILE]		= mgmt_ipc_cfg_filename,
 [MGMT_IPC_IMMEDIATE_STOP]	= mgmt_ipc_immediate_stop,
-[MGMT_IPC_ISNS_DEV_ATTR_QUERY]	= mgmt_ipc_isns_dev_attr_query,
 [MGMT_IPC_SET_HOST_PARAM]	= mgmt_ipc_host_set_param,
 [MGMT_IPC_NOTIFY_ADD_NODE]	= mgmt_ipc_notify_add_node,
 [MGMT_IPC_NOTIFY_DEL_NODE]	= mgmt_ipc_notify_del_node,

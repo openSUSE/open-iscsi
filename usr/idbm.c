@@ -33,7 +33,7 @@
 #include "idbm.h"
 #include "idbm_fields.h"
 #include "log.h"
-#include "util.h"
+#include "iscsi_util.h"
 #include "iscsi_settings.h"
 #include "transport.h"
 #include "iscsi_sysfs.h"
@@ -127,22 +127,6 @@ static struct idbm *db;
 	_info[_n].numopts = 6; \
 	_n++; \
 } while(0)
-
-char *get_iscsi_initiatorname(char *pathname)
-{
-	char *name;
-
-	name = get_global_string_param(pathname, "InitiatorName=");
-	if (!name)
-		log_error("An InitiatorName= is required, but was not "
-			  "found in %s", pathname);
-	return name;
-}
-
-char *get_iscsi_initiatoralias(char *pathname)
-{
-	return get_global_string_param(pathname, "InitiatorAlias=");
-}
 
 static void
 idbm_recinfo_discovery(discovery_rec_t *r, recinfo_t *ri)
@@ -327,6 +311,10 @@ idbm_recinfo_node(node_rec_t *r, recinfo_t *ri)
 		__recinfo_int(key, ri, r, conn[i].timeo.noop_out_timeout,
 				IDBM_SHOW, num, 1);
 
+		sprintf(key, CONN_MAX_XMIT_DLEN, i);
+		__recinfo_int(key, ri, r,
+			conn[i].iscsi.MaxXmitDataSegmentLength, IDBM_SHOW,
+			num, 1);
 		sprintf(key, CONN_MAX_RECV_DLEN, i);
 		__recinfo_int(key, ri, r,
 			conn[i].iscsi.MaxRecvDataSegmentLength, IDBM_SHOW,
@@ -1675,15 +1663,14 @@ free_portal:
 }
 
 static int idbm_bind_iface_to_nodes(idbm_disc_nodes_fn *disc_node_fn,
-				    struct discovery_rec *drec,
-				    struct iface_rec *iface,
+				    void *data, struct iface_rec *iface,
 				    struct list_head *bound_recs)
 {
 	struct node_rec *rec, *tmp;
 	struct list_head new_recs;
 
 	INIT_LIST_HEAD(&new_recs);
-	if (disc_node_fn(drec, iface, &new_recs))
+	if (disc_node_fn(data, iface, &new_recs))
 		return ENODEV;
 
 	list_for_each_entry_safe(rec, tmp, &new_recs, list) {
@@ -1695,21 +1682,21 @@ static int idbm_bind_iface_to_nodes(idbm_disc_nodes_fn *disc_node_fn,
 }
 
 int idbm_bind_ifaces_to_nodes(idbm_disc_nodes_fn *disc_node_fn,
-			      struct discovery_rec *drec,
-			      struct list_head *ifaces,
+			      void *data, struct list_head *ifaces,
 			      struct list_head *bound_recs)
 {
-	struct iface_rec *iface, *tmp;
+	struct list_head def_ifaces;
+	struct node_rec *rec, *tmp_rec;
+	struct iface_rec *iface, *tmp_iface;
 	struct iscsi_transport *t;
 	int rc = 0, found = 0;
 
-	if (!ifaces || list_empty(ifaces)) {
-		struct list_head def_ifaces;
+	INIT_LIST_HEAD(&def_ifaces);
 
-		INIT_LIST_HEAD(&def_ifaces);
+	if (!ifaces || list_empty(ifaces)) {
 		iface_link_ifaces(&def_ifaces);
 
-		list_for_each_entry_safe(iface, tmp, &def_ifaces, list) {
+		list_for_each_entry_safe(iface, tmp_iface, &def_ifaces, list) {
 			list_del(&iface->list);
 			t = iscsi_sysfs_get_transport_by_name(iface->transport_name);
 			/*
@@ -1722,11 +1709,11 @@ int idbm_bind_ifaces_to_nodes(idbm_disc_nodes_fn *disc_node_fn,
 				continue;
 			}
 
-			rc = idbm_bind_iface_to_nodes(disc_node_fn, drec, iface,
+			rc = idbm_bind_iface_to_nodes(disc_node_fn, data, iface,
 						      bound_recs);
 			free(iface);
 			if (rc)
-				return rc;
+				goto fail;
 			found = 1;
 		}
 
@@ -1734,10 +1721,9 @@ int idbm_bind_ifaces_to_nodes(idbm_disc_nodes_fn *disc_node_fn,
 		if (!found) {
 			struct iface_rec def_iface;
 
-			//log_error("no ifaces using default\n");
 			memset(&def_iface, 0, sizeof(struct iface_rec));
 			iface_setup_defaults(&def_iface);
-			return idbm_bind_iface_to_nodes(disc_node_fn, drec,
+			return idbm_bind_iface_to_nodes(disc_node_fn, data,
 							&def_iface, bound_recs);
 		}
 	} else {
@@ -1751,72 +1737,25 @@ int idbm_bind_ifaces_to_nodes(idbm_disc_nodes_fn *disc_node_fn,
 				continue;
 			}
 
-			rc = idbm_bind_iface_to_nodes(disc_node_fn, drec, iface,
+			rc = idbm_bind_iface_to_nodes(disc_node_fn, data, iface,
 						      bound_recs);
 			if (rc)
-				return rc;
+				goto fail;
 		}
 	}
 	return 0;
-}
 
-/*
- * remove this when isns is converted
- */
-int idbm_add_nodes(node_rec_t *newrec, discovery_rec_t *drec,
-		   struct list_head *ifaces, int update)
-{
-	struct iface_rec *iface, *tmp;
-	struct iscsi_transport *t;
-	int rc = 0, found = 0;
-
-	if (!ifaces || list_empty(ifaces)) {
-		struct list_head def_ifaces;
-
-		INIT_LIST_HEAD(&def_ifaces);
-		iface_link_ifaces(&def_ifaces);
-
-		list_for_each_entry_safe(iface, tmp, &def_ifaces, list) {
-			list_del(&iface->list);
-			t = iscsi_sysfs_get_transport_by_name(iface->transport_name);
-			/* only auto bind to software iscsi */
-			if (!t || strcmp(t->name, DEFAULT_TRANSPORT) ||
-			     !strcmp(iface->name, DEFAULT_IFACENAME)) {
-				free(iface);
-				continue;
-			}
-
-			iface_copy(&newrec->iface, iface);
-			rc = idbm_add_node(newrec, drec, update);
-			free(iface);
-			if (rc)
-				return rc;
-			found = 1;
-		}
-
-		/* create default iface with old/default behavior */
-		if (!found) {
-			iface_setup_defaults(&newrec->iface);
-			return idbm_add_node(newrec, drec, update);
-		}
-	} else {
-		list_for_each_entry(iface, ifaces, list) {
-			if (strcmp(iface->name, DEFAULT_IFACENAME) &&
-			    !iface_is_valid(iface)) {
-				log_error("iface %s is not valid. Will not "
-					  "bind node to it. Iface settings "
-					  iface_fmt, iface->name,
-					  iface_str(iface));
-				continue;
-			}
-
-			iface_copy(&newrec->iface, iface);
-			rc = idbm_add_node(newrec, drec, update);
-			if (rc)
-				return rc;
-		}
+fail:	
+	list_for_each_entry_safe(iface, tmp_iface, &def_ifaces, list) {
+		list_del(&iface->list);
+		free(iface);
 	}
-	return 0;
+
+	list_for_each_entry_safe(rec, tmp_rec, bound_recs, list) {
+		list_del(&rec->list);
+		free(rec);
+	}
+	return rc;
 }
 
 static void idbm_rm_disc_node_links(char *disc_dir)
@@ -2240,4 +2179,77 @@ struct node_rec *idbm_create_rec_from_boot_context(struct boot_context *context)
 	iface_setup_from_boot_context(&rec->iface, context);
 
 	return rec;
+}
+
+void idbm_node_setup_defaults(node_rec_t *rec)
+{
+	int i;
+
+	memset(rec, 0, sizeof(node_rec_t));
+
+	INIT_LIST_HEAD(&rec->list);
+
+	rec->tpgt = PORTAL_GROUP_TAG_UNKNOWN;
+	rec->disc_type = DISCOVERY_TYPE_STATIC;
+	rec->session.cmds_max = CMDS_MAX;
+	rec->session.xmit_thread_priority = XMIT_THREAD_PRIORITY;
+	rec->session.initial_cmdsn = 0;
+	rec->session.queue_depth = QUEUE_DEPTH;
+	rec->session.initial_login_retry_max = DEF_INITIAL_LOGIN_RETRIES_MAX;
+	rec->session.reopen_max = 32;
+	rec->session.auth.authmethod = 0;
+	rec->session.auth.password_length = 0;
+	rec->session.auth.password_in_length = 0;
+	rec->session.err_timeo.abort_timeout = DEF_ABORT_TIMEO;
+	rec->session.err_timeo.lu_reset_timeout = DEF_LU_RESET_TIMEO;
+	rec->session.err_timeo.tgt_reset_timeout = DEF_TGT_RESET_TIMEO;
+	rec->session.err_timeo.host_reset_timeout = DEF_HOST_RESET_TIMEO;
+	rec->session.timeo.replacement_timeout = DEF_REPLACEMENT_TIMEO;
+	rec->session.iscsi.InitialR2T = 0;
+	rec->session.iscsi.ImmediateData = 1;
+	rec->session.iscsi.FirstBurstLength = DEF_INI_FIRST_BURST_LEN;
+	rec->session.iscsi.MaxBurstLength = DEF_INI_MAX_BURST_LEN;
+	rec->session.iscsi.DefaultTime2Wait = ISCSI_DEF_TIME2WAIT;
+	rec->session.iscsi.DefaultTime2Retain = 0;
+	rec->session.iscsi.MaxConnections = 1;
+	rec->session.iscsi.MaxOutstandingR2T = 1;
+	rec->session.iscsi.ERL = 0;
+	rec->session.iscsi.FastAbort = 1;
+
+	for (i=0; i<ISCSI_CONN_MAX; i++) {
+		rec->conn[i].startup = ISCSI_STARTUP_MANUAL;
+		rec->conn[i].port = ISCSI_LISTEN_PORT;
+		rec->conn[i].tcp.window_size = TCP_WINDOW_SIZE;
+		rec->conn[i].tcp.type_of_service = 0;
+		rec->conn[i].timeo.login_timeout= DEF_LOGIN_TIMEO;
+		rec->conn[i].timeo.logout_timeout= DEF_LOGOUT_TIMEO;
+		rec->conn[i].timeo.auth_timeout = 45;
+
+		rec->conn[i].timeo.noop_out_interval = DEF_NOOP_OUT_INTERVAL;
+		rec->conn[i].timeo.noop_out_timeout = DEF_NOOP_OUT_TIMEO;
+
+		rec->conn[i].iscsi.MaxXmitDataSegmentLength = 0;
+		rec->conn[i].iscsi.MaxRecvDataSegmentLength =
+						DEF_INI_MAX_RECV_SEG_LEN;
+		rec->conn[i].iscsi.HeaderDigest = CONFIG_DIGEST_NEVER;
+		rec->conn[i].iscsi.DataDigest = CONFIG_DIGEST_NEVER;
+		rec->conn[i].iscsi.IFMarker = 0;
+		rec->conn[i].iscsi.OFMarker = 0;
+	}
+
+	iface_setup_defaults(&rec->iface);
+}
+
+struct node_rec *
+idbm_find_rec_in_list(struct list_head *rec_list, char *targetname, char *addr,
+		      int port, struct iface_rec *iface)
+{
+	struct node_rec *rec;
+
+	list_for_each_entry(rec, rec_list, list) {
+		if (__iscsi_match_session(rec, targetname, addr, port, iface))
+			return rec;
+	}
+
+	return NULL;
 }

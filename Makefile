@@ -27,6 +27,7 @@ IFACEFILES = etc/iface.example
 all: user kernel
 
 user: ;
+	cd utils/open-isns; ./configure; $(MAKE)
 	$(MAKE) -C utils/sysdeps
 	$(MAKE) -C utils/fwparam_ibft
 	$(MAKE) -C usr
@@ -57,6 +58,8 @@ clean:
 	$(MAKE) -C utils clean
 	$(MAKE) -C usr clean
 	$(MAKE) -C kernel clean
+	$(MAKE) -C utils/open-isns clean
+	$(MAKE) -C utils/open-isns distclean
 
 # this is for safety
 # now -jXXX will still be safe

@@ -33,7 +33,7 @@
 #include "log.h"
 #include "mgmt_ipc.h"
 #include "idbm.h"
-#include "util.h"
+#include "iscsi_util.h"
 #include "transport.h"
 #include "version.h"
 #include "iscsi_sysfs.h"
@@ -45,6 +45,9 @@
 #include "host.h"
 #include "sysdeps.h"
 #include "idbm_fields.h"
+#include "session_mgmt.h"
+#include "iscsid_req.h"
+#include "isns-proto.h"
 
 struct iscsi_ipc *ipc = NULL; /* dummy */
 static char program_name[] = "iscsiadm";
@@ -60,11 +63,12 @@ enum iscsiadm_mode {
 };
 
 enum iscsiadm_op {
-	OP_NOOP		= 0x0,
-	OP_NEW		= 0x1,
-	OP_DELETE	= 0x2,
-	OP_UPDATE	= 0x4,
-	OP_SHOW		= 0x8,
+	OP_NOOP			= 0x0,
+	OP_NEW			= 0x1,
+	OP_DELETE		= 0x2,
+	OP_UPDATE		= 0x4,
+	OP_SHOW			= 0x8,
+	OP_NONPERSISTENT	= 0x10
 };
 
 static struct option const long_options[] =
@@ -128,6 +132,8 @@ str_to_op(char *str)
 		op = OP_UPDATE;
 	else if (!strcmp("show", str))
 		op = OP_SHOW;
+	else if (!strcmp("nonpersistent", str))
+		op = OP_NONPERSISTENT;
 	else
 		op = OP_NOOP;
 
@@ -199,7 +205,7 @@ static void kill_iscsid(int priority)
 
 	memset(&req, 0, sizeof(req));
 	req.command = MGMT_IPC_IMMEDIATE_STOP;
-	rc = do_iscsid(&req, &rsp, 0);
+	rc = iscsid_exec_req(&req, &rsp, 0);
 	if (rc) {
 		iscsid_handle_error(rc);
 		log_error("Could not stop iscsid. Trying sending iscsid "
@@ -221,7 +227,7 @@ static int print_ifaces(struct iface_rec *iface, int info_level)
 	switch (info_level) {
 	case 0:
 	case -1:
-		err = iface_for_each_iface(NULL, &num_found,
+		err = iface_for_each_iface(NULL, 0, &num_found,
 					   iface_print_flat);
 		break;
 	case 1:
@@ -235,7 +241,7 @@ static int print_ifaces(struct iface_rec *iface, int info_level)
 			iface_print_tree(NULL, iface);
 			num_found = 1;
 		} else
-			err = iface_for_each_iface(NULL, &num_found,
+			err = iface_for_each_iface(NULL, 0, &num_found,
 						   iface_print_tree);
 		break;
 	default:
@@ -278,80 +284,6 @@ match_startup_mode(node_rec_t *rec, char *mode)
 	return -1;
 }
 
-static void log_login_msg(struct node_rec *rec, int rc)
-{
-	if (rc) {
-		log_error("Could not login to [iface: %s, target: %s, "
-			  "portal: %s,%d].", rec->iface.name,
-			  rec->name, rec->conn[0].address,
-			  rec->conn[0].port);
-		iscsid_handle_error(rc);
-	} else
-		printf("Login to [iface: %s, target: %s, portal: "
-		       "%s,%d] successful.\n", rec->iface.name,
-		       rec->name, rec->conn[0].address,
-		       rec->conn[0].port);
-}
-
-struct iscsid_async_req {
-	struct list_head list;
-	void *data;
-	int fd;
-};
-
-static int iscsid_login_reqs_wait(struct list_head *list)
-{
-	struct iscsid_async_req *tmp, *curr;
-	struct node_rec *rec;
-	int ret = 0;
-
-	list_for_each_entry_safe(curr, tmp, list, list) {
-		int err;
-
-		rec = curr->data;
-		err = iscsid_req_wait(MGMT_IPC_SESSION_LOGIN, curr->fd);
-		log_login_msg(rec, err);
-		list_del(&curr->list);
-		free(curr);
-	}
-	return ret;
-}
-
-static void log_logout_msg(struct session_info *info, int rc)
-{
-	if (rc) {
-		log_error("Could not logout of [sid: %d, target: %s, "
-			  "portal: %s,%d].", info->sid,
-			  info->targetname,
-			  info->persistent_address, info->port);
-		iscsid_handle_error(rc);
-	} else
-		printf("Logout of [sid: %d, target: %s, "
-		       "portal: %s,%d] successful.\n",
-		       info->sid, info->targetname,
-		       info->persistent_address, info->port);
-}
-
-static int iscsid_logout_reqs_wait(struct list_head *list)
-{
-	struct iscsid_async_req *tmp, *curr;
-	struct session_info *info;
-	int ret = 0;
-
-	list_for_each_entry_safe(curr, tmp, list, list) {
-		int err;
-
-		info  = curr->data;
-		err = iscsid_req_wait(MGMT_IPC_SESSION_LOGOUT, curr->fd);
-		log_logout_msg(info, err);
-		if (err)
-			ret = err;
-		list_del(&curr->list);
-		free(curr);
-	}
-	return ret;
-}
-
 static int
 for_each_session(struct node_rec *rec, iscsi_sysfs_session_op_fn *fn)
 {
@@ -381,90 +313,6 @@ static int link_recs(void *data, struct node_rec *rec)
 	INIT_LIST_HEAD(&rec_copy->list);
 	list_add_tail(&rec_copy->list, list);
 	return 0;
-}
-
-static int __logout_portal(struct session_info *info, struct list_head *list)
-{
-	struct iscsid_async_req *async_req = NULL;
-	int fd, rc;
-
-	/* TODO: add fn to add session prefix info like dev_printk */
-	printf("Logging out of session [sid: %d, target: %s, portal: %s,%d]\n",
-		info->sid, info->targetname, info->persistent_address,
-		info->port);
-
-	async_req = calloc(1, sizeof(*async_req));
-	if (!async_req) {
-		log_error("Could not allocate memory for async logout "
-			  "handling. Using sequential logout instead.");
-		rc = iscsid_req_by_sid(MGMT_IPC_SESSION_LOGOUT, info->sid);
-	} else {
-		INIT_LIST_HEAD(&async_req->list);
-		rc = iscsid_req_by_sid_async(MGMT_IPC_SESSION_LOGOUT,
-					     info->sid, &fd);
-	}
-
-	/* we raced with another app or instance of iscsiadm */
-	if (rc) {
-		log_logout_msg(info, rc);
-		if (async_req)
-			free(async_req);
-
-		if (rc == MGMT_IPC_ERR_NOT_FOUND)
-			return 0;
-
-		return EIO;
-	}
-
-	if (async_req) {
-		list_add_tail(&async_req->list, list);
-		async_req->fd = fd;
-		async_req->data = info;
-	} else
-		log_logout_msg(info, rc);
-
-	return 0;
-}
-
-static int
-__logout_portals(void *data, int *nr_found,
-		 int (*logout_fn)(void *, struct list_head *,
-				   struct session_info *))
-{
-	struct session_info *curr_info;
-	struct session_link_info link_info;
-	struct list_head session_list, logout_list;
-	int ret = 0, err;
-
-	INIT_LIST_HEAD(&session_list);
-	INIT_LIST_HEAD(&logout_list);
-
-	memset(&link_info, 0, sizeof(link_info));
-	link_info.list = &session_list;
-	link_info.data = NULL;
-	link_info.match_fn = NULL;
-	*nr_found = 0;
-
-	err = iscsi_sysfs_for_each_session(&link_info, nr_found,
-					   session_info_create_list);
-	if (err || !*nr_found)
-		return err;
-
-	*nr_found = 0;
-	list_for_each_entry(curr_info, &session_list, list) {
-		err = logout_fn(data, &logout_list, curr_info);
-		if (err > 0 && !ret)
-			ret = err;
-		if (!err)
-			(*nr_found)++;
-	}
-
-	err = iscsid_logout_reqs_wait(&logout_list);
-	if (err)
-		ret = err;
-
-	session_info_free_list(&session_list);
-	return ret;
 }
 
 static int
@@ -500,7 +348,7 @@ __logout_by_startup(void *data, struct list_head *list,
 		return -1;
 
 	if (!match_startup_mode(&rec, mode))
-		rc = __logout_portal(info, list);
+		rc = iscsi_logout_portal(info, list);
 	return rc;
 }
 
@@ -516,116 +364,7 @@ logout_by_startup(char *mode)
 		return EINVAL;
 	}
 
-	return __logout_portals(mode, &nr_found, __logout_by_startup);
-}
-
-static int
-logout_portal(void *data, struct list_head *list, struct session_info *info)
-{
-	struct node_rec *pattern_rec = data;
-	struct iscsi_transport *t;
-
-	t = iscsi_sysfs_get_transport_by_sid(info->sid);
-	if (!t)
-		return -1;
-
-	if (!iscsi_match_session(pattern_rec, info))
-		return -1;
-
-	/* we do not support this yet */
-	if (t->caps & CAP_FW_DB) {
-		log_error("Could not logout session of [sid: %d, "
-			  "target: %s, portal: %s,%d].", info->sid,
-			  info->targetname, info->persistent_address,
-			  info->port);
-		log_error("Logout not supported for driver: %s.", t->name);
-		return -1;
-	}
-	return __logout_portal(info, list);
-}
-
-static int logout_portals(struct node_rec *pattern_rec)
-{
-	int nr_found;
-
-	return __logout_portals(pattern_rec, &nr_found, logout_portal);
-}
-
-static int login_portal(void *data, struct list_head *list,
-			struct node_rec *rec)
-{
-	struct iscsid_async_req *async_req = NULL;
-	int rc = 0, fd;
-
-	printf("Logging in to [iface: %s, target: %s, portal: %s,%d]\n",
-		rec->iface.name, rec->name, rec->conn[0].address,
-		rec->conn[0].port);
-
-	if (list) {
-		async_req = calloc(1, sizeof(*async_req));
-		if (!async_req)
-			log_error("Could not allocate memory for async login "
-				  "handling. Using sequential login instead.");
-		else
-			INIT_LIST_HEAD(&async_req->list);
-	}
-
-	if (async_req)
-		rc = iscsid_req_by_rec_async(MGMT_IPC_SESSION_LOGIN,
-					     rec, &fd);
-	else
-		rc = iscsid_req_by_rec(MGMT_IPC_SESSION_LOGIN, rec);
-
-	if (rc) {
-		log_login_msg(rec, rc);
-		if (async_req)
-			free(async_req);
-		/* we raced with another app or instance of iscsiadm */
-		if (rc == MGMT_IPC_ERR_EXISTS)
-			return 0;
-
-		return ENOTCONN;
-	}
-
-	if (async_req) {
-		list_add_tail(&async_req->list, list);
-		async_req->fd = fd;
-		async_req->data = rec;
-	} else
-		log_login_msg(rec, rc);
-
-	return 0;
-}
-
-static int __login_portals(void *data, int *nr_found,
-			  struct list_head *rec_list,
-			  int (* login_fn)(void *, struct list_head *,
-					  struct node_rec *))
-{
-	struct node_rec *curr_rec, *tmp;
-	struct list_head login_list;
-	int ret = 0, err;
-
-	*nr_found = 0;
-	INIT_LIST_HEAD(&login_list);
-
-	list_for_each_entry(curr_rec, rec_list, list) {
-		err = login_fn(data, &login_list, curr_rec);
-		if (err > 0 && !ret)
-			ret = err;
-		if (!err)
-			(*nr_found)++;
-	}
-
-	err = iscsid_login_reqs_wait(&login_list);
-	if (err && !ret)
-		ret = err;
-
-	list_for_each_entry_safe(curr_rec, tmp, rec_list, list) {
-		list_del(&curr_rec->list);
-		free(curr_rec);
-	}
-	return ret;
+	return iscsi_logout_portals(mode, &nr_found, 1, __logout_by_startup);
 }
 
 /*
@@ -646,7 +385,7 @@ __login_by_startup(void *data, struct list_head *list, struct node_rec *rec)
 	if (match_startup_mode(rec, mode))
 		return -1;
 
-	login_portal(NULL, list, rec);
+	iscsi_login_portal(NULL, list, rec);
 	return 0;
 }
 
@@ -665,8 +404,8 @@ login_by_startup(char *mode)
 
 	INIT_LIST_HEAD(&rec_list);
 	rc = idbm_for_each_rec(&nr_found, &rec_list, link_recs);
-	err = __login_portals(mode, &nr_found, &rec_list,
-			      __login_by_startup);
+	err = iscsi_login_portals(mode, &nr_found, 1, &rec_list,
+				  __login_by_startup);
 	if (err && !rc)
 		rc = err;
 
@@ -677,6 +416,37 @@ login_by_startup(char *mode)
 		rc = ENODEV;
 	}
 	return rc;
+}
+
+/**
+ * iscsi_logout_matched_portal - logout of targets matching the rec info
+ * @data: record to session with
+ * @list: list to add logout rec to
+ * @info: session to match with rec
+ */
+static int iscsi_logout_matched_portal(void *data, struct list_head *list,
+				       struct session_info *info)
+{
+	struct node_rec *pattern_rec = data;
+	struct iscsi_transport *t;
+
+	t = iscsi_sysfs_get_transport_by_sid(info->sid);
+	if (!t)
+		return -1;
+
+	if (!iscsi_match_session(pattern_rec, info))
+		return -1;
+
+	/* we do not support this yet */
+	if (t->caps & CAP_FW_DB) {
+		log_error("Could not logout session of [sid: %d, "
+			  "target: %s, portal: %s,%d].", info->sid,
+			  info->targetname, info->persistent_address,
+			  info->port);
+		log_error("Logout not supported for driver: %s.", t->name);
+		return -1;
+	}
+	return iscsi_logout_portal(info, list);
 }
 
 static int iface_fn(void *data, node_rec_t *rec)
@@ -729,8 +499,8 @@ static int login_portals(struct node_rec *pattern_rec)
 
 	INIT_LIST_HEAD(&rec_list);
 	ret = for_each_rec(pattern_rec, &rec_list, link_recs);
-	err = __login_portals(NULL, &nr_found, &rec_list,
-			      login_portal);
+	err = iscsi_login_portals(NULL, &nr_found, 1, &rec_list,
+				  iscsi_login_portal);
 	if (err && !ret)
 		ret = err;
 	return ret;
@@ -769,7 +539,7 @@ static char *get_config_file(void)
 	memset(&req, 0, sizeof(req));
 	req.command = MGMT_IPC_CONFIG_FILE;
 
-	rc = do_iscsid(&req, &rsp, 1);
+	rc = iscsid_exec_req(&req, &rsp, 1);
 	if (rc)
 		return NULL;
 
@@ -819,7 +589,7 @@ session_stats(void *data, struct session_info *info)
 	req.command = MGMT_IPC_SESSION_STATS;
 	req.u.session.sid = info->sid;
 
-	rc = do_iscsid(&req, &rsp, 1);
+	rc = iscsid_exec_req(&req, &rsp, 1);
 	if (rc)
 		return EIO;
 
@@ -1020,37 +790,9 @@ do_offload_sendtargets(discovery_rec_t *drec, int host_no, int do_login)
 	return discovery_offload_sendtargets(host_no, do_login, drec);
 }
 
-static int login_discovered_portal(void *data, struct list_head *list,
-				   node_rec_t *rec)
-{
-	discovery_rec_t *drec = data;
-
-	if (rec->disc_type != drec->type ||
-	    rec->disc_port != drec->port ||
-	    strcmp(rec->disc_address, drec->address))
-		return -1;
-
-	login_portal(NULL, list, rec);
-	/*
-	 * This is used during the initial setup, so we want to see
-	 * what portals we can or cannot log into and we will just continue
-	 */
-	return 0;
-}
-
-/* TODO merge with initiator.c implementation */
-/* And add locking */
-static int check_for_session_through_iface(struct node_rec *rec)
-{
-	int nr_found = 0;
-	if (iscsi_sysfs_for_each_session(rec, &nr_found, iscsi_match_session))
-		return 1;
-	return 0;
-}
-
 static int delete_node(void *data, struct node_rec *rec)
 {
-	if (check_for_session_through_iface(rec)) {
+	if (iscsi_check_for_running_session(rec)) {
 		/*
  		 * We could log out the session for the user, but if
  		 * the session is being used the user may get something
@@ -1104,7 +846,7 @@ exec_disc_op_on_recs(discovery_rec_t *drec, struct list_head *rec_list,
 		     int info_level, int do_login, int op)
 {
 	int rc = 0, err, found = 0;
-	struct node_rec *new_rec;
+	struct node_rec *new_rec, tmp_rec;
 
 	/* clean up node db */
 	if (op & OP_DELETE)
@@ -1125,12 +867,24 @@ exec_disc_op_on_recs(discovery_rec_t *drec, struct list_head *rec_list,
 		}
 	}
 
-	idbm_print_discovered(drec, info_level);
+	memset(&tmp_rec, 0, sizeof(node_rec_t));
+	list_for_each_entry(new_rec, rec_list, list) {
+		switch (info_level) {
+		case 0:
+		case -1:
+			idbm_print_node_flat(NULL, new_rec);
+			break;
+		case 1:
+			idbm_print_node_and_iface_tree(&tmp_rec, new_rec);
+		}
+
+	}
 
 	if (!do_login)
 		return 0;
 
-	err = __login_portals(drec, &found, rec_list, login_discovered_portal);
+	err = iscsi_login_portals(NULL, &found, 1, rec_list,
+				  iscsi_login_portal);
 	if (err && !rc)
 		rc = err;
 	return rc;
@@ -1158,10 +912,12 @@ do_software_sendtargets(discovery_rec_t *drec, struct list_head *ifaces,
 	 * DB lined up, but for now just put all the targets found from
 	 * a discovery portal in one place
 	 */
-	rc = idbm_add_discovery(drec);
-	if (rc) {
-		log_error("Could not add new discovery record.");
-		return rc;
+	if (!(op & OP_NONPERSISTENT)) {
+		rc = idbm_add_discovery(drec);
+		if (rc) {
+			log_error("Could not add new discovery record.");
+			return rc;
+		}
 	}
 
 	rc = idbm_bind_ifaces_to_nodes(discovery_sendtargets, drec, ifaces,
@@ -1242,24 +998,38 @@ sw_st:
 				       op);
 }
 
-static int isns_dev_attr_query(discovery_rec_t *drec,
-			       int info_level)
+static int do_isns(discovery_rec_t *drec, struct list_head *ifaces,
+		   int info_level, int do_login, int op)
 {
-	iscsiadm_req_t req;
-	iscsiadm_rsp_t rsp;
-	int err;
+	struct list_head rec_list;
+	struct node_rec *rec, *tmp;
+	int rc;
 
-	memset(&req, 0, sizeof(iscsiadm_req_t));
-	req.command = MGMT_IPC_ISNS_DEV_ATTR_QUERY;
+	INIT_LIST_HEAD(&rec_list);
+	/*
+	 * compat: if the user did not pass any op then we do all
+	 * ops for them
+	 */
+	if (!op)
+		op = OP_NEW | OP_DELETE | OP_UPDATE;
 
-	err = do_iscsid(&req, &rsp, 1);
-	if (err) {
-		iscsid_handle_error(err);
-		return EIO;
-	} else {
-		idbm_print_discovered(drec, info_level);
-		return 0;
+	drec->type = DISCOVERY_TYPE_ISNS;
+
+	rc = idbm_bind_ifaces_to_nodes(discovery_isns, drec, ifaces,
+				       &rec_list);
+	if (rc) {
+		log_error("Could not perform iSNS discovery.");
+		return rc;
 	}
+
+	rc = exec_disc_op_on_recs(drec, &rec_list, info_level, do_login, op);
+
+	list_for_each_entry_safe(rec, tmp, &rec_list, list) {
+		list_del(&rec->list);
+		free(rec);
+	}
+
+	return rc;
 }
 
 static int
@@ -1305,7 +1075,7 @@ static int exec_iface_op(int op, int do_show, int info_level,
 		}
 
 		rec = idbm_create_rec(NULL, -1, NULL, -1, iface, 0);
-		if (rec && check_for_session_through_iface(rec)) {
+		if (rec && iscsi_check_for_running_session(rec)) {
 			rc = EBUSY;
 			goto new_fail;
 		}
@@ -1361,7 +1131,7 @@ delete_fail:
 			goto update_fail;
 		}
 
-		if (check_for_session_through_iface(rec))
+		if (iscsi_check_for_running_session(rec))
 			log_warning("Updating iface while iscsi sessions "
 				    "are using it. You must logout the running "
 				    "sessions then log back in for the "
@@ -1493,7 +1263,10 @@ static int exec_node_op(int op, int do_login, int do_logout,
 	}
 
 	if (do_logout) {
-		if (logout_portals(rec))
+		int nr_found;
+
+		if (iscsi_logout_portals(rec, &nr_found, 1,
+					 iscsi_logout_matched_portal))
 			rc = -1;
 		goto out;
 	}
@@ -1531,7 +1304,7 @@ static int exec_node_op(int op, int do_login, int do_logout,
 		 * and we can mark stable.
 		 */
 		if (!strcmp(name, "iface.transport_name")) {
-			if (check_for_session_through_iface(rec)) {
+			if (iscsi_check_for_running_session(rec)) {
 				log_warning("Cannot modify node/iface "
 					    "transport name while a session "
 					    "is using it. Log out the session "
@@ -1679,7 +1452,7 @@ static int exec_fw_op(discovery_rec_t *drec, struct list_head *ifaces,
 				break;
 			}
 
-			login_portal(NULL, NULL, rec);
+			iscsi_login_portal(NULL, NULL, rec);
 			free(rec);
 		}
 	} else {
@@ -1722,8 +1495,7 @@ main(int argc, char **argv)
 	umask(0177);
 
 	/* enable stdout logging */
-	log_daemon = 0;
-	log_init(program_name, 1024);
+	log_init(program_name, 1024, log_do_log_std, NULL);
 	sysfs_init();
 
 	optopt = 0;
@@ -1874,6 +1646,9 @@ main(int argc, char **argv)
 		goto free_ifaces;
 	}
 
+	if (mode != MODE_DISCOVERY && ip && port == -1)
+		port = ISCSI_LISTEN_PORT;
+
 	switch (mode) {
 	case MODE_HOST:
 		if ((rc = verify_mode_params(argc, argv, "HdmP", 0))) {
@@ -1915,7 +1690,10 @@ main(int argc, char **argv)
 		}
 		switch (type) {
 		case DISCOVERY_TYPE_SENDTARGETS:
-			if (ip == NULL || port < 0) {
+			if (port < 0)
+				port = ISCSI_LISTEN_PORT;
+
+			if (ip == NULL) {
 				log_error("please specify right portal as "
 					  "<ipaddr>[:<ipport>]");
 				rc = -1;
@@ -1940,10 +1718,23 @@ main(int argc, char **argv)
 			rc = -1;
 			break;
 		case DISCOVERY_TYPE_ISNS:
-			drec.type = DISCOVERY_TYPE_ISNS;
-
-			if (isns_dev_attr_query(&drec, info_level))
+			if (!ip) {
+				log_error("please specify right portal as "
+					  "<ipaddr>:[<ipport>]");
 				rc = -1;
+				goto out;
+			}
+
+			strlcpy(drec.address, ip, sizeof(drec.address));
+			if (port < 0)
+				drec.port = ISNS_DEFAULT_PORT;
+			else
+				drec.port = port;
+
+			if (do_isns(&drec, &ifaces, info_level, do_login, op)) {
+				rc = -1;
+				goto out;
+			}
 			break;
 		case DISCOVERY_TYPE_FW:
 			drec.type = DISCOVERY_TYPE_FW;

@@ -4,8 +4,7 @@
 
 =================================================================
 
-                                                     May 20, 2009
-
+                                                   March 22, 2010
 Contents
 ========
 
@@ -182,8 +181,8 @@ Usage: iscsiadm [OPTION]
   -m, --mode <op>         specify operational mode op = <discovery|node>
   -m discovery --type=[type] --interface=iscsi_ifacename \
 			--portal=[ip:port] --login --print=[N] \
-			--op=[op]=[NEW | UPDATE | DELETE]
-                          perform [type] discovery for target portal with
+			--op=[op]=[NEW | UPDATE | DELETE | NONPERSISTENT]
+                        perform [type] discovery for target portal with
                           ip-address [ip] and port [port].
 
 			  By default this command will searh for a discovery
@@ -212,6 +211,10 @@ Usage: iscsiadm [OPTION]
 			  If [op] is passed in and the value is "delete",
 			  iscsiadm will delete records for portals that
 			  were not returned during discovery.
+
+			  If [op] is passed in and the value is
+			  "nonpersistent" iscsiadm will not store
+			  the portals found in the node DB.
 
 			  See the example section for more info.
 
@@ -592,6 +595,13 @@ To now log into targets it is the same as with sofware iscsi. See section
 	no longer returned. It will not change the record information for
 	existing portals.
 
+     - SendTargets iSCSI Discovery in nonpersistent mode:
+
+	    ./iscsiadm -m discovery -t sendtargets -p 192.168.1.1:3260 \
+		-o nonpersistent
+
+	This command will perform discovery, but not manipulate the node DB.
+
   - SendTargets iSCSI Discovery with a specific interface. If you
 	wish to only use a subset of the interfaces in /etc/iscsi/ifaces
 	then you can pass them in during discovery:
@@ -788,9 +798,13 @@ There are three steps needed to set up a system to use iSCSI storage:
 7.3. Automate target logins for future system reboots.
 
 The init scripts will start the iSCSI daemon and log into any
-connections or nodes that are set up for automatic login. If your distro
-does not have a init script, then you will have to start the daemon
-and log into the targets manually.
+portals that are set up for automatic login (discussed in 7.2)
+or discovered through the discover daemon iscsid.conf params
+(discussed in 7.1.2).
+
+If your distro does not have a init script, then you will have to start the
+daemon and log into the targets manually.
+
 
 7.1.1 iSCSI startup using the init script
 -----------------------------------------------
@@ -820,6 +834,30 @@ gets installed with "make install"
 	/etc/init.d/open-iscsi start
 
 will usually get you started.
+
+
+7.1.2 Automatic Discovery and Login
+-----------------------------------
+
+When iscsid starts it will check iscsid.conf for:
+
+discovery.daemon.sendtargets.addresses =
+discovery.daemon.sendtargets.poll_interval =
+
+discovery.daemon.isns.addresses =
+discovery.daemon.isns.poll_interval =
+
+being set. If an address or addresses are set, iscsid will perform discovery
+to the address every poll_interval seconds, and it will log into any portals
+found from the discovery source using the ifaces in /etc/iscsi/ifaces.
+
+Note that for iSNS the poll_interval does not have to be set. If not set,
+iscsid will only perform rediscovery when it gets a SCN from the server.
+SCNs are not supported when using the Microsoft or SLES iSNS server. If
+using one of them you should set the poll_interval.
+
+See the iscsid.conf for more examples.
+
 
 7.1.2 Manual Startup:
 ---------------------
@@ -902,14 +940,10 @@ iscsiadm -m discovery -t sendtargets -p ip:port
 
 where "ip" is the address of the portal and port is the port.
 
-Or you can you perform discovery using iSNS by setting the address
-of the iSNS server in iscsid.conf with the "isns.address" value and
-running:
+To use iSNS you can run the discovery command with the type as "isns"
+and pass in the ip:port:
 
-iscsiadm -m discovery -t isns
-
-*** Warning *** iSNS support is experimental in this release. The command
-line options for it will change in future releases.
+iscsiadm -m discovery -t isns -p ip:port
 
 Both commands will print out the list of all discovered targets and their
 portals:

@@ -29,13 +29,15 @@
 #include <signal.h>
 #include <sys/mman.h>
 #include <sys/utsname.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "iscsid.h"
 #include "mgmt_ipc.h"
 #include "event_poll.h"
 #include "iscsi_ipc.h"
 #include "log.h"
-#include "util.h"
+#include "iscsi_util.h"
 #include "initiator.h"
 #include "transport.h"
 #include "idbm.h"
@@ -44,6 +46,8 @@
 #include "iface.h"
 #include "session_info.h"
 #include "sysdeps.h"
+#include "discoveryd.h"
+#include "iscsid_req.h"
 
 /* global config info */
 struct iscsi_daemon_config daemon_config;
@@ -52,6 +56,8 @@ struct iscsi_daemon_config *dconfig = &daemon_config;
 static char program_name[] = "iscsid";
 int control_fd, mgmt_ipc_fd;
 static pid_t log_pid;
+static gid_t gid;
+static int daemonize = 1;
 
 static struct option const long_options[] = {
 	{"config", required_argument, NULL, 'c'},
@@ -265,7 +271,7 @@ static int sync_session(void *data, struct session_info *info)
 	memcpy(&req.u.session.rec, &rec, sizeof(node_rec_t));
 
 retry:
-	rc = do_iscsid(&req, &rsp, 0);
+	rc = iscsid_exec_req(&req, &rsp, 0);
 	if (rc == MGMT_IPC_ERR_ISCSID_NOTCONN && retries < 30) {
 		retries++;
 		sleep(1);
@@ -279,36 +285,28 @@ static char *iscsid_get_config_file(void)
 	return daemon_config.config_file;
 }
 
-static void iscsid_exit(void)
-{
-	isns_exit();
-	ipc->ctldev_close();
-	mgmt_ipc_close(mgmt_ipc_fd);
-	if (daemon_config.initiator_name)
-		free(daemon_config.initiator_name);
-	if (daemon_config.initiator_alias)
-		free(daemon_config.initiator_alias);
-	free_initiator();
-}
-
 static void iscsid_shutdown(void)
 {
+	pid_t pid;
+
+	killpg(gid, SIGTERM);
+	while ((pid = waitpid(0, NULL, 0) > 0))
+		log_debug(7, "cleaned up pid %d", pid);
+
 	log_warning("iscsid shutting down.");
-	if (log_daemon && log_pid >= 0) {
+	if (daemonize && log_pid >= 0) {
 		log_debug(1, "daemon stopping");
 		log_close(log_pid);
-		fprintf(stderr, "done done\n");
 	}
-	exit(0);
 }
 
 static void catch_signal(int signo)
 {
 	log_debug(1, "%d caught signal -%d...", signo, getpid());
-
 	switch (signo) {
 	case SIGTERM:
 		iscsid_shutdown();
+		exit(0);
 		break;
 	default:
 		break;
@@ -317,15 +315,16 @@ static void catch_signal(int signo)
 
 static void missing_iname_warn(char *initiatorname_file)
 {
-	fprintf(stderr, "Warning: initiatorname file %s doesn't "
-		"exist. If using software iscsi (iscsi_tcp or ib_iser) or "
-		"partial offload (bnx iscsi), you may not be able to log "
-		"into or discovery targets. Please create a file %s that "
-		"contains a sting with the format: InitiatorName="
-		"iqn.yyyy-mm.<reversed domain name>[:identifier].\n\n"
-		"Example: InitiatorName=iqn.2001-04.com.redhat:fc6.\n"
-		"If using hardware iscsi like qla4xxx this message can be "
-		"ignored.\n", initiatorname_file, initiatorname_file);
+	log_error("Warning: InitiatorName file %s does not exist or does not "
+		  "contain a properly formated InitiatorName. If using "
+		  "software iscsi (iscsi_tcp or ib_iser) or partial offload "
+		  "(bnx2i or cxgb3i iscsi), you may not be able to log "
+		  "into or discover targets. Please create a file %s that "
+		  "contains a sting with the format: InitiatorName="
+		  "iqn.yyyy-mm.<reversed domain name>[:identifier].\n\n"
+		  "Example: InitiatorName=iqn.2001-04.com.redhat:fc6.\n"
+		  "If using hardware iscsi like qla4xxx this message can be "
+		  "ignored.\n", initiatorname_file, initiatorname_file);
 }
 
 int main(int argc, char *argv[])
@@ -335,9 +334,7 @@ int main(int argc, char *argv[])
 	char *initiatorname_file = INITIATOR_NAME_FILE;
 	char *pid_file = PID_FILE;
 	int ch, longindex;
-	int isns_fd;
 	uid_t uid = 0;
-	gid_t gid = 0;
 	struct sigaction sa_old;
 	struct sigaction sa_new;
 	pid_t pid;
@@ -360,7 +357,7 @@ int main(int argc, char *argv[])
 			initiatorname_file = optarg;
 			break;
 		case 'f':
-			log_daemon = 0;
+			daemonize = 0;
 			break;
 		case 'd':
 			log_level = atoi(optarg);
@@ -388,7 +385,8 @@ int main(int argc, char *argv[])
 	}
 
 	/* initialize logger */
-	log_pid = log_init(program_name, DEFAULT_AREA_SIZE);
+	log_pid = log_init(program_name, DEFAULT_AREA_SIZE,
+		      daemonize ? log_do_log_daemon : log_do_log_std, NULL);
 	if (log_pid < 0)
 		exit(1);
 
@@ -409,18 +407,13 @@ int main(int argc, char *argv[])
 	control_fd = -1;
 	daemon_config.initiator_name = NULL;
 	daemon_config.initiator_alias = NULL;
-	if (atexit(iscsid_exit)) {
-		log_error("failed to set exit function\n");
-		log_close(log_pid);
-		exit(1);
-	}
 
 	if ((mgmt_ipc_fd = mgmt_ipc_listen()) < 0) {
 		log_close(log_pid);
 		exit(1);
 	}
 
-	if (log_daemon) {
+	if (daemonize) {
 		char buf[64];
 		int fd;
 
@@ -472,14 +465,15 @@ int main(int argc, char *argv[])
 	memset(&daemon_config, 0, sizeof (daemon_config));
 	daemon_config.pid_file = pid_file;
 	daemon_config.config_file = config_file;
-	daemon_config.initiator_name =
-				get_iscsi_initiatorname(initiatorname_file);
+	daemon_config.initiator_name = cfg_get_string_param(initiatorname_file,
+							    "InitiatorName");
 	if (daemon_config.initiator_name == NULL)
 		missing_iname_warn(initiatorname_file);
 
 	/* optional InitiatorAlias */
 	daemon_config.initiator_alias =
-				get_iscsi_initiatoralias(initiatorname_file);
+				cfg_get_string_param(initiatorname_file,
+						     "InitiatorAlias");
 	if (!daemon_config.initiator_alias) {
 		memset(&host_info, 0, sizeof (host_info));
 		if (uname(&host_info) >= 0) {
@@ -502,7 +496,10 @@ int main(int argc, char *argv[])
 		log_error("Fork failed error %d: existing sessions"
 			  " will not be synced", errno);
 	} else
-		need_reap();
+		reap_inc();
+
+	increase_max_files();
+	discoveryd_start(daemon_config.initiator_name);
 
 	/* oom-killer will not kill us at the night... */
 	if (oom_adjust())
@@ -515,12 +512,18 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	increase_max_files();
 	actor_init();
-	isns_fd = isns_init();
-	event_loop(ipc, control_fd, mgmt_ipc_fd, isns_fd);
-	iscsid_shutdown();
+	event_loop(ipc, control_fd, mgmt_ipc_fd);
+
 	idbm_terminate();
 	sysfs_cleanup();
+	ipc->ctldev_close();
+	mgmt_ipc_close(mgmt_ipc_fd);
+	if (daemon_config.initiator_name)
+		free(daemon_config.initiator_name);
+	if (daemon_config.initiator_alias)
+		free(daemon_config.initiator_alias);
+	free_initiator();
+	iscsid_shutdown();
 	return 0;
 }
