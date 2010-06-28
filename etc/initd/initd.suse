@@ -94,7 +94,13 @@ iscsi_get_ifacename_from_session()
 
     ifacename=$(iscsiadm -m session -r ${session##.*/session} 2> /dev/null | \
 	sed -n 's/iface.iscsi_ifacename = \(.*\)/\1/p')
-
+    if [ -z "$ifacename" ] ; then
+	# Check for iBFT
+	ifacename=$(iscsiadm -m fw 2> /dev/null)
+	if [ -n "$ifacename" ] ; then
+	    ifacename="fw"
+	fi
+    fi
     echo $ifacename
 }
 
@@ -103,7 +109,16 @@ iscsi_get_hwaddress_from_iface()
     local iface=$1
     local hwaddress
 
-    hwaddress=$(iscsiadm -m iface -I "$ifacename" 2> /dev/null | sed -n 's/iface.hwaddress = \(.*\)/\1/p')
+    hwaddress=$(iscsiadm -m iface -I "$iface" 2> /dev/null | sed -n 's/iface.hwaddress = \(.*\)/\1/p')
+
+    echo $hwaddress
+}
+
+iscsi_get_ifname_from_firmware()
+{
+    local hwaddress
+
+    hwaddress=$(iscsiadm -m fw 2> /dev/null | sed -n 's/iface.net_ifacename = \(.*\)/\1/p')
 
     echo $hwaddress
 }
@@ -152,6 +167,9 @@ iscsi_check_interface()
     [ -z "$i" ] && continue
     if [ "$i" = "default" ] ; then
 	iscsi_modify_all_interfaces
+    elif [ "$i" = "fw" ] ; then
+	n=$(iscsi_get_ifname_from_firmware)
+	iscsi_modify_if_startmode $n
     else
 	h=$(iscsi_get_hwaddress_from_iface $i)
 	if [ -n "$h" ] ; then
