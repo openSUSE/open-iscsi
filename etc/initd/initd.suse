@@ -289,8 +289,9 @@ iscsi_check_target()
 #
 iscsi_stop_sessions()
 {
-    local t m s
+    local t m s i
 
+    i=0
     for session in /sys/class/iscsi_session/session* ; do
 	[ -e "$session" ] || continue;
 	[ -e $session/device ] || continue
@@ -300,10 +301,12 @@ iscsi_stop_sessions()
 	if [ -z "$m" ] ; then
 	    echo "stopping session $s"
 	    iscsiadm -m session -r ${s} -u
+	    i=$(( $i + 1 ))
 	else
 	    iscsi_check_interface $s
 	fi
     done
+    echo $i
 }
 
 iscsi_list_all_nodes()
@@ -338,18 +341,22 @@ case "$1" in
 	fi
 	;;
     stop)
-	iscsi_stop_sessions
+	n=$(iscsi_stop_sessions)
 	echo -n "Stopping iSCSI initiator service: "
-	m=$(iscsiadm -m session 2> /dev/null)
-	if [ -z "$m" ] ; then
-	    killproc -KILL $DAEMON
-	    RETVAL=$?
-	    if grep -q bnx2i /proc/modules ; then
-		killproc -KILL $BRCM_ISCSIUIO
+	if [ "$n" -gt 0 ] ; then
+	    m=$(iscsiadm -m session 2> /dev/null)
+	    if [ -z "$m" ] ; then
+		killproc -KILL $DAEMON
+		RETVAL=$?
+		if grep -q bnx2i /proc/modules ; then
+		    killproc -KILL $BRCM_ISCSIUIO
+		fi
+ 		RETVAL=$?
+	    else
+		RETVAL=1
 	    fi
- 	    RETVAL=$?
 	else
-	    RETVAL=1
+	    RETVAL=0
 	fi
 	rc_failed $RETVAL
 	rc_status -v
