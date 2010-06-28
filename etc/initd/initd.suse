@@ -5,9 +5,9 @@
 ### BEGIN INIT INFO
 # Provides:          iscsi
 # Required-Start:    $network
-# Should-Start:      iscsitarget
+# Should-Start:      iscsitarget multipathd
 # Required-Stop:     $network
-# Should-Stop:       $null
+# Should-Stop:       multipathd
 # Default-Start:     3 5
 # Default-Stop:      
 # Short-Description: iSCSI initiator daemon
