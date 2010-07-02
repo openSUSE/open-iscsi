@@ -110,8 +110,31 @@ iscsi_get_hwaddress_from_iface()
     local hwaddress
 
     hwaddress=$(iscsiadm -m iface -I "$iface" 2> /dev/null | sed -n 's/iface.hwaddress = \(.*\)/\1/p')
+    [ "$hwaddress" = "<empty>" ] && hwaddress=
 
     echo $hwaddress
+}
+
+iscsi_get_ifname_from_iface()
+{
+    local iface=$1
+    local ifname
+
+    ifname=$(iscsiadm -m iface -I "$iface" 2> /dev/null | sed -n 's/iface.net_ifacename = \(.*\)/\1/p')
+    [ "$ifname" = "<empty>" ] && ifname=
+
+    echo $ifname
+}
+
+iscsi_get_ipaddr_from_iface()
+{
+    local iface=$1
+    local ipaddr
+
+    ipaddr=$(iscsiadm -m iface -I "$iface" 2> /dev/null | sed -n 's/iface.ipaddress = \(.*\)/\1/p')
+    [ "$ipaddr" = "<empty>" ] && ipaddr=
+
+    echo $ipaddr
 }
 
 iscsi_get_ifname_from_firmware()
@@ -138,6 +161,15 @@ iscsi_get_ifname_from_hwaddress()
 	echo ${if##*/}
 	break
     done
+}
+
+iscsi_get_ifname_from_ipaddr()
+{
+    local ipaddr=$1
+    local ifname
+
+    ifname=$(ip addr show to $ipaddr | sed -n 's/[0-9]*: \([^ :]*\): .*/\1/p')
+    return $ifname
 }
 
 #
@@ -169,13 +201,23 @@ iscsi_check_interface()
 	iscsi_modify_all_interfaces
     elif [ "$i" = "fw" ] ; then
 	n=$(iscsi_get_ifname_from_firmware)
-	iscsi_modify_if_startmode $n
     else
-	h=$(iscsi_get_hwaddress_from_iface $i)
-	if [ -n "$h" ] ; then
-	    n=$(iscsi_get_ifname_from_hwaddress $h)
-	    iscsi_modify_if_startmode $n
+	n=$(iscsi_get_ifname_from_iface $i)
+	if [ -z "$n" ] ; then
+	    h=$(iscsi_get_hwaddress_from_iface $i)
+	    if [ -n "$h" ] ; then
+		n=$(iscsi_get_ifname_from_hwaddress $h)
+	    fi
 	fi
+	if [ -z "$n" ] ; then
+	    h=$(iscsi_get_ipaddr_from_iface $i)
+	    if [ -n "$h" ] ; then
+		n=$(iscsi_get_ifname_from_ipaddr $h)
+	    fi
+	fi
+    fi
+    if [ "$n" ] ; then
+	iscsi_modify_if_startmode $n
     fi
 }
 
@@ -317,7 +359,6 @@ iscsi_stop_sessions()
 	m=$(iscsi_check_target $t)
 	s=${session##*/session}
 	if [ -z "$m" ] ; then
-	    echo "stopping session $s"
 	    iscsiadm -m session -r ${s} -u
 	    i=$(( $i + 1 ))
 	else
@@ -361,7 +402,7 @@ case "$1" in
     stop)
 	n=$(iscsi_stop_sessions)
 	echo -n "Stopping iSCSI initiator service: "
-	if [ "$n" -gt 0 ] ; then
+	if [ "$n" ] && [ "$n" != "0" ] ; then
 	    m=$(iscsiadm -m session 2> /dev/null)
 	    if [ -z "$m" ] ; then
 		killproc -KILL $DAEMON
