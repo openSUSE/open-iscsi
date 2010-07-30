@@ -28,6 +28,8 @@ ARGS="-c $CONFIG_FILE -n"
 # Reset status of this service
 rc_reset
 
+DM_MAJOR=$(sed -n 's/\(.*\) device-mapper/\1/p' /proc/devices)
+
 iscsi_login_all_nodes()
 {
 	echo -n "Setting up iSCSI targets: "
@@ -83,7 +85,7 @@ iscsi_modify_if_startmode()
 	    return
 	fi
     fi
-    echo "disabling shutdown on $ifname"
+    : disabling shutdown on $ifname
     echo "startmode=nfsroot" >> $tmp_ifcfg
 }
 
@@ -222,43 +224,15 @@ iscsi_check_interface()
 }
 
 #
-# Check if device 'd' matches device
-# 'm' or one if its slaves
-#
-iscsi_check_device()
-{
-    local p=$1
-    local m=$2
-    local d=$3
-
-    if [ ! -d ${p} ] ; then
-	continue;
-    fi
-
-    if [ "${p##*/}" = "$d" ] ; then
-	echo "$m"
-	return 0
-    fi
-    for s in $p/slaves/* ; do
-	[ -e $s ] || continue
-	iscsi_check_device $s $m $d
-    done
-
-}
-
-#
 # Check if device 'dev' is mounted
+# Returns the mount point on success
 #
-iscsi_check_mounts()
+iscsi_check_if_mounted()
 {
     local dev=$1
     local d m t o x p
 
     cat /proc/mounts | sed -ne '/^\/dev\/.*/p' | while read d m t o x; do 
-	if [ "$m" = "/" ] ; then 
-	    echo rootfs
-	    continue;
-	fi
 	if [ -L "$d" ] ; then
 	    d=$(readlink -f $d)
 	fi
@@ -277,9 +251,69 @@ iscsi_check_mounts()
 	if [ -e $p/partition ] ; then
 	    p=$(cd -P $p/../; echo $PWD)
 	fi
-
-	iscsi_check_device $p ${p##*/} $dev
+	if [ "$dev" = "${p##*/}" ] ; then
+	    echo $m
+	fi
     done
+}
+
+#
+# Unwind block device stack
+# 
+# Stops unwinding if either no more 'holders'
+# are found or if a device is mounted
+# 
+# Unmounts top-level device and deconfigures
+# all devices down the stack
+#
+# Root fs is not unmounted
+#
+iscsi_unwind_stack()
+{
+    local p=$1
+    local d=${p##*/}
+    local u
+    local m
+
+    if [ ! -d ${p} ] ; then
+	return;
+    fi
+
+    m=$(iscsi_check_if_mounted $d)
+    if [ -z "$m" ] ; then
+	for s in $p/holders/* ; do
+	    [ -e $s ] || continue
+	    p=$(cd -P $s; echo $PWD)
+	    u=$(iscsi_unwind_stack $p)
+	    if [ "$u" ] ; then
+		echo -n "$u "
+	    fi
+	done
+    else
+	if [ "$m" = "/" ] ; then
+	    echo -n "$d "
+	    return 1
+	fi
+	if ! umount $m ; then
+	    echo -n "$d "
+	    return 1
+	fi
+    fi
+
+    if [ "${d#dm-}" != "$d" ] ; then
+	if ! dmsetup remove -j $DM_MAJOR -m ${d#dm-} 2> /dev/null ; then
+	    echo -n "$d "
+	    return 1
+	fi
+    fi
+
+    if [ "${d#md}" != "$d" ] ; then
+	if ! mdadm --manage /dev/$d --stop 2> /dev/null ; then
+	    echo -n "$d "
+	    return 1
+	fi
+    fi
+    return 0
 }
 
 #
@@ -297,45 +331,26 @@ iscsi_get_target()
 }
 
 #
-# Check if a device presented by a target
-# is mounted and try to umount it.
-# Return the mount point if the call to
-# umount failed.
+# Checks all devices presented by a target
+# and tries to umount them.
+# Skip unmounting for the root fs.
+# Stops on the first device which could not be unmounted
+# and returns the mount device of that device.
 #
 iscsi_check_target()
 {
     local t=$1
-    local d b dev mnt
+    local d b m
 
     for d in $t/* ; do
 	[ -d $d/block ] || continue
 	for b in $d/block/sd* ; do
 	    [ -d "$b" ] || continue
-	    dev=${b##*/}
-	    mnt=$(iscsi_check_mounts $dev)
-	    [ -z "$mnt" ] && continue
-	    case "$mnt" in
-		rootfs)
-		    echo $mnt
-		    return 1
-		    ;;
-		dm-*)
-		    echo $mnt
-		    return 1
-		    ;;
-		md*)
-		    echo $mnt
-		    return 1
-		    ;;
-		*)
-		    umount $mnt 2> /dev/null
-		    if [ $? -ne 0 ] ; then
-			echo "Failed to umount $mnt"
-			echo $mnt
-			return 1
-		    fi
-		    ;;
-	    esac
+	    m=$(iscsi_unwind_stack $b)
+	    if [ -n "$m" ] ; then
+		echo $m
+		return 1
+	    fi
 	done
     done
 }
@@ -414,11 +429,12 @@ case "$1" in
 	    else
 		RETVAL=1
 	    fi
+	    rc_failed $RETVAL
+	    rc_status -v
 	else
-	    RETVAL=0
+	    # umounting failed, leave initiator running
+	    rc_status -s
 	fi
-	rc_failed $RETVAL
-	rc_status -v
 	;;
     status)
 	echo -n "Checking for iSCSI initiator service: "
