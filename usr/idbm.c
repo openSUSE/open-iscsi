@@ -487,6 +487,9 @@ setup_passwd_len:
 					    "unknown value format '%s' for "
 					    "parameter name '%s'",
 					    line_number, value, name);
+			} else {
+				log_warning("Invalid value '%s' for "
+					    "parameter '%s'", value, name);
 			}
 			break;
 		}
