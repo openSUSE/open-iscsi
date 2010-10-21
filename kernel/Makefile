@@ -53,7 +53,9 @@ all: kernel_check
 24_patch=2.6.24_compat.patch
 26_patch=2.6.26_compat.patch
 27_patch=2.6.27_compat.patch
-all_patches=14to21_patch 20to21_patch 24_patch 26_patch 27_patch
+28to32_patch=2.6.28-32_compat.patch
+33to34_patch=2.6.33-34_compat.patch
+all_patches=14to21_patch 20to21_patch 24_patch 26_patch 27_patch 28to32_patch 33to34_patch
 cur_patched=cur_patched
 
 ## fun stuff for maintaining multiple versions
@@ -96,15 +98,21 @@ linux_2_6_26: has_26_patch
 
 linux_2_6_27: has_27_patch
 
-linux_2_6_28: $(unpatch_code)
+linux_2_6_28: has_28to32_patch
 
-linux_2_6_29: $(unpatch_code)
+linux_2_6_29: has_28to32_patch
 
-linux_2_6_30: $(unpatch_code)
+linux_2_6_30: has_28to32_patch
 
-linux_2_6_31: $(unpatch_code)
+linux_2_6_31: has_28to32_patch
 
-linux_2_6_32: $(unpatch_code)
+linux_2_6_32: has_28to32_patch
+
+linux_2_6_33: has_33to34_patch
+
+linux_2_6_34: has_33to34_patch
+
+linux_2_6_35: $(unpatch_code)
 
 do_unpatch_code:
 	echo "Un-patching source code for use with linux-2.6.14 and up ..."
@@ -148,6 +156,24 @@ has_27_patch: $(27_patch)
 	fi
 	patch -p1 < $(27_patch)
 	cp $(27_patch) $@
+	ln -s $@ $(cur_patched)
+
+has_28to32_patch: $(28to32_patch)
+	echo "Patching source code for linux-2.6.28-33 ..."
+	if [ -e $(cur_patched) ]; then \
+		make -C . clean; \
+	fi
+	patch -p1 < $(28to32_patch)
+	cp $(28to32_patch) $@
+	ln -s $@ $(cur_patched)
+
+has_33to34_patch: $(33to34_patch)
+	echo "Patching source code for linux-2.6.33-34 ..."
+	if [ -e $(cur_patched) ]; then \
+		make -C . clean; \
+	fi
+	patch -p1 < $(33to34_patch)
+	cp $(33to34_patch) $@
 	ln -s $@ $(cur_patched)
 
 

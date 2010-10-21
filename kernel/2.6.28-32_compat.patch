@@ -11,19 +11,10 @@ index 2a401b9..197d314 100644
  
  MODULE_AUTHOR("Mike Christie <michaelc@cs.wisc.edu>, "
 diff --git a/libiscsi.c b/libiscsi.c
-index 59e3a5f..d0e41d9 100644
+index 59e3a5f..b79453a 100644
 --- a/libiscsi.c
 +++ b/libiscsi.c
-@@ -39,6 +39,8 @@
- #include "scsi_transport_iscsi.h"
- #include "libiscsi.h"
- 
-+#include "open_iscsi_compat.h"
-+
- static int iscsi_dbg_lib_conn;
- module_param_named(debug_libiscsi_conn, iscsi_dbg_lib_conn, int,
- 		   S_IRUGO | S_IWUSR);
-@@ -518,7 +520,7 @@ static void iscsi_free_task(struct iscsi_task *task)
+@@ -518,7 +518,7 @@ static void iscsi_free_task(struct iscsi_task *task)
  	if (conn->login_task == task)
  		return;
  
@@ -32,7 +23,7 @@ index 59e3a5f..d0e41d9 100644
  
  	if (sc) {
  		task->sc = NULL;
-@@ -738,7 +740,7 @@ __iscsi_conn_send_pdu(struct iscsi_conn *conn, struct iscsi_hdr *hdr,
+@@ -738,7 +738,7 @@ __iscsi_conn_send_pdu(struct iscsi_conn *conn, struct iscsi_hdr *hdr,
  		BUG_ON(conn->c_stage == ISCSI_CONN_INITIAL_STAGE);
  		BUG_ON(conn->c_stage == ISCSI_CONN_STOPPED);
  
@@ -41,7 +32,7 @@ index 59e3a5f..d0e41d9 100644
  				 (void*)&task, sizeof(void*)))
  			return NULL;
  	}
-@@ -1568,7 +1570,7 @@ static inline struct iscsi_task *iscsi_alloc_task(struct iscsi_conn *conn,
+@@ -1568,7 +1568,7 @@ static inline struct iscsi_task *iscsi_alloc_task(struct iscsi_conn *conn,
  {
  	struct iscsi_task *task;
  
@@ -50,7 +41,7 @@ index 59e3a5f..d0e41d9 100644
  			 (void *) &task, sizeof(void *)))
  		return NULL;
  
-@@ -1738,21 +1740,9 @@ fault:
+@@ -1738,21 +1738,9 @@ fault:
  }
  EXPORT_SYMBOL_GPL(iscsi_queuecommand);
  
@@ -74,7 +65,7 @@ index 59e3a5f..d0e41d9 100644
  	return sdev->queue_depth;
  }
  EXPORT_SYMBOL_GPL(iscsi_change_queue_depth);
-@@ -2524,7 +2514,12 @@ iscsi_pool_init(struct iscsi_pool *q, int max, void ***items, int item_size)
+@@ -2524,7 +2512,12 @@ iscsi_pool_init(struct iscsi_pool *q, int max, void ***items, int item_size)
  	if (q->pool == NULL)
  		return -ENOMEM;
  
@@ -88,7 +79,7 @@ index 59e3a5f..d0e41d9 100644
  
  	for (i = 0; i < max; i++) {
  		q->pool[i] = kzalloc(item_size, GFP_KERNEL);
-@@ -2532,7 +2527,7 @@ iscsi_pool_init(struct iscsi_pool *q, int max, void ***items, int item_size)
+@@ -2532,7 +2525,7 @@ iscsi_pool_init(struct iscsi_pool *q, int max, void ***items, int item_size)
  			q->max = i;
  			goto enomem;
  		}
@@ -97,7 +88,7 @@ index 59e3a5f..d0e41d9 100644
  	}
  
  	if (items) {
-@@ -2555,6 +2550,7 @@ void iscsi_pool_free(struct iscsi_pool *q)
+@@ -2555,6 +2548,7 @@ void iscsi_pool_free(struct iscsi_pool *q)
  	for (i = 0; i < q->max; i++)
  		kfree(q->pool[i]);
  	kfree(q->pool);
@@ -105,7 +96,7 @@ index 59e3a5f..d0e41d9 100644
  }
  EXPORT_SYMBOL_GPL(iscsi_pool_free);
  
-@@ -2882,7 +2878,7 @@ iscsi_conn_setup(struct iscsi_cls_session *cls_session, int dd_size,
+@@ -2882,7 +2876,7 @@ iscsi_conn_setup(struct iscsi_cls_session *cls_session, int dd_size,
  
  	/* allocate login_task used for the login/text sequences */
  	spin_lock_bh(&session->lock);
@@ -114,7 +105,7 @@ index 59e3a5f..d0e41d9 100644
                           (void*)&conn->login_task,
  			 sizeof(void*))) {
  		spin_unlock_bh(&session->lock);
-@@ -2902,7 +2898,7 @@ iscsi_conn_setup(struct iscsi_cls_session *cls_session, int dd_size,
+@@ -2902,7 +2896,7 @@ iscsi_conn_setup(struct iscsi_cls_session *cls_session, int dd_size,
  	return cls_conn;
  
  login_task_data_alloc_fail:
@@ -123,7 +114,7 @@ index 59e3a5f..d0e41d9 100644
  		    sizeof(void*));
  login_task_alloc_fail:
  	iscsi_destroy_conn(cls_conn);
-@@ -2965,7 +2961,7 @@ void iscsi_conn_teardown(struct iscsi_cls_conn *cls_conn)
+@@ -2965,7 +2959,7 @@ void iscsi_conn_teardown(struct iscsi_cls_conn *cls_conn)
  	free_pages((unsigned long) conn->data,
  		   get_order(ISCSI_DEF_MAX_RECV_SEG_LEN));
  	kfree(conn->persistent_address);
@@ -573,19 +564,6 @@ index 0000000..50ab84d
 +#endif
 +
 +#endif
-diff --git a/scsi_transport_iscsi.c b/scsi_transport_iscsi.c
-index fed8c9e..3b28918 100644
---- a/scsi_transport_iscsi.c
-+++ b/scsi_transport_iscsi.c
-@@ -31,6 +31,8 @@
- #include "scsi_transport_iscsi.h"
- #include "iscsi_if.h"
- 
-+#include "open_iscsi_compat.h"
-+
- #define ISCSI_SESSION_ATTRS 22
- #define ISCSI_CONN_ATTRS 13
- #define ISCSI_HOST_ATTRS 4
 -- 
 1.6.6.1
 

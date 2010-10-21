@@ -55,6 +55,7 @@ static char config_file[TARGET_NAME_MAXLEN];
 
 enum iscsiadm_mode {
 	MODE_DISCOVERY,
+	MODE_DISCOVERYDB,
 	MODE_NODE,
 	MODE_SESSION,
 	MODE_HOST,
@@ -85,6 +86,7 @@ static struct option const long_options[] =
 	{"sid", required_argument, NULL, 'r'},
 	{"rescan", no_argument, NULL, 'R'},
 	{"print", required_argument, NULL, 'P'},
+	{"discover", no_argument, NULL, 'D'},
 	{"login", no_argument, NULL, 'l'},
 	{"loginall", required_argument, NULL, 'L'},
 	{"logout", no_argument, NULL, 'u'},
@@ -97,7 +99,7 @@ static struct option const long_options[] =
 	{"help", no_argument, NULL, 'h'},
 	{NULL, 0, NULL, 0},
 };
-static char *short_options = "RlVhm:p:P:T:H:I:U:k:L:d:r:n:v:o:sSt:u";
+static char *short_options = "RlDVhm:p:P:T:H:I:U:k:L:d:r:n:v:o:sSt:u";
 
 static void usage(int status)
 {
@@ -106,9 +108,10 @@ static void usage(int status)
 			program_name);
 	else {
 		printf("\
-iscsiadm -m discovery [ -hV ] [ -d debug_level ] [-P printlevel] [ -t type -p ip:port -I ifaceN ... [ -l ] ] | [ -p ip:port ] \
-[ -o operation ] [ -n name ] [ -v value ]\n\
-iscsiadm -m node [ -hV ] [ -d debug_level ] [ -P printlevel ] [ -L all,manual,automatic ] [ -U all,manual,automatic ] [ -S ] [ [ -T targetname -p ip:port -I ifaceN ] [ -l | -u | -R | -s] ] \
+iscsiadm -m discovery2 [ -hV ] [ -d debug_level ] [-P printlevel] [ -t type -p ip:port -I ifaceN ... [ -Dl ] ] | [ [ -p ip:port -t type] \
+[ -o operation ] [ -n name ] [ -v value ] [ -lD ] ] \n\
+iscsiadm -m discovery [ -hV ] [ -d debug_level ] [-P printlevel] [ -t type -p ip:port -I ifaceN ... [ -l ] ] | [ [ -p ip:port ] [ -l | -D ] ] \n\
+iiscsiadm -m node [ -hV ] [ -d debug_level ] [ -P printlevel ] [ -L all,manual,automatic ] [ -U all,manual,automatic ] [ -S ] [ [ -T targetname -p ip:port -I ifaceN ] [ -l | -u | -R | -s] ] \
 [ [ -o  operation  ] [ -n name ] [ -v value ] ]\n\
 iscsiadm -m session [ -hV ] [ -d debug_level ] [ -P  printlevel] [ -r sessionid | sysfsdir [ -R | -u | -s ] [ -o operation ] [ -n name ] [ -v value ] ]\n\
 iscsiadm -m iface [ -hV ] [ -d debug_level ] [ -P printlevel ] [ -I ifacename ] [ [ -o  operation  ] [ -n name ] [ -v value ] ]\n\
@@ -147,6 +150,8 @@ str_to_mode(char *str)
 
 	if (!strcmp("discovery", str))
 		mode = MODE_DISCOVERY;
+	else if (!strcmp("discoverydb", str))
+		mode = MODE_DISCOVERYDB;
 	else if (!strcmp("node", str))
 		mode = MODE_NODE;
 	else if (!strcmp("session", str))
@@ -892,7 +897,7 @@ exec_disc_op_on_recs(discovery_rec_t *drec, struct list_head *rec_list,
 
 static int
 do_software_sendtargets(discovery_rec_t *drec, struct list_head *ifaces,
-		        int info_level, int do_login, int op)
+		        int info_level, int do_login, int op, int sync_drec)
 {
 	struct list_head rec_list;
 	struct node_rec *rec, *tmp;
@@ -912,7 +917,7 @@ do_software_sendtargets(discovery_rec_t *drec, struct list_head *ifaces,
 	 * DB lined up, but for now just put all the targets found from
 	 * a discovery portal in one place
 	 */
-	if (!(op & OP_NONPERSISTENT)) {
+	if ((!(op & OP_NONPERSISTENT)) && sync_drec) {
 		rc = idbm_add_discovery(drec);
 		if (rc) {
 			log_error("Could not add new discovery record.");
@@ -939,7 +944,7 @@ do_software_sendtargets(discovery_rec_t *drec, struct list_head *ifaces,
 
 static int
 do_sendtargets(discovery_rec_t *drec, struct list_head *ifaces,
-	       int info_level, int do_login, int op)
+	       int info_level, int do_login, int op, int sync_drec)
 {
 	struct iface_rec *tmp, *iface;
 	int rc, host_no;
@@ -995,7 +1000,7 @@ do_sendtargets(discovery_rec_t *drec, struct list_head *ifaces,
 
 sw_st:
 	return do_software_sendtargets(drec, ifaces, info_level, do_login,
-				       op);
+				       op, sync_drec);
 }
 
 static int do_isns(discovery_rec_t *drec, struct list_head *ifaces,
@@ -1173,7 +1178,9 @@ delete_fail:
 			goto update_fail;
 
 		rc = __for_each_rec(0, rec, &set_param, idbm_node_set_param);
-		if (rc && rc != ENODEV)
+		if (rc == ENODEV)
+			rc = 0;
+		else if (rc)
 			goto update_fail;
 
 		printf("%s updated.\n", iface->name);
@@ -1464,6 +1471,341 @@ static int exec_fw_op(discovery_rec_t *drec, struct list_head *ifaces,
 	return rc;
 }
 
+static void setup_drec_defaults(int type, char *ip, int port,
+				struct discovery_rec *drec)
+{
+	switch (type) {
+	case DISCOVERY_TYPE_ISNS:
+		idbm_isns_defaults(&drec->u.isns);
+		break;
+	case DISCOVERY_TYPE_SENDTARGETS:
+		idbm_sendtargets_defaults(&drec->u.sendtargets);
+		break;
+	default:
+		log_error("Invalid disc type.");
+	}
+	strlcpy(drec->address, ip, sizeof(drec->address));
+	drec->port = port;
+	drec->type = type;
+}
+
+/**
+ * exec_discover - prep, add, read and exec discovery on drec
+ * @type: discovery type
+ * @ip: IP address
+ * @port: port
+ * @ifaces: list of ifaces to bind to
+ * @info_level: print level
+ * @do_login: set to 1 if discovery function should also log into portals found
+ * @do_discover: set to 1 if discovery was requested
+ * @op: ops passed in by user
+ * @drec: discovery rec struct
+ *
+ * This function determines what type of op needs to be executed
+ * and will read and add a drec, and perform discovery if needed.
+ *
+ * returns:
+ * 	-1 - error
+ * 	0 - op/discovery completed
+ * 	1 - exec db op
+ */
+static int exec_discover(int disc_type, char *ip, int port,
+			 struct list_head *ifaces, int info_level,
+			 int do_login, int do_discover, int op,
+			 struct discovery_rec *drec)
+{
+	int rc;
+
+	if (ip == NULL) {
+		log_error("Please specify portal as <ipaddr>[:<ipport>]");
+		return -1;
+	}
+
+	if (op & OP_NEW && !do_discover) {
+		setup_drec_defaults(disc_type, ip, port, drec);
+
+		if (idbm_add_discovery(drec)) {
+			log_error("Could not add new discovery record.");
+			return -1;
+		} else {
+			printf("New discovery record for [%s,%d] added.\n", ip,
+			       port);
+			return 0;
+		}
+	}
+
+	rc = idbm_discovery_read(drec, disc_type, ip, port);
+	if (rc) {
+		if (!do_discover) {
+			log_error("Discovery record [%s,%d] not found.",
+				  ip, port);
+			return -1;
+		}
+
+		/* Just add default rec for user */
+		log_debug(1, "Discovery record [%s,%d] not found!",
+			  ip, port);
+		setup_drec_defaults(disc_type, ip, port, drec);
+		if (!(op & OP_NONPERSISTENT)) {
+			rc = idbm_add_discovery(drec);
+			if (rc) {
+				log_error("Could not add new discovery "
+					  "record.");
+				return -1;
+			}
+		}
+	} else if (!do_discover)
+		return 1;
+
+	rc = 0;
+	switch (disc_type) {
+	case DISCOVERY_TYPE_SENDTARGETS:
+		/*
+		 * idbm_add_discovery call above handles drec syncing so
+		 * we always pass in 0 here.
+		 */
+		rc = do_sendtargets(drec, ifaces, info_level, do_login, op,
+				    0);
+		break;
+	case DISCOVERY_TYPE_ISNS:
+		rc = do_isns(drec, ifaces, info_level, do_login, op);
+		break;
+	default:
+		log_error("Unsupported discovery type.");
+		break;
+	}
+
+	if (rc)
+		return -1;
+	return 0;
+}
+
+static int exec_disc2_op(int disc_type, char *ip, int port,
+			 struct list_head *ifaces, int info_level, int do_login,
+			 int do_discover, int op, char *name, char *value,
+			 int do_show)
+{
+	struct discovery_rec drec;
+	int rc = 0;
+
+	memset(&drec, 0, sizeof(struct discovery_rec));
+	if (disc_type != -1)
+		drec.type = disc_type;
+
+	switch (disc_type) {
+	case DISCOVERY_TYPE_SENDTARGETS:
+		if (port < 0)
+			port = ISCSI_LISTEN_PORT;
+
+		rc = exec_discover(disc_type, ip, port, ifaces, info_level,
+				   do_login, do_discover, op, &drec);
+		if (rc == 1)
+			goto do_db_op;
+		goto done;
+	case DISCOVERY_TYPE_SLP:
+		log_error("SLP discovery is not fully implemented yet.");
+		rc = -1;
+		goto done;
+	case DISCOVERY_TYPE_ISNS:
+		if (port < 0)
+			port = ISNS_DEFAULT_PORT;
+
+		rc = exec_discover(disc_type, ip, port, ifaces, info_level,
+				   do_login, do_discover, op, &drec);
+		if (rc == 1)
+			goto do_db_op;
+		goto done;
+	case DISCOVERY_TYPE_FW:
+		if (!do_discover) {
+			log_error("Invalid command. Possibly missing "
+				  "--discover argument.");
+			rc = -1;
+			goto done;
+		}
+
+		drec.type = DISCOVERY_TYPE_FW;
+		if (exec_fw_op(&drec, ifaces, info_level, do_login, op))
+			rc = -1;
+		goto done;
+	default:
+		rc = -1;
+
+		if (!ip) {
+			 if (op == OP_NOOP || op == OP_SHOW) {
+				if (idbm_print_all_discovery(info_level))
+					/* successfully found some recs */
+					rc = 0;
+			} else
+				log_error("Invalid operation. Operation not "
+					  "supported.");
+		} else if (op)
+			log_error("Invalid command. Possibly missing discovery "
+				  "--type.");
+		else
+			log_error("Invalid command. Portal not needed or "
+				  "Possibly missing discovery --type.");
+		goto done;
+	}
+
+do_db_op:
+	rc = 0;
+
+	if (op == OP_NOOP || op == OP_SHOW) {
+		if (!idbm_print_discovery_info(&drec, do_show)) {
+			log_error("No records found!");
+			rc = -1;
+		}
+	} else if (op == OP_DELETE) {
+		if (idbm_delete_discovery(&drec)) {
+			log_error("Unable to delete record!");
+			rc = -1;
+		}
+	} else if (op == OP_UPDATE) {
+		struct db_set_param set_param;
+
+		if (!name || !value) {
+			log_error("Update requires name and value.");
+			rc = -1;
+			goto done;
+		}
+		set_param.name = name;
+		set_param.value = value;
+		if (idbm_discovery_set_param(&set_param, &drec))
+			rc = -1;
+	} else {
+		log_error("Operation is not supported.");
+		rc = -1;
+		goto done;
+	}
+done:
+	return rc;
+}
+
+static int exec_disc_op(int disc_type, char *ip, int port,
+			struct list_head *ifaces, int info_level, int do_login,
+			int do_discover, int op, char *name, char *value,
+			int do_show)
+{
+	struct discovery_rec drec;
+	int rc = 0;
+
+	memset(&drec, 0, sizeof(struct discovery_rec));
+
+	switch (disc_type) {
+	case DISCOVERY_TYPE_SENDTARGETS:
+		drec.type = DISCOVERY_TYPE_SENDTARGETS;
+
+		if (port < 0)
+			port = ISCSI_LISTEN_PORT;
+
+		if (ip == NULL) {
+			log_error("Please specify portal as "
+				  "<ipaddr>[:<ipport>]");
+			rc = -1;
+			goto done;
+		}
+
+		idbm_sendtargets_defaults(&drec.u.sendtargets);
+		strlcpy(drec.address, ip, sizeof(drec.address));
+		drec.port = port;
+
+		if (do_sendtargets(&drec, ifaces, info_level,
+				   do_login, op, 1)) {
+			rc = -1;
+			goto done;
+		}
+		break;
+	case DISCOVERY_TYPE_SLP:
+		log_error("SLP discovery is not fully implemented yet.");
+		rc = -1;
+		break;
+	case DISCOVERY_TYPE_ISNS:
+		if (!ip) {
+			log_error("Please specify portal as "
+				  "<ipaddr>:[<ipport>]");
+			rc = -1;
+			goto done;
+		}
+
+		strlcpy(drec.address, ip, sizeof(drec.address));
+		if (port < 0)
+			drec.port = ISNS_DEFAULT_PORT;
+		else
+			drec.port = port;
+
+		if (do_isns(&drec, ifaces, info_level, do_login, op)) {
+			rc = -1;
+			goto done;
+		}
+		break;
+	case DISCOVERY_TYPE_FW:
+		drec.type = DISCOVERY_TYPE_FW;
+		if (exec_fw_op(&drec, ifaces, info_level, do_login, op))
+			rc = -1;
+		break;
+	default:
+		if (ip) {
+			/*
+			 * We only have sendtargets disc recs in discovery
+			 * mode, so we can hardcode the port check to the
+			 * iscsi default here.
+			 *
+			 * For isns or slp recs then discovery db mode
+			 * must be used.
+			 */
+			if (port < 0)
+				port = ISCSI_LISTEN_PORT;
+
+			if (idbm_discovery_read(&drec,
+						DISCOVERY_TYPE_SENDTARGETS,
+						ip, port)) {
+				log_error("Discovery record [%s,%d] "
+					  "not found!", ip, port);
+				rc = -1;
+				goto done;
+			}
+			if ((do_discover || do_login) &&
+			    drec.type == DISCOVERY_TYPE_SENDTARGETS) {
+				do_sendtargets(&drec, ifaces, info_level,
+					       do_login, op, 0);
+			} else if (op == OP_NOOP || op == OP_SHOW) {
+				if (!idbm_print_discovery_info(&drec,
+							       do_show)) {
+					log_error("No records found!");
+					rc = -1;
+				}
+			} else if (op == OP_DELETE) {
+				if (idbm_delete_discovery(&drec)) {
+					log_error("Unable to delete record!");
+					rc = -1;
+				}
+			} else if (op == OP_UPDATE || op == OP_NEW) {
+				log_error("Operations new and update for "
+					  "discovery mode is not supported. "
+					  "Use discoverydb mode.");
+				rc = -1;
+				goto done;
+			} else {
+				log_error("Invalid operation.");
+				rc = -1;
+				goto done;
+			}
+		} else if (op == OP_NOOP || op == OP_SHOW) {
+			if (!idbm_print_all_discovery(info_level))
+				rc = -1;
+			goto done;
+		} else {
+			log_error("Invalid operation.");
+			rc = -1;
+			goto done;
+		}
+		/* fall through */
+	}
+
+done:
+	return rc;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -1473,15 +1815,14 @@ main(int argc, char **argv)
 	int rc=0, sid=-1, op=OP_NOOP, type=-1, do_logout=0, do_stats=0;
 	int do_login_all=0, do_logout_all=0, info_level=-1, num_ifaces = 0;
 	int tpgt = PORTAL_GROUP_TAG_UNKNOWN, killiscsid=-1, do_show=0;
+	int do_discover = 0;
 	struct sigaction sa_old;
 	struct sigaction sa_new;
-	discovery_rec_t drec;
 	struct list_head ifaces;
 	struct iface_rec *iface = NULL, *tmp;
 	struct node_rec *rec = NULL;
 	uint32_t host_no = -1;
 
-	memset(&drec, 0, sizeof(discovery_rec_t));
 	INIT_LIST_HEAD(&ifaces);
 	/* do not allow ctrl-c for now... */
 	memset(&sa_old, 0, sizeof(struct sigaction));
@@ -1554,6 +1895,9 @@ main(int argc, char **argv)
 			break;
 		case 'P':
 			info_level = atoi(optarg);
+			break;
+		case 'D':
+			do_discover = 1;
 			break;
 		case 'l':
 			do_login = 1;
@@ -1646,9 +1990,6 @@ main(int argc, char **argv)
 		goto free_ifaces;
 	}
 
-	if (mode != MODE_DISCOVERY && ip && port == -1)
-		port = ISCSI_LISTEN_PORT;
-
 	switch (mode) {
 	case MODE_HOST:
 		if ((rc = verify_mode_params(argc, argv, "HdmP", 0))) {
@@ -1681,141 +2022,29 @@ main(int argc, char **argv)
 		rc = exec_iface_op(op, do_show, info_level, iface,
 				   name, value);
 		break;
-	case MODE_DISCOVERY:
-		if ((rc = verify_mode_params(argc, argv, "SIPdmntplov", 0))) {
+	case MODE_DISCOVERYDB:
+		if ((rc = verify_mode_params(argc, argv, "DSIPdmntplov", 0))) {
 			log_error("discovery mode: option '-%c' is not "
 				  "allowed/supported", rc);
 			rc = -1;
 			goto out;
 		}
-		switch (type) {
-		case DISCOVERY_TYPE_SENDTARGETS:
-			if (port < 0)
-				port = ISCSI_LISTEN_PORT;
 
-			if (ip == NULL) {
-				log_error("please specify right portal as "
-					  "<ipaddr>[:<ipport>]");
-				rc = -1;
-				goto out;
-			}
-
-			if (idbm_discovery_read(&drec, ip, port)) {
-				idbm_sendtargets_defaults(&drec.u.sendtargets);
-				strlcpy(drec.address, ip, sizeof(drec.address));
-				drec.port = port;
-			}
-
-			if (do_sendtargets(&drec, &ifaces, info_level,
-					   do_login, op)) {
-				rc = -1;
-				goto out;
-			}
-			break;
-		case DISCOVERY_TYPE_SLP:
-			log_error("SLP discovery is not fully "
-				  "implemented yet.");
+		rc = exec_disc2_op(type, ip, port, &ifaces, info_level,
+				   do_login, do_discover, op, name, value,
+				   do_show);
+		break;
+	case MODE_DISCOVERY:
+		if ((rc = verify_mode_params(argc, argv, "DSIPdmntplov", 0))) {
+			log_error("discovery mode: option '-%c' is not "
+				  "allowed/supported", rc);
 			rc = -1;
-			break;
-		case DISCOVERY_TYPE_ISNS:
-			if (!ip) {
-				log_error("please specify right portal as "
-					  "<ipaddr>:[<ipport>]");
-				rc = -1;
-				goto out;
-			}
-
-			strlcpy(drec.address, ip, sizeof(drec.address));
-			if (port < 0)
-				drec.port = ISNS_DEFAULT_PORT;
-			else
-				drec.port = port;
-
-			if (do_isns(&drec, &ifaces, info_level, do_login, op)) {
-				rc = -1;
-				goto out;
-			}
-			break;
-		case DISCOVERY_TYPE_FW:
-			drec.type = DISCOVERY_TYPE_FW;
-			if (exec_fw_op(&drec, &ifaces, info_level, do_login,
-					op))
-				rc = -1;
-			break;
-		default:
-			if (ip) {
-				if (idbm_discovery_read(&drec, ip, port)) {
-					log_error("discovery record [%s,%d] "
-						  "not found!", ip, port);
-					rc = -1;
-					goto out;
-				}
-				if (do_login &&
-				    drec.type == DISCOVERY_TYPE_SENDTARGETS) {
-					do_sendtargets(&drec, &ifaces,
-							info_level, do_login,
-							op);
-				} else if (do_login &&
-					   drec.type == DISCOVERY_TYPE_SLP) {
-					log_error("SLP discovery is not fully "
-						  "implemented yet.");
-					rc = -1;
-					goto out;
-				} else if (do_login &&
-					   drec.type == DISCOVERY_TYPE_ISNS) {
-					log_error("iSNS discovery is not fully "
-						  "implemented yet.");
-					rc = -1;
-					goto out;
-				} else if (op == OP_NOOP || op == OP_SHOW) {
-					if (!idbm_print_discovery_info(&drec,
-								do_show)) {
-						log_error("no records found!");
-						rc = -1;
-					}
-				} else if (op == OP_DELETE) {
-					if (idbm_delete_discovery(&drec)) {
-						log_error("unable to delete "
-							   "record!");
-						rc = -1;
-					}
-				} else if (op == OP_UPDATE) {
-					struct db_set_param set_param;
-
-					if (!name || !value) {
-						log_error("Update requires "
-							  "name and value");
-						rc = -1;
-						goto out;
-					}
-					set_param.name = name;
-					set_param.value = value;
-					if (idbm_discovery_set_param(&set_param,
-								     &drec))
-						rc = -1;
-				} else {
-					log_error("operation is not supported.");
-					rc = -1;
-					goto out;
-				}
-
-			} else if (op == OP_NOOP || op == OP_SHOW) {
-				if (!idbm_print_all_discovery(info_level))
-					rc = -1;
-				goto out;
-			} else if (op == OP_DELETE) {
-				log_error("--record required for delete operation");
-				rc = -1;
-				goto out;
-			} else {
-				log_error("Operations: new and "
-					  "update for node is not fully "
-					  "implemented yet.");
-				rc = -1;
-				goto out;
-			}
-			/* fall through */
+			goto out;
 		}
+
+		rc = exec_disc_op(type, ip, port, &ifaces, info_level,
+				  do_login, do_discover, op, name, value,
+				  do_show);
 		break;
 	case MODE_NODE:
 		if ((rc = verify_mode_params(argc, argv, "RsPIdmlSonvupTUL",
@@ -1846,6 +2075,9 @@ main(int argc, char **argv)
 					  "%s.", iface->transport_name,
 					  iface->hwaddress, iface->ipaddress);
 		}
+
+		if (ip && port == -1)
+			port = ISCSI_LISTEN_PORT;
 
 		rec = idbm_create_rec(targetname, tpgt, ip, port, iface, 1);
 		if (!rec) {

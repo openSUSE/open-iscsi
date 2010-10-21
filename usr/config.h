@@ -137,12 +137,16 @@ struct iscsi_session_operational_config {
 
 struct iscsi_sendtargets_config {
 	int reopen_max;
+	int use_discoveryd;
+	int discoveryd_poll_inval;
 	struct iscsi_auth_config auth;
 	struct iscsi_connection_timeout_config conn_timeo;
 	struct iscsi_conn_operational_config iscsi;
 };
 
 struct iscsi_isns_config {
+	int use_discoveryd;
+	int discoveryd_poll_inval;
 };
 
 struct iscsi_slp_config {
@@ -161,9 +165,9 @@ typedef enum iscsi_startup {
 
 typedef enum discovery_type {
 	DISCOVERY_TYPE_SENDTARGETS,
+	DISCOVERY_TYPE_ISNS,
 	DISCOVERY_TYPE_OFFLOAD_SENDTARGETS,
 	DISCOVERY_TYPE_SLP,
-	DISCOVERY_TYPE_ISNS,
 	DISCOVERY_TYPE_STATIC,
 	DISCOVERY_TYPE_FW,
 } discovery_type_e;
