@@ -117,6 +117,7 @@ static int read_transports(void)
 	char filename[64];
 	int i, n, found, err = 0;
 	struct iscsi_transport *t;
+	uint64_t new_handle;
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -133,6 +134,15 @@ static int read_transports(void)
 		list_for_each_entry(t, &transports, list) {
 			if (!strcmp(t->name, namelist[i]->d_name)) {
 				found = 1;
+				/* Required to support hotplug for
+				 * hardware initiator, bnx2i */
+				sprintf(filename,
+					ISCSI_TRANSPORT_DIR"/%s/handle",
+					t->name);
+				err = read_sysfs_file(filename,
+						      &new_handle, "%llu\n");
+				if (!err && (new_handle != t->handle))
+					t->handle = new_handle;
 				break;
 			}
 		}

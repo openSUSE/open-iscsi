@@ -47,10 +47,19 @@ struct iscsi_transport_template qla4xxx = {
 	.rdma		= 0,
 };
 
+struct iscsi_transport_template iscsi_brcm = {
+	.name		= "bcm57",
+	.rdma		= 0,
+	.ep_connect	= ktransport_ep_connect,
+	.ep_poll	= ktransport_ep_poll,
+	.ep_disconnect	= ktransport_ep_disconnect
+};
+
 static struct iscsi_transport_template *iscsi_transport_templates[] = {
 	&iscsi_tcp,
 	&iscsi_iser,
 	&qla4xxx,
+	&iscsi_brcm,
 	NULL
 };
 
@@ -62,7 +71,8 @@ int set_transport_template(struct iscsi_transport *t)
 	for (j = 0; iscsi_transport_templates[j] != NULL; j++) {
 		tmpl = iscsi_transport_templates[j];
 
-		if (!strcmp(tmpl->name, t->name)) {
+		if (!strncmp(tmpl->name, t->name,
+			     strlen(tmpl->name))) {
 			t->template = tmpl;
 			log_debug(3, "Matched transport %s\n", t->name);
 			return 0;
