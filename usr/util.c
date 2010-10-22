@@ -313,9 +313,11 @@ int __iscsi_match_session(node_rec_t *rec, char *targetname,
 	if (rec->conn[0].port != -1 && port != rec->conn[0].port)
 		return 0;
 
+#if 0 /* 'rec' has default value of 'tcp' and correctly setup yet */
 	if (iface && strlen(rec->iface.transport_name) &&
 	    strcmp(rec->iface.transport_name, iface->transport_name))
 		return 0;
+#endif
 
 	if (!iface_match_bind_info(&rec->iface, iface))
 		return 0;
