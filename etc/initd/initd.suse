@@ -78,7 +78,7 @@ iscsi_load_transport_modules()
 iscsi_modify_if_startmode()
 {
     local ifname=$1
-    local tmp_ifcfg=/dev/.sysconfig/network/if-$ifname
+    local tmp_ifcfg=/dev/shm/sysconfig/if-$ifname
 
     if [ -e "$tmp_ifcfg" ] ; then
 	. $tmp_ifcfg
@@ -264,10 +264,12 @@ iscsi_check_holders()
     read devt < $s/dev
     t=$(dmsetup table | sed -n "s/\([\w]*\): .* $devt .*/\1/p")
     [ -z "$t" ] && return 0
-    n=$(dmsetup info -c --noheading -o minor $t)
-    if [ -n "$n" ]; then
-	echo "/sys/block/dm-$n"
-    fi
+    for v in $t; do
+	n=$(dmsetup info -c --noheading -o minor $v)
+	if [ -n "$n" ]; then
+	    echo "/sys/block/dm-$n"
+	fi
+    done
     return
 }
 
