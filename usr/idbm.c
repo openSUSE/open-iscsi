@@ -40,6 +40,7 @@
 #include "iface.h"
 #include "sysdeps.h"
 #include "fw_context.h"
+#include "iscsi_err.h"
 
 #define IDBM_HIDE	0    /* Hide parameter when print. */
 #define IDBM_SHOW	1    /* Show parameter when print. */
@@ -179,7 +180,7 @@ idbm_recinfo_discovery(discovery_rec_t *r, recinfo_t *ri)
 			      u.sendtargets.conn_timeo.active_timeout,
 			      IDBM_SHOW, num, 1);
 		__recinfo_int(DISC_ST_MAX_RECV_DLEN, ri, r,
-			      u.sendtargets.iscsi.MaxRecvDataSegmentLength,
+			      u.sendtargets.conn_conf.MaxRecvDataSegmentLength,
 			      IDBM_SHOW, num, 1);
 		break;
 	case DISCOVERY_TYPE_ISNS:
@@ -426,6 +427,31 @@ void idbm_print(int type, void *rec, int show, FILE *f)
 }
 
 static void
+idbm_setup_session_defaults(struct iscsi_session_operational_config *conf)
+{
+	conf->InitialR2T = 0;
+	conf->ImmediateData = 1;
+	conf->FirstBurstLength = DEF_INI_FIRST_BURST_LEN;
+	conf->MaxBurstLength = DEF_INI_MAX_BURST_LEN;
+	conf->DefaultTime2Wait = ISCSI_DEF_TIME2WAIT;
+	conf->DefaultTime2Retain = 0;
+	conf->MaxConnections = 1;
+	conf->MaxOutstandingR2T = 1;
+	conf->ERL = 0;
+	conf->FastAbort = 1;
+}
+
+static void idbm_setup_conn_defaults(struct iscsi_conn_operational_config *conf)
+{
+	conf->MaxXmitDataSegmentLength = 0;
+	conf->MaxRecvDataSegmentLength = DEF_INI_MAX_RECV_SEG_LEN;
+	conf->HeaderDigest = CONFIG_DIGEST_NEVER;
+	conf->DataDigest = CONFIG_DIGEST_NEVER;
+	conf->IFMarker = 0;
+	conf->OFMarker = 0;
+}
+
+static void
 idbm_discovery_setup_defaults(discovery_rec_t *rec, discovery_type_e type)
 {
 	memset(rec, 0, sizeof(discovery_rec_t));
@@ -443,7 +469,10 @@ idbm_discovery_setup_defaults(discovery_rec_t *rec, discovery_type_e type)
 		rec->u.sendtargets.conn_timeo.login_timeout=15;
 		rec->u.sendtargets.conn_timeo.auth_timeout = 45;
 		rec->u.sendtargets.conn_timeo.active_timeout=30;
-		rec->u.sendtargets.iscsi.MaxRecvDataSegmentLength =
+		idbm_setup_session_defaults(&rec->u.sendtargets.session_conf);
+		idbm_setup_conn_defaults(&rec->u.sendtargets.conn_conf);
+		/* override def setting */
+		rec->u.sendtargets.conn_conf.MaxRecvDataSegmentLength =
 						DEF_INI_DISC_MAX_RECV_SEG_LEN;
 		break;
 	case DISCOVERY_TYPE_SLP:
@@ -515,7 +544,7 @@ setup_passwd_len:
 		}
 	}
 
-	return 1;
+	return ISCSI_ERR_INVAL;
 
 updated:
 	strlcpy((char*)info[i].value, value, VALUE_MAXVAL);
@@ -556,12 +585,12 @@ int idbm_verify_param(recinfo_t *info, char *name)
 		else {
 			log_error("Cannot modify %s. It is used to look up "
 				  "the record and cannot be changed.", name);
-			return EINVAL;
+			return ISCSI_ERR_INVAL;
 		}
 	}
 
 	log_error("Cannot modify %s. Invalid param name.", name);
-	return EINVAL;
+	return ISCSI_ERR_INVAL;
 }
 
 void idbm_recinfo_config(recinfo_t *info, FILE *f)
@@ -627,7 +656,7 @@ void idbm_recinfo_config(recinfo_t *info, FILE *f)
 		}
 		*(value+i) = 0;
 
-		(void)idbm_rec_update_param(info, name, value, line_number);
+		idbm_rec_update_param(info, name, value, line_number);
 	} while (line);
 }
 
@@ -781,19 +810,19 @@ get_params_from_disc_link(char *link, char **target, char **tpgt,
 	(*target) = link;
 	*address = strchr(*target, ',');
 	if (!(*address))
-		return EINVAL;
+		return ISCSI_ERR_INVAL;
 	*(*address)++ = '\0';
 	*port = strchr(*address, ',');
 	if (!(*port))
-		return EINVAL;
+		return ISCSI_ERR_INVAL;
 	*(*port)++ = '\0';
 	*tpgt = strchr(*port, ',');
 	if (!(*tpgt))
-		return EINVAL;
+		return ISCSI_ERR_INVAL;
 	*(*tpgt)++ = '\0';
 	*ifaceid = strchr(*tpgt, ',');
 	if (!(*ifaceid))
-		return EINVAL;
+		return ISCSI_ERR_INVAL;
 	*(*ifaceid)++ = '\0';
 	return 0;
 }
@@ -809,8 +838,9 @@ int idbm_lock(void)
 
 	if (access(LOCK_DIR, F_OK) != 0) {
 		if (mkdir(LOCK_DIR, 0660) != 0) {
-			log_error("Could not open %s. Exiting\n", LOCK_DIR);
-			return errno;
+			log_error("Could not open %s: %s\n", LOCK_DIR,
+				  strerror(errno));
+			return ISCSI_ERR_IDBM;
 		}
 	}
 
@@ -827,7 +857,7 @@ int idbm_lock(void)
 			log_error("Maybe you are not root?");
 			log_error("Could not lock discovery DB: %s: %s",
 					LOCK_WRITE_FILE, strerror(errno));
-			return errno;
+			return ISCSI_ERR_IDBM;
 		} else if (i == 0)
 			log_debug(2, "Waiting for discovery DB lock");
 
@@ -880,7 +910,7 @@ static int __idbm_rec_read(node_rec_t *out_rec, char *conf)
 
 	info = idbm_recinfo_alloc(MAX_KEYS);
 	if (!info)
-		return ENOMEM;
+		return ISCSI_ERR_NOMEM;
 
 	rc = idbm_lock();
 	if (rc)
@@ -888,8 +918,9 @@ static int __idbm_rec_read(node_rec_t *out_rec, char *conf)
 
 	f = fopen(conf, "r");
 	if (!f) {
-		log_debug(5, "Could not open %s err %d\n", conf, errno);
-		rc = errno;
+		log_debug(5, "Could not open %s err %s\n", conf,
+			  strerror(errno));
+		rc = ISCSI_ERR_IDBM;
 		goto unlock;
 	}
 
@@ -916,7 +947,7 @@ idbm_rec_read(node_rec_t *out_rec, char *targetname, int tpgt,
 
 	portal = calloc(1, PATH_MAX);
 	if (!portal)
-		return ENOMEM;
+		return ISCSI_ERR_IDBM;
 
 	/* try old style portal as config */
 	snprintf(portal, PATH_MAX, "%s/%s/%s,%d", NODE_CONFIG_DIR,
@@ -929,14 +960,14 @@ idbm_rec_read(node_rec_t *out_rec, char *targetname, int tpgt,
 		 targetname, ip, port, tpgt, iface->name);
 	log_debug(5, "rec read looking for config file %s.", portal);
 	if (!strlen(iface->name)) {
-		rc = EINVAL;
+		rc = ISCSI_ERR_INVAL;
 		goto free_portal;
 	}
 
 	if (stat(portal, &statb)) {
-		log_debug(5, "Could not stat %s err %d.", portal, errno);
+		log_debug(5, "Could not stat %s: %s.", portal, strerror(errno));
 		free(portal);
-		return errno;
+		return ISCSI_ERR_IDBM;
 	}
 
 read:
@@ -1078,17 +1109,12 @@ static int __idbm_print_all_by_drec(void *data, struct discovery_rec *drec)
 	if (info_level >= 1) {
 		printf("DiscoveryAddress: %s,%d\n",
 		       drec->address, drec->port);
-		rc = idbm_print_discovered(drec, info_level);
-		if (rc)
-			return 0;
-		else
-			return ENODEV;
-	} else {
+		idbm_print_discovered(drec, info_level);
+	} else
 		printf("%s:%d via %s\n", drec->address, drec->port,
 		       drec->type == DISCOVERY_TYPE_ISNS ?
 		       "isns" : "sendtargets");
-		return 0;
-	}
+	return 0;
 }
 
 static int idbm_print_all_st(int info_level)
@@ -1168,11 +1194,23 @@ int idbm_print_all_discovery(int info_level)
 	return found;
 }
 
-/*
- * This iterates over the ifaces in use in the nodes dir.
- * It does not iterate over the ifaces setup in /etc/iscsi/ifaces.
+/**
+ * idbm_for_each_iface - iterate over bound iface recs
+ * @found: nr of recs found so far
+ * @data: data pointer passed to fn
+ * @fn: iterator function ran over each bound iface rec
+ * @targetname: rec's target name
+ * @tpgt: rec's portal group tag
+ * @ip: rec's ip address
+ * @port: rec's port
+ *
+ * This will run fn over all recs with the {targetname,tpgt,ip,port}
+ * id. It does not iterate over the ifaces setup in /etc/iscsi/ifaces.
+ *
+ * fn should return -1 if it skipped the rec, a ISCSI_ERR error code if
+ * the operation failed or 0 if fn was run successfully.
  */
-int idbm_for_each_iface(int *found, void *data,
+static int idbm_for_each_iface(int *found, void *data,
 				idbm_iface_op_fn *fn,
 				char *targetname, int tpgt, char *ip, int port)
 {
@@ -1185,7 +1223,7 @@ int idbm_for_each_iface(int *found, void *data,
 
 	portal = calloc(1, PATH_MAX);
 	if (!portal)
-		return ENOMEM;
+		return ISCSI_ERR_NOMEM;
 
 	if (tpgt >= 0)
 		goto read_iface;
@@ -1195,7 +1233,7 @@ int idbm_for_each_iface(int *found, void *data,
 		 ip, port);
 	if (stat(portal, &statb)) {
 		log_error("iface iter could not stat %s.", portal);
-		rc = ENODEV;
+		rc = ISCSI_ERR_IDBM;
 		goto free_portal;
 	}
 
@@ -1217,11 +1255,13 @@ read_iface:
 	iface_dirfd = opendir(portal);
 	if (!iface_dirfd) {
 		log_error("iface iter could not read dir %s.", portal);
-		rc = errno;
+		rc = ISCSI_ERR_IDBM;
 		goto free_portal;
 	}
 
 	while ((iface_dent = readdir(iface_dirfd))) {
+		int curr_rc;
+
 		if (!strcmp(iface_dent->d_name, ".") ||
 		    !strcmp(iface_dent->d_name, ".."))
 			continue;
@@ -1233,14 +1273,12 @@ read_iface:
 		if (__idbm_rec_read(&rec, portal))
 			continue;
 
+		curr_rc = fn(data, &rec);
 		/* less than zero means it was not a match */
-		rc = fn(data, &rec);
-		if (rc > 0)
-			break;
-		else if (rc == 0)
+		if (curr_rc > 0 && !rc)
+			rc = curr_rc;
+		else if (curr_rc == 0)
 			(*found)++;
-		else 
-			rc = 0;
 	}
 
 	closedir(iface_dirfd);
@@ -1263,17 +1301,18 @@ int idbm_for_each_portal(int *found, void *data, idbm_portal_op_fn *fn,
 
 	portal = calloc(1, PATH_MAX);
 	if (!portal)
-		return ENOMEM;
+		return ISCSI_ERR_NOMEM;
 
 	snprintf(portal, PATH_MAX, "%s/%s", NODE_CONFIG_DIR, targetname);
 	portal_dirfd = opendir(portal);
 	if (!portal_dirfd) {
-		rc = errno;
+		rc = ISCSI_ERR_IDBM;
 		goto done;
 	}
 
 	while ((portal_dent = readdir(portal_dirfd))) {
 		char *tmp_port, *tmp_tpgt;
+		int curr_rc;
 
 		if (!strcmp(portal_dent->d_name, ".") ||
 		    !strcmp(portal_dent->d_name, ".."))
@@ -1288,11 +1327,12 @@ int idbm_for_each_portal(int *found, void *data, idbm_portal_op_fn *fn,
 		if (tmp_tpgt)
 			*tmp_tpgt++ = '\0';
 
-		rc = fn(found, data, targetname,
+		curr_rc = fn(found, data, targetname,
 			tmp_tpgt ? atoi(tmp_tpgt) : -1,
 			portal_dent->d_name, atoi(tmp_port));
-		if (rc)
-			break;
+		/* less than zero means it was not a match */
+		if (curr_rc > 0 && !rc)
+			rc = curr_rc;
 	}
 	closedir(portal_dirfd);
 done:
@@ -1314,14 +1354,17 @@ int idbm_for_each_node(int *found, void *data, idbm_node_op_fn *fn)
 		return 0;
 
 	while ((node_dent = readdir(node_dirfd))) {
+		int curr_rc;
+
 		if (!strcmp(node_dent->d_name, ".") ||
 		    !strcmp(node_dent->d_name, ".."))
 			continue;
 
 		log_debug(5, "searching %s\n", node_dent->d_name);
-		rc = fn(found, data, node_dent->d_name);
-		if (rc)
-			break;
+		curr_rc = fn(found, data, node_dent->d_name);
+		/* less than zero means it was not a match */
+		if (curr_rc > 0 && !rc)
+			rc = curr_rc;
 	}
 
 	closedir(node_dirfd);
@@ -1376,17 +1419,17 @@ idbm_discovery_read(discovery_rec_t *out_rec, int drec_type,
 	FILE *f;
 
 	if (drec_type > 1)
-		return EINVAL;
+		return ISCSI_ERR_INVAL;
 
 	memset(out_rec, 0, sizeof(discovery_rec_t));
 
 	info = idbm_recinfo_alloc(MAX_KEYS);
 	if (!info)
-		return ENOMEM;
+		return ISCSI_ERR_NOMEM;
 
 	portal = malloc(PATH_MAX);
 	if (!portal) {
-		rc = ENOMEM;
+		rc = ISCSI_ERR_NOMEM;
 		goto free_info;
 	}
 
@@ -1402,8 +1445,9 @@ idbm_discovery_read(discovery_rec_t *out_rec, int drec_type,
 	f = idbm_open_rec_r(portal,
 			    disc_type_to_config_vals[drec_type].config_name);
 	if (!f) {
-		log_debug(1, "Could not open %s err %d\n", portal, errno);
-		rc = errno;
+		log_debug(1, "Could not open %s: %s\n", portal,
+			  strerror(errno));
+		rc = ISCSI_ERR_IDBM;
 		goto unlock;
 	}
 
@@ -1474,14 +1518,15 @@ static int idbm_rec_write(node_rec_t *rec)
 	portal = malloc(PATH_MAX);
 	if (!portal) {
 		log_error("Could not alloc portal\n");
-		return ENOMEM;
+		return ISCSI_ERR_NOMEM;
 	}
 
 	snprintf(portal, PATH_MAX, "%s", NODE_CONFIG_DIR);
 	if (access(portal, F_OK) != 0) {
 		if (mkdir(portal, 0660) != 0) {
-			log_error("Could not make %s\n", portal);
-			rc = errno;
+			log_error("Could not make %s: %s\n", portal,
+				  strerror(errno));
+			rc = ISCSI_ERR_IDBM;
 			goto free_portal;
 		}
 	}
@@ -1489,8 +1534,9 @@ static int idbm_rec_write(node_rec_t *rec)
 	snprintf(portal, PATH_MAX, "%s/%s", NODE_CONFIG_DIR, rec->name);
 	if (access(portal, F_OK) != 0) {
 		if (mkdir(portal, 0660) != 0) {
-			log_error("Could not make %s\n", portal);
-			rc = errno;
+			log_error("Could not make %s: %s\n", portal,
+				  strerror(errno));
+			rc = ISCSI_ERR_IDBM;
 			goto free_portal;
 		}
 	}
@@ -1531,13 +1577,13 @@ static int idbm_rec_write(node_rec_t *rec)
 		 * Old style portal as a file, but with tpgt. Let's update it.
 		 */
 		if (unlink(portal)) {
-			log_error("Could not convert %s. err %d\n", portal,
-				  errno);
-			rc = errno;
+			log_error("Could not convert %s: %s\n", portal,
+				  strerror(errno));
+			rc = ISCSI_ERR_IDBM;
 			goto unlock;
 		}
 	} else {
-		rc = EINVAL;
+		rc = ISCSI_ERR_INVAL;
 		goto unlock;
 	}	
 
@@ -1546,9 +1592,9 @@ mkdir_portal:
 		 rec->name, rec->conn[0].address, rec->conn[0].port, rec->tpgt);
 	if (stat(portal, &statb)) {
 		if (mkdir(portal, 0660) != 0) {
-			log_error("Could not make dir %s err %d\n",
-				  portal, errno);
-			rc = errno;
+			log_error("Could not make dir %s: %s\n",
+				  portal, strerror(errno));
+			rc = ISCSI_ERR_IDBM;
 			goto unlock;
 		}
 	}
@@ -1559,8 +1605,8 @@ mkdir_portal:
 open_conf:
 	f = fopen(portal, "w");
 	if (!f) {
-		log_error("Could not open %s err %d\n", portal, errno);
-		rc = errno;
+		log_error("Could not open %s: %sd\n", portal, strerror(errno));
+		rc = ISCSI_ERR_IDBM;
 		goto unlock;
 	}
 
@@ -1581,12 +1627,12 @@ idbm_discovery_write(discovery_rec_t *rec)
 	int rc = 0;
 
 	if (rec->type > 1)
-		return EINVAL;
+		return ISCSI_ERR_INVAL;
 
 	portal = malloc(PATH_MAX);
 	if (!portal) {
 		log_error("Could not alloc portal\n");
-		return ENOMEM;
+		return ISCSI_ERR_NOMEM;
 	}
 
 	rc = idbm_lock();
@@ -1597,8 +1643,9 @@ idbm_discovery_write(discovery_rec_t *rec)
 		 disc_type_to_config_vals[rec->type].config_root);
 	if (access(portal, F_OK) != 0) {
 		if (mkdir(portal, 0660) != 0) {
-			log_error("Could not make %s\n", portal);
-			rc = errno;
+			log_error("Could not make %s: %s\n", portal,
+				  strerror(errno));
+			rc = ISCSI_ERR_IDBM;
 			goto unlock;
 		}
 	}
@@ -1610,8 +1657,8 @@ idbm_discovery_write(discovery_rec_t *rec)
 	f = idbm_open_rec_w(portal,
 			    disc_type_to_config_vals[rec->type].config_name);
 	if (!f) {
-		log_error("Could not open %s err %d\n", portal, errno);
-		rc = errno;
+		log_error("Could not open %s: %s\n", portal, strerror(errno));
+		rc = ISCSI_ERR_IDBM;
 		goto unlock;
 	}
 
@@ -1655,9 +1702,9 @@ static int setup_disc_to_node_link(char *disc_portal, node_rec_t *rec)
 	case DISCOVERY_TYPE_FW:
 		if (access(FW_CONFIG_DIR, F_OK) != 0) {
 			if (mkdir(FW_CONFIG_DIR, 0660) != 0) {
-				log_error("Could not make %s\n",
-					  FW_CONFIG_DIR);
-				rc = errno;
+				log_error("Could not make %s: %s",
+					  FW_CONFIG_DIR, strerror(errno));
+				rc = ISCSI_ERR_IDBM;
 			}
 		}
 
@@ -1669,9 +1716,9 @@ static int setup_disc_to_node_link(char *disc_portal, node_rec_t *rec)
 	case DISCOVERY_TYPE_STATIC:
 		if (access(STATIC_CONFIG_DIR, F_OK) != 0) {
 			if (mkdir(STATIC_CONFIG_DIR, 0660) != 0) {
-				log_error("Could not make %s\n",
-					  STATIC_CONFIG_DIR);
-				rc = errno;
+				log_error("Could not make %s; %s",
+					  STATIC_CONFIG_DIR, strerror(errno));
+				rc = ISCSI_ERR_IDBM;
 			}
 		}
 
@@ -1683,9 +1730,9 @@ static int setup_disc_to_node_link(char *disc_portal, node_rec_t *rec)
 	case DISCOVERY_TYPE_ISNS:
 		if (access(ISNS_CONFIG_DIR, F_OK) != 0) {
 			if (mkdir(ISNS_CONFIG_DIR, 0660) != 0) {
-				log_error("Could not make %s\n",
-					  ISNS_CONFIG_DIR);
-				rc = errno;
+				log_error("Could not make %s: %s",
+					  ISNS_CONFIG_DIR, strerror(errno));
+				rc = ISCSI_ERR_IDBM;
 			}
 		}
 
@@ -1732,7 +1779,7 @@ static int setup_disc_to_node_link(char *disc_portal, node_rec_t *rec)
 		break;
 	case DISCOVERY_TYPE_SLP:
 	default:
-		rc = EINVAL;
+		rc = ISCSI_ERR_INVAL;
 	}
 
 	return rc;
@@ -1773,7 +1820,7 @@ int idbm_add_node(node_rec_t *newrec, discovery_rec_t *drec, int overwrite)
 
 	node_portal = calloc(2, PATH_MAX);
 	if (!node_portal)
-		return ENOMEM;
+		return ISCSI_ERR_NOMEM;
 
 	disc_portal = node_portal + PATH_MAX;
 	snprintf(node_portal, PATH_MAX, "%s/%s/%s,%d,%d", NODE_CONFIG_DIR,
@@ -1795,9 +1842,10 @@ int idbm_add_node(node_rec_t *newrec, discovery_rec_t *drec, int overwrite)
 			log_debug(7, "link from %s to %s exists", node_portal,
 				  disc_portal);
 		else {
-			rc = errno;
+			rc = ISCSI_ERR_IDBM;
 			log_error("Could not make link from disc source %s to "
-				 "node %s", disc_portal, node_portal);
+				 "node %s: %s", disc_portal, node_portal,
+				 strerror(errno));
 		}
 	}
 	idbm_unlock();
@@ -1812,10 +1860,12 @@ static int idbm_bind_iface_to_nodes(idbm_disc_nodes_fn *disc_node_fn,
 {
 	struct node_rec *rec, *tmp;
 	struct list_head new_recs;
+	int rc;
 
 	INIT_LIST_HEAD(&new_recs);
-	if (disc_node_fn(data, iface, &new_recs))
-		return ENODEV;
+	rc = disc_node_fn(data, iface, &new_recs);
+	if (rc)
+		return rc;
 
 	list_for_each_entry_safe(rec, tmp, &new_recs, list) {
 		list_del_init(&rec->list);
@@ -1960,7 +2010,7 @@ int idbm_delete_discovery(discovery_rec_t *drec)
 
 	portal = calloc(1, PATH_MAX);
 	if (!portal)
-		return ENOMEM;
+		return ISCSI_ERR_NOMEM;
 
 	snprintf(portal, PATH_MAX, "%s/%s,%d",
 		 disc_type_to_config_vals[drec->type].config_root,
@@ -2017,7 +2067,7 @@ static int idbm_remove_disc_to_node_link(node_rec_t *rec,
 
 	tmprec = malloc(sizeof(*tmprec));
 	if (!tmprec)
-		return ENOMEM;
+		return ISCSI_ERR_NOMEM;
 
 	memset(portal, 0, PATH_MAX);
 	snprintf(portal, PATH_MAX, "%s/%s/%s,%d,%d/%s", NODE_CONFIG_DIR,
@@ -2045,9 +2095,9 @@ static int idbm_remove_disc_to_node_link(node_rec_t *rec,
 
 	if (!stat(portal, &statb)) {
 		if (unlink(portal)) {
-			log_error("Could not remove link %s err %d\n",
-				  portal, errno);
-			rc = errno;
+			log_error("Could not remove link %s: %s\n",
+				  portal, strerror(errno));
+			rc = ISCSI_ERR_IDBM;
 		} else
 			log_debug(7, "rmd %s", portal);
 	} else
@@ -2073,7 +2123,7 @@ int idbm_delete_node(node_rec_t *rec)
 
 	portal = calloc(1, PATH_MAX);
 	if (!portal)
-		return ENOMEM;
+		return ISCSI_ERR_NOMEM;
 
 	rc = idbm_remove_disc_to_node_link(rec, portal);
 	if (rc)
@@ -2100,15 +2150,15 @@ int idbm_delete_node(node_rec_t *rec)
 	if (!stat(portal, &statb))
 		goto rm_conf;
 
-	log_error("Could not stat %s to delete node err %d\n",
-		  portal, errno);
-	rc = errno;
+	log_error("Could not stat %s to delete node: %s\n",
+		  portal, strerror(errno));
+	rc = ISCSI_ERR_IDBM;
 	goto unlock;
 
 rm_conf:
 	if (unlink(portal)) {
-		log_error("Could not remove %s err %d\n", portal, errno);
-		rc = errno;
+		log_error("Could not remove %s: %s\n", portal, strerror(errno));
+		rc = ISCSI_ERR_IDBM;
 		goto unlock;
 	}
 
@@ -2178,7 +2228,7 @@ int idbm_node_set_param(void *data, node_rec_t *rec)
 
 	info = idbm_recinfo_alloc(MAX_KEYS);
 	if (!info)
-		return ENOMEM;
+		return ISCSI_ERR_NOMEM;
 
 	idbm_recinfo_node(rec, info);
 
@@ -2207,7 +2257,7 @@ int idbm_discovery_set_param(void *data, discovery_rec_t *rec)
 
 	info = idbm_recinfo_alloc(MAX_KEYS);
 	if (!info)
-		return ENOMEM;
+		return ISCSI_ERR_NOMEM;
 
 	idbm_recinfo_discovery((discovery_rec_t *)rec, info);
 
@@ -2242,7 +2292,7 @@ int idbm_init(idbm_get_config_file_fn *fn)
 	db = malloc(sizeof(idbm_t));
 	if (!db) {
 		log_error("out of memory on idbm allocation");
-		return ENOMEM;
+		return ISCSI_ERR_NOMEM;
 	}
 	memset(db, 0, sizeof(idbm_t));
 	db->get_config_file = fn;
@@ -2362,16 +2412,7 @@ void idbm_node_setup_defaults(node_rec_t *rec)
 	rec->session.err_timeo.tgt_reset_timeout = DEF_TGT_RESET_TIMEO;
 	rec->session.err_timeo.host_reset_timeout = DEF_HOST_RESET_TIMEO;
 	rec->session.timeo.replacement_timeout = DEF_REPLACEMENT_TIMEO;
-	rec->session.iscsi.InitialR2T = 0;
-	rec->session.iscsi.ImmediateData = 1;
-	rec->session.iscsi.FirstBurstLength = DEF_INI_FIRST_BURST_LEN;
-	rec->session.iscsi.MaxBurstLength = DEF_INI_MAX_BURST_LEN;
-	rec->session.iscsi.DefaultTime2Wait = ISCSI_DEF_TIME2WAIT;
-	rec->session.iscsi.DefaultTime2Retain = 0;
-	rec->session.iscsi.MaxConnections = 1;
-	rec->session.iscsi.MaxOutstandingR2T = 1;
-	rec->session.iscsi.ERL = 0;
-	rec->session.iscsi.FastAbort = 1;
+	idbm_setup_session_defaults(&rec->session.iscsi);
 
 	for (i=0; i<ISCSI_CONN_MAX; i++) {
 		rec->conn[i].startup = ISCSI_STARTUP_MANUAL;
@@ -2385,13 +2426,7 @@ void idbm_node_setup_defaults(node_rec_t *rec)
 		rec->conn[i].timeo.noop_out_interval = DEF_NOOP_OUT_INTERVAL;
 		rec->conn[i].timeo.noop_out_timeout = DEF_NOOP_OUT_TIMEO;
 
-		rec->conn[i].iscsi.MaxXmitDataSegmentLength = 0;
-		rec->conn[i].iscsi.MaxRecvDataSegmentLength =
-						DEF_INI_MAX_RECV_SEG_LEN;
-		rec->conn[i].iscsi.HeaderDigest = CONFIG_DIGEST_NEVER;
-		rec->conn[i].iscsi.DataDigest = CONFIG_DIGEST_NEVER;
-		rec->conn[i].iscsi.IFMarker = 0;
-		rec->conn[i].iscsi.OFMarker = 0;
+		idbm_setup_conn_defaults(&rec->conn[i].iscsi);
 	}
 
 	iface_setup_defaults(&rec->iface);

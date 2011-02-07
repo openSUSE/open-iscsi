@@ -47,6 +47,7 @@
 #include "iface.h"
 #include "sysdeps.h"
 #include "iscsid_req.h"
+#include "iscsi_err.h"
 
 /* global config info */
 /* initiator needs initiator name/alias */
@@ -57,10 +58,8 @@ static node_rec_t config_rec;
 static LIST_HEAD(targets);
 
 static char program_name[] = "iscsistart";
-static int mgmt_ipc_fd;
 
 /* used by initiator */
-int control_fd;
 extern struct iscsi_ipc *ipc;
 
 static struct option const long_options[] = {
@@ -108,7 +107,7 @@ Open-iSCSI initiator.\n\
   -v, --version            display version and exit\n\
 ");
 	}
-	exit(status == 0 ? 0 : -1);
+	exit(status);
 }
 
 static int stop_event_loop(void)
@@ -121,7 +120,7 @@ static int stop_event_loop(void)
 	req.command = MGMT_IPC_IMMEDIATE_STOP;
 	rc = iscsid_exec_req(&req, &rsp, 0);
 	if (rc) {
-		iscsid_handle_error(rc);
+		iscsi_err_print_msg(rc);
 		log_error("Could not stop event_loop\n");
 	}
 	return rc;
@@ -155,12 +154,12 @@ retry:
 	 * handle race where iscsid proc is starting up while we are
 	 * trying to connect.
 	 */
-	if (rc == MGMT_IPC_ERR_ISCSID_NOTCONN && retries < 30) {
+	if (rc == ISCSI_ERR_ISCSID_NOTCONN && retries < 30) {
 		retries++;
 		sleep(1);
 		goto retry;
 	} else if (rc)
-		iscsid_handle_error(rc);
+		iscsi_err_print_msg(rc);
 	return rc;
 }
 
@@ -229,7 +228,7 @@ do {									\
 	if (strlen(str) > max_len) {					\
 		printf("%s: invalid %s %s. Max %s length is %d.\n",	\
 			program_name, param, str, param, max_len);	\
-		exit(1);						\
+		exit(ISCSI_ERR_INVAL);					\
 	}								\
 } while (0);
 
@@ -242,6 +241,7 @@ int main(int argc, char *argv[])
 	struct boot_context *context, boot_context;
 	struct sigaction sa_old;
 	struct sigaction sa_new;
+	int control_fd, mgmt_ipc_fd;
 	pid_t pid;
 
 	idbm_node_setup_defaults(&config_rec);
@@ -260,7 +260,7 @@ int main(int argc, char *argv[])
 
 	sysfs_init();
 	if (iscsi_sysfs_check_class_version())
-		exit(1);
+		exit(ISCSI_ERR_SYSFS_LOOKUP);
 
 	while ((ch = getopt_long(argc, argv, "i:t:g:a:p:d:u:w:U:W:bNfvh",
 				 long_options, &longindex)) >= 0) {
@@ -316,25 +316,24 @@ int main(int argc, char *argv[])
 			ret = fw_get_entry(&boot_context);
 			if (ret) {
 				printf("Could not get boot entry.\n");
-				exit(1);
+				exit(ret);
 			}
 
 			initiatorname = boot_context.initiatorname;
 			ret = fw_get_targets(&targets);
 			if (ret || list_empty(&targets)) {
 				printf("Could not setup fw entries.\n");
-				exit(1);
+				exit(ret);
 			}
 			break;
 		case 'N':
-			ret = fw_setup_nics();
-			exit(ret);
+			exit(fw_setup_nics());
 		case 'f':
 			ret = fw_get_targets(&targets);
 			if (ret || list_empty(&targets)) {
 				printf("Could not get list of targets from "
 				       "firmware.\n");
-				exit(1);
+				exit(ret);
 			}
 
 			list_for_each_entry(context, &targets, list)
@@ -350,18 +349,18 @@ int main(int argc, char *argv[])
 			usage(0);
 			break;
 		default:
-			usage(1);
+			usage(ISCSI_ERR_INVAL);
 			break;
 		}
 	}
 
 	if (list_empty(&targets) && check_params(initiatorname))
-		exit(1);
+		exit(ISCSI_ERR_INVAL);
 
 	pid = fork();
 	if (pid < 0) {
 		log_error("iscsiboot fork failed");
-		exit(1);
+		exit(ISCSI_ERR_NOMEM);
 	} else if (pid) {
 		int status, rc, rc2;
 
@@ -376,7 +375,7 @@ int main(int argc, char *argv[])
 
 		waitpid(pid, &status, WUNTRACED);
 		if (rc || rc2)
-			exit(-1);
+			exit(ISCSI_ERR);
 
 		log_debug(1, "iscsi parent done");
 		exit(0);
@@ -385,12 +384,12 @@ int main(int argc, char *argv[])
 	mgmt_ipc_fd = mgmt_ipc_listen();
 	if (mgmt_ipc_fd  < 0) {
 		log_error("Could not setup mgmt ipc\n");
-		exit(-1);
+		exit(ISCSI_ERR_NOMEM);
 	}
 
 	control_fd = ipc->ctldev_open();
 	if (control_fd < 0)
-		exit(-1);
+		exit(ISCSI_ERR_NOMEM);
 
 	memset(&daemon_config, 0, sizeof (daemon_config));
 	daemon_config.initiator_name = initiatorname;
@@ -420,6 +419,7 @@ int main(int argc, char *argv[])
 	/*
 	 * Start Main Event Loop
 	 */
+	iscsi_initiator_init();
 	actor_init();
 	event_loop(ipc, control_fd, mgmt_ipc_fd);
 	ipc->ctldev_close();

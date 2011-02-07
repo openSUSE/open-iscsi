@@ -33,7 +33,6 @@
 
 #include "types.h"
 #include "iscsi_if.h"
-#include "iscsid.h"
 #include "log.h"
 #include "iscsi_ipc.h"
 #include "initiator.h"
@@ -50,6 +49,7 @@ static void *nlm_sendbuf;
 static void *nlm_recvbuf;
 static void *pdu_sendbuf;
 static void *setparam_buf;
+static struct iscsi_ipc_ev_clbk *ipc_ev_clbk;
 
 static int ctldev_handle(void);
 
@@ -66,7 +66,8 @@ static int ctldev_handle(void);
 static int
 kread(char *data, int count)
 {
-	log_debug(7, "in %s", __FUNCTION__);
+	log_debug(7, "in %s %u %u %p %p", __FUNCTION__, recvlen, count,
+		  data, recvbuf);
 
 	memcpy(data, recvbuf + recvlen, count);
 	recvlen += count;
@@ -142,7 +143,8 @@ nlpayload_read(int ctrl_fd, char *data, int count, int flags)
 	 */
 	rc = recvmsg(ctrl_fd, &msg, flags);
 
-	memcpy(data, NLMSG_DATA(iov.iov_base), count);
+	if (data)
+		memcpy(data, NLMSG_DATA(iov.iov_base), count);
 
 	return rc;
 }
@@ -716,18 +718,34 @@ kstart_conn(uint64_t transport_handle, uint32_t sid, uint32_t cid,
 static int
 krecv_pdu_begin(struct iscsi_conn *conn)
 {
+	int rc;
+
 	log_debug(7, "in %s", __FUNCTION__);
 
 	if (recvbuf) {
 		log_error("recv's begin state machine bug?");
 		return -EIO;
 	}
+
+	if (!conn->recv_context) {
+		rc = ipc->ctldev_handle();
+		if (rc == -ENXIO)
+			/* event for some other conn */
+			return -EAGAIN;
+		else if (rc < 0)
+			/* fatal handling error or conn error */
+			return rc;
+		/*
+		 * Session create/destroy event for another conn
+		 */
+		if (!conn->recv_context)
+			return -EAGAIN;
+	}
+
 	recvbuf = conn->recv_context->data + sizeof(struct iscsi_uevent);
 	recvlen = 0;
 
-	log_debug(3, "recv PDU began, pdu handle 0x%p",
-		  recvbuf);
-
+	log_debug(3, "recv PDU began, pdu handle %p", recvbuf);
 	return 0;
 }
 
@@ -744,7 +762,7 @@ krecv_pdu_end(struct iscsi_conn *conn)
 	log_debug(3, "recv PDU finished for pdu handle 0x%p",
 		  recvbuf);
 
-	iscsi_conn_context_put(conn->recv_context);
+	ipc_ev_clbk->put_ev_context(conn->recv_context);
 	conn->recv_context = NULL;
 	recvbuf = NULL;
 	return 0;
@@ -894,7 +912,7 @@ static void drop_data(struct nlmsghdr *nlh)
 	int ev_size;
 
 	ev_size = nlh->nlmsg_len - NLMSG_ALIGN(sizeof(struct nlmsghdr));
-	nlpayload_read(ctrl_fd, setparam_buf, ev_size, 0);
+	nlpayload_read(ctrl_fd, NULL, ev_size, 0);
 }
 
 static int ctldev_handle(void)
@@ -905,7 +923,7 @@ static int ctldev_handle(void)
 	iscsi_conn_t *conn = NULL;
 	char nlm_ev[NLMSG_SPACE(sizeof(struct iscsi_uevent))];
 	struct nlmsghdr *nlh;
-	struct iscsi_conn_context *conn_context;
+	struct iscsi_ev_context *ev_context;
 	uint32_t sid = 0, cid = 0;
 
 	log_debug(7, "in %s", __FUNCTION__);
@@ -925,13 +943,15 @@ static int ctldev_handle(void)
 	/* old kernels sent ISCSI_UEVENT_CREATE_SESSION on creation */
 	case ISCSI_UEVENT_CREATE_SESSION:
 		drop_data(nlh);
-		iscsi_async_session_creation(ev->r.c_session_ret.host_no,
-					     ev->r.c_session_ret.sid);
+		if (ipc_ev_clbk->create_session)
+			ipc_ev_clbk->create_session(ev->r.c_session_ret.host_no,
+						    ev->r.c_session_ret.sid);
 		return 0;
 	case ISCSI_KEVENT_DESTROY_SESSION:
 		drop_data(nlh);
-		iscsi_async_session_destruction(ev->r.d_session.host_no,
-						ev->r.d_session.sid);
+		if (ipc_ev_clbk->destroy_session)
+			ipc_ev_clbk->destroy_session(ev->r.d_session.host_no,
+						     ev->r.d_session.sid);
 		return 0;
 	case ISCSI_KEVENT_RECV_PDU:
 		sid = ev->r.recv_req.sid;
@@ -947,16 +967,30 @@ static int ctldev_handle(void)
 		cid = 0;
 		break;
 	default:
-		log_error("Unknown kernel event %d. You may want to upgrade "
-			  "your iscsi tools.", ev->type);
+		if ((ev->type > ISCSI_UEVENT_MAX && ev->type < KEVENT_BASE) ||
+		    (ev->type > ISCSI_KEVENT_MAX))
+			log_error("Unknown kernel event %d. You may want to "
+				  " upgrade your iscsi tools.", ev->type);
+		else
+			/*
+			 * If another app is using the interface we might
+			 * see their
+			 * stuff. Just drop it.
+			 */
+			log_debug(7, "Got unknwon event %d. Dropping.",
+				  ev->type);
 		drop_data(nlh);
-		return -EINVAL;
+		return 0;
 	}
 
 	/* verify connection */
 	session = session_find_by_sid(sid);
 	if (!session) {
-		log_error("Could not verify connection %d:%d. Dropping "
+		/*
+		 * this can happen normally when other apps are using the
+		 * nl interface.
+		 */
+		log_debug(1, "Could not verify connection %d:%d. Dropping "
 			   "event.\n", sid, cid);
 		drop_data(nlh);
 		return -ENXIO;
@@ -964,19 +998,20 @@ static int ctldev_handle(void)
 	conn = &session->conn[0];
 
 	ev_size = nlh->nlmsg_len - NLMSG_ALIGN(sizeof(struct nlmsghdr));
-	conn_context = iscsi_conn_context_get(conn, ev_size);
-	if (!conn_context) {
+
+	ev_context = ipc_ev_clbk->get_ev_context(conn, ev_size);
+	if (!ev_context) {
 		/* retry later */
 		log_error("Can not allocate memory for receive context.");
 		return -ENOMEM;
 	}
 
 	log_debug(6, "message real length is %d bytes, recv_handle %p",
-		nlh->nlmsg_len, conn_context->data);
+		nlh->nlmsg_len, ev_context->data);
 
-	if ((rc = nlpayload_read(ctrl_fd, conn_context->data,
+	if ((rc = nlpayload_read(ctrl_fd, ev_context->data,
 				ev_size, 0)) < 0) {
-		iscsi_conn_context_put(conn_context);
+		ipc_ev_clbk->put_ev_context(ev_context);
 		log_error("can not read from NL socket, error %d", rc);
 		/* retry later */
 		return rc;
@@ -988,26 +1023,28 @@ static int ctldev_handle(void)
 	 */
 	switch (ev->type) {
 	case ISCSI_KEVENT_RECV_PDU:
-		iscsi_sched_conn_context(conn_context, conn, 0,
-					 EV_CONN_RECV_PDU);
+		rc = ipc_ev_clbk->sched_ev_context(ev_context, conn, 0,
+						   EV_CONN_RECV_PDU);
 		break;
 	case ISCSI_KEVENT_CONN_ERROR:
-		memcpy(conn_context->data, &ev->r.connerror.error,
+		memcpy(ev_context->data, &ev->r.connerror.error,
 			sizeof(ev->r.connerror.error));
-		iscsi_sched_conn_context(conn_context, conn, 0,
-					 EV_CONN_ERROR);
+		rc = ipc_ev_clbk->sched_ev_context(ev_context, conn, 0,
+						   EV_CONN_ERROR);
 		break;
 	case ISCSI_KEVENT_UNBIND_SESSION:
-		iscsi_sched_conn_context(conn_context, conn, 0,
-					 EV_CONN_STOP);
+		rc = ipc_ev_clbk->sched_ev_context(ev_context, conn, 0,
+						   EV_CONN_STOP);
 		break;
 	default:
-		iscsi_conn_context_put(conn_context);
+		ipc_ev_clbk->put_ev_context(ev_context);
 		log_error("unknown kernel event %d", ev->type);
 		return -EEXIST;
 	}
 
-	return 0;
+	if (rc)
+		ipc_ev_clbk->put_ev_context(ev_context);
+	return rc;
 }
 
 static int
@@ -1116,3 +1153,8 @@ struct iscsi_ipc nl_ipc = {
 	.recv_pdu_end           = krecv_pdu_end,
 };
 struct iscsi_ipc *ipc = &nl_ipc;
+
+void ipc_register_ev_callback(struct iscsi_ipc_ev_clbk *ev_clbk)
+{
+	ipc_ev_clbk = ev_clbk;
+}

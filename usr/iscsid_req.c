@@ -31,6 +31,7 @@
 #include "mgmt_ipc.h"
 #include "iscsi_util.h"
 #include "config.h"
+#include "iscsi_err.h"
 
 static void iscsid_startup(void)
 {
@@ -51,7 +52,7 @@ static void iscsid_startup(void)
 
 #define MAXSLEEP 128
 
-static mgmt_ipc_err_e iscsid_connect(int *fd, int start_iscsid)
+static int iscsid_connect(int *fd, int start_iscsid)
 {
 	int nsec;
 	struct sockaddr_un addr;
@@ -59,7 +60,7 @@ static mgmt_ipc_err_e iscsid_connect(int *fd, int start_iscsid)
 	*fd = socket(AF_LOCAL, SOCK_STREAM, 0);
 	if (*fd < 0) {
 		log_error("can not create IPC socket (%d)!", errno);
-		return MGMT_IPC_ERR_ISCSID_NOTCONN;
+		return ISCSI_ERR_ISCSID_NOTCONN;
 	}
 
 	memset(&addr, 0, sizeof(addr));
@@ -72,7 +73,7 @@ static mgmt_ipc_err_e iscsid_connect(int *fd, int start_iscsid)
 	for (nsec = 1; nsec <= MAXSLEEP; nsec <<= 1) {
 		if (connect(*fd, (struct sockaddr *) &addr, sizeof(addr)) == 0)
 			/* Connection established */
-			return MGMT_IPC_OK;
+			return ISCSI_SUCCESS;
 
 		/* If iscsid isn't there, there's no sense
 		 * in retrying. */
@@ -90,10 +91,10 @@ static mgmt_ipc_err_e iscsid_connect(int *fd, int start_iscsid)
 			sleep(nsec);
 	}
 	log_error("can not connect to iSCSI daemon (%d)!", errno);
-	return MGMT_IPC_ERR_ISCSID_NOTCONN;
+	return ISCSI_ERR_ISCSID_NOTCONN;
 }
 
-mgmt_ipc_err_e iscsid_request(int *fd, iscsiadm_req_t *req, int start_iscsid)
+int iscsid_request(int *fd, iscsiadm_req_t *req, int start_iscsid)
 {
 	int err;
 
@@ -105,33 +106,33 @@ mgmt_ipc_err_e iscsid_request(int *fd, iscsiadm_req_t *req, int start_iscsid)
 		log_error("got write error (%d/%d) on cmd %d, daemon died?",
 			err, errno, req->command);
 		close(*fd);
-		return MGMT_IPC_ERR_ISCSID_COMM_ERR;
+		return ISCSI_ERR_ISCSID_COMM_ERR;
 	}
-	return MGMT_IPC_OK;
+	return ISCSI_SUCCESS;
 }
 
-mgmt_ipc_err_e iscsid_response(int fd, iscsiadm_cmd_e cmd, iscsiadm_rsp_t *rsp)
+int iscsid_response(int fd, iscsiadm_cmd_e cmd, iscsiadm_rsp_t *rsp)
 {
-	mgmt_ipc_err_e iscsi_err;
+	int iscsi_err;
 	int err;
 
 	if ((err = recv(fd, rsp, sizeof(*rsp), MSG_WAITALL)) != sizeof(*rsp)) {
 		log_error("got read error (%d/%d), daemon died?", err, errno);
-		iscsi_err = MGMT_IPC_ERR_ISCSID_COMM_ERR;
+		iscsi_err = ISCSI_ERR_ISCSID_COMM_ERR;
 	} else
 		iscsi_err = rsp->err;
 	close(fd);
 
 	if (!iscsi_err && cmd != rsp->command)
-		iscsi_err = MGMT_IPC_ERR_ISCSID_COMM_ERR;
+		iscsi_err = ISCSI_ERR_ISCSID_COMM_ERR;
 	return iscsi_err;
 }
 
-mgmt_ipc_err_e iscsid_exec_req(iscsiadm_req_t *req, iscsiadm_rsp_t *rsp,
+int iscsid_exec_req(iscsiadm_req_t *req, iscsiadm_rsp_t *rsp,
 				int start_iscsid)
 {
 	int fd;
-	mgmt_ipc_err_e err;
+	int err;
 
 	err = iscsid_request(&fd, req, start_iscsid);
 	if (err)
@@ -188,32 +189,4 @@ int iscsid_req_by_sid(iscsiadm_cmd_e cmd, int sid)
 	if (err)
 		return err;
 	return iscsid_req_wait(cmd, fd);
-}
-
-void iscsid_handle_error(mgmt_ipc_err_e err)
-{
-	static char *err_msgs[] = {
-		/* 0 */ "",
-		/* 1 */ "unknown error",
-		/* 2 */ "not found",
-		/* 3 */ "no available memory",
-		/* 4 */ "encountered connection failure",
-		/* 5 */ "encountered iSCSI login failure",
-		/* 6 */ "encountered iSCSI database failure",
-		/* 7 */ "invalid parameter",
-		/* 8 */ "connection timed out",
-		/* 9 */ "internal error",
-		/* 10 */ "encountered iSCSI logout failure",
-		/* 11 */ "iSCSI PDU timed out",
-		/* 12 */ "iSCSI driver not found. Please make sure it is loaded, and retry the operation",
-		/* 13 */ "daemon access denied",
-		/* 14 */ "iSCSI driver does not support requested capability.",
-		/* 15 */ "already exists",
-		/* 16 */ "Unknown request",
-		/* 17 */ "encountered iSNS failure",
-		/* 18 */ "could not communicate to iscsid",
-		/* 19 */ "encountered non-retryable iSCSI login failure",
-		/* 20 */ "could not connect to iscsid",
-	};
-	log_error("initiator reported error (%d - %s)", err, err_msgs[err]);
 }
