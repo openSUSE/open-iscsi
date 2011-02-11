@@ -1,6 +1,6 @@
 /* nic.h:  NIC header file
  *
- * Copyright (c) 2004-2008 Broadcom Corporation
+ * Copyright (c) 2004-2010 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -45,6 +45,14 @@ extern struct nic *nic_list;
 #define MAX_PCI_DEVICE_ENTRIES	64	/* Maxium number of pci_device_id
 					   entries a hw library may contain */
 
+/******************************************************************************
+ * Enumerations
+ ******************************************************************************/
+typedef enum {
+        ALLOW_GRACEFUL_SHUTDOWN	= 1,
+        FORCE_SHUTDOWN		= 2,
+} NIC_SHUTDOWN_T;
+
 /*******************************************************************************
  * Structure used to hold PCI vendor, device, subvendor and subdevice ID's
  ******************************************************************************/
@@ -79,7 +87,11 @@ typedef struct nic_interface {
 	struct nic_interface *next;
 	struct nic *parent;
 
+	uint16_t	protocol;
 	uint16_t	flags;
+	uint16_t	state;	
+#define NIC_IFACE_STOPPED	0x0001
+#define NIC_IFACE_RUNNING	0x0002
 	uint8_t		mac_addr[ETH_ALEN];
 	uint8_t		vlan_priority;
 	uint16_t	vlan_id;
@@ -127,7 +139,7 @@ typedef struct nic_ops {
 
 	char *description;
 	int (*open)(struct nic *);
-	int (*close)(struct nic *, int);
+	int (*close)(struct nic *, NIC_SHUTDOWN_T);
 	int (*read)(struct nic *, struct packet *);
 	int (*write)(struct nic *, nic_interface_t *,
 		     struct packet *);
@@ -186,11 +198,12 @@ typedef struct nic {
 
 	uint32_t   intr_count;	/* Total UIO interrupt count		*/
 
+	pthread_mutex_t  nic_mutex;
+
 	/*  iSCSI ring ethernet MAC address */
 	__u8 mac_addr[ETH_ALEN];
 
 	/*  Used to manage the network interfaces of this device */
-	pthread_mutex_t  nic_iface_mutex;
 	__u32 num_of_nic_iface;
 	nic_interface_t *nic_iface;
 
@@ -199,19 +212,15 @@ typedef struct nic {
 	pthread_cond_t   uio_wait_cond;
 
 	/*  Wait for the device to be enabled */
-	pthread_mutex_t  enable_wait_mutex;
 	pthread_cond_t   enable_wait_cond;
 
 	/*  Wait for the device to be finished enabled */
-	pthread_mutex_t  enable_done_mutex;
 	pthread_cond_t   enable_done_cond;
 
 	/*  Wait for the nic loop to start */
-	pthread_mutex_t  nic_loop_started_mutex;
 	pthread_cond_t   nic_loop_started_cond;
 
 	/*  Wait for the device to be disabled */
-	pthread_mutex_t  disable_wait_mutex;
 	pthread_cond_t   disable_wait_cond;
 
 	/* Held when transmitting */
@@ -219,6 +228,9 @@ typedef struct nic {
 
 	/* The thread this device is running on */
 	pthread_t thread;
+
+	/* The thread used to enable the device */
+	pthread_t enable_thread;
 
 	/* Statistical Information on this device */
 	time_t start_time;
@@ -258,14 +270,14 @@ typedef struct nic {
  *****************************************************************************/
 int load_all_nic_libraries();
 
-nic_t *nic_init(void);
-void nic_remove(nic_t * nic, int locked);
+nic_t *nic_init();
+int nic_remove(nic_t * nic, int locked);
 
 int nic_add_nic_iface(nic_t *nic,
                       nic_interface_t *nic_iface);
 int nic_process_intr(nic_t *nic, int discard_check);
 
-nic_interface_t * nic_iface_init(void);
+nic_interface_t * nic_iface_init();
 
 typedef enum {
 	NIC_LIBRARY_EXSITS	= 1,
@@ -285,19 +297,13 @@ void put_packet_in_tx_queue(struct packet *pkt,
 void put_packet_in_free_queue(struct packet *pkt,
                               nic_t *nic);
 
-
-typedef enum {
-        ALLOW_GRACEFUL_SHUTDOWN	= 1,
-        FORCE_SHUTDOWN		= 2,
-} NIC_SHUTDOWN_T;
-
 int unload_all_nic_libraries();
 void nic_close(nic_t *nic, NIC_SHUTDOWN_T graceful);
 
 /*  Use this function to fill in minor number and uio, and eth names */
 int nic_fill_name(nic_t *nic);
 
-int determine_initial_uio_events(nic_t *nic, uint32_t *num_of_events);
+int detemine_initial_uio_events();
 
 int enable_multicast(nic_t *nic);
 int disable_multicast(nic_t *nic);
@@ -305,6 +311,9 @@ int disable_multicast(nic_t *nic);
 void nic_set_all_nic_iface_mac_to_parent(nic_t *nic);
 struct nic_interface * nic_find_nic_iface(nic_t *nic,
 					  uint16_t vlan_id);
+struct nic_interface * nic_find_nic_iface_protocol(nic_t *nic,
+						   uint16_t vlan_id,
+						   uint16_t protocol);
 int find_nic_lib_using_pci_id(uint32_t vendor, uint32_t device,
                               uint32_t subvendor, uint32_t subdevice,
 			      nic_lib_handle_t **handle,

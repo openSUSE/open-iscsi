@@ -153,6 +153,9 @@ typedef uint64_t uip_stats_t;
 
 #define UIP_CONF_IPV6 0
 
+#define INET_ADDRSTRLEN 16
+#define INET6_ADDRSTRLEN 46
+
 #endif /* __UIP_CONF_H__ */
 
 /** @} */

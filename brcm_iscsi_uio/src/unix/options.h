@@ -1,6 +1,6 @@
 /* options.c: CNIC UIO uIP user space stack
  *
- * Copyright (c) 2004-2008 Broadcom Corporation
+ * Copyright (c) 2004-2010 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -48,6 +48,21 @@
 /******************************************************************************
  * Non adjustable constants
  *****************************************************************************/
+#ifndef ETHERTYPE_IP
+#define ETHERTYPE_IP                    0x0800  /* IP */
+#endif /* ETHERTYPE_IP */
+
+#ifndef ETHERTYPE_IPV6
+#define ETHERTYPE_IPV6                  0x86dd   /* IP protocol version 6 */
+#endif /* ETHERTYPE_IPV6 */
+
+#ifndef ETHERTYPE_ARP
+#define ETHERTYPE_ARP                   0x0806  /* Address resolution */
+#endif /* ETHERTYPE_ARP */
+
+#ifndef ETHERTYPE_VLAN
+#define ETHERTYPE_VLAN                  0x8100  /* IEEE 802.1Q VLAN tagging */
+#endif /* ETHERTYPE_VLAN */
 
 #define APP_NAME "uIP"
 /* BUILD_DATE is automatically generated from the Makefile */

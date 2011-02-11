@@ -43,159 +43,174 @@
 #include "uip.h"
 #include "uip-neighbor.h"
 
+#include <errno.h>
 #include <string.h>
 #include <arpa/inet.h>
+
+/*******************************************************************************
+ * Constants
+ ******************************************************************************/
+#define PFX "uip-neigh "
 
 #define MAX_TIME 128
 
 /*---------------------------------------------------------------------------*/
-void
-uip_neighbor_init(struct uip_stack *ustack)
+void uip_neighbor_init(struct uip_stack *ustack)
 {
-  int i;
+	int i;
 
-  for(i = 0; i < UIP_NEIGHBOR_ENTRIES; ++i) {
-    ustack->neighbor_entries[i].time = MAX_TIME;
-  }
+	pthread_mutex_lock(&ustack->lock);
+	for (i = 0; i < UIP_NEIGHBOR_ENTRIES; ++i) {
+		memset(&(ustack->neighbor_entries[i].ipaddr), 0,
+		       sizeof(ustack->neighbor_entries[i].ipaddr));
+		memset(&(ustack->neighbor_entries[i].mac_addr), 0,
+		       sizeof(ustack->neighbor_entries[i].mac_addr));
+		ustack->neighbor_entries[i].time = MAX_TIME;
+	}
+	pthread_mutex_unlock(&ustack->lock);
 }
+
+void uip_neighbor_add(struct uip_stack *ustack,
+		      struct in6_addr *addr6, struct uip_eth_addr *addr)
+{
+	int i, oldest;
+	u8_t oldest_time;
+	char buf[INET6_ADDRSTRLEN];
+
+	inet_ntop(AF_INET6, addr6, buf, sizeof(buf));
+
+	pthread_mutex_lock(&ustack->lock);
+
+	/* Find the first unused entry or the oldest used entry. */
+	oldest_time = 0;
+	oldest = 0;
+	for (i = 0; i < UIP_NEIGHBOR_ENTRIES; ++i) {
+		if (ustack->neighbor_entries[i].time == MAX_TIME) {
+			oldest = i;
+			break;
+		}
+		if (uip_ip6addr_cmp
+		    (ustack->neighbor_entries[i].ipaddr.s6_addr, addr6)) {
+			oldest = i;
+			break;
+		}
+		if (ustack->neighbor_entries[i].time > oldest_time) {
+			oldest = i;
+			oldest_time = ustack->neighbor_entries[i].time;
+		}
+	}
+
+	/* Use the oldest or first free entry (either pointed to by the
+	   "oldest" variable). */
+	ustack->neighbor_entries[oldest].time = 0;
+	uip_ip6addr_copy(ustack->neighbor_entries[oldest].ipaddr.s6_addr,
+			 addr6);
+	memcpy(&ustack->neighbor_entries[oldest].mac_addr, addr,
+	       sizeof(struct uip_eth_addr));
+
+	LOG_DEBUG("Adding neighbor %s with "
+		  "mac address %02x:%02x:%02x:%02x:%02x:%02x at %d",
+		  buf, addr->addr[0], addr->addr[1], addr->addr[2],
+		  addr->addr[3], addr->addr[4], addr->addr[5], oldest);
+
+	pthread_mutex_unlock(&ustack->lock);
+}
+
 /*---------------------------------------------------------------------------*/
-#if 0
-void
-uip_neighbor_periodic(void)
+static struct neighbor_entry *find_entry(struct uip_stack *ustack,
+					 struct in6_addr *addr6)
 {
-  int i;
+	int i;
 
-  for(i = 0; i < UIP_NEIGHBOR_ENTRIES; ++i) {
-    if(entries[i].time < MAX_TIME) {
-      entries[i].time++;
-    }
-  }
+	for (i = 0; i < UIP_NEIGHBOR_ENTRIES; ++i) {
+		if (uip_ip6addr_cmp
+		    (ustack->neighbor_entries[i].ipaddr.s6_addr,
+		     addr6->s6_addr)) {
+			return &ustack->neighbor_entries[i];
+		}
+	}
+
+	return NULL;
 }
-#endif
+
 /*---------------------------------------------------------------------------*/
-void
-uip_neighbor_add(struct uip_stack *ustack,
-		 uip_ip6addr_t ipaddr, struct uip_eth_addr *addr)
+void uip_neighbor_update(struct uip_stack *ustack, struct in6_addr *addr6)
 {
-  int i, oldest;
-  u8_t oldest_time;
-  char buf[128];
+	struct neighbor_entry *e;
 
-   inet_ntop(AF_INET6, ipaddr, buf, sizeof(buf));
+	pthread_mutex_lock(&ustack->lock);
 
-   LOG_INFO("Adding neighbor %s with link address %02x:%02x:%02x:%02x:%02x:%02x\n",
-   	   buf,
-	   addr[0], addr[1], addr[2],
-	   addr[3], addr[4], addr[5]);
-  
-  /* Find the first unused entry or the oldest used entry. */
-  oldest_time = 0;
-  oldest = 0;
-  for(i = 0; i < UIP_NEIGHBOR_ENTRIES; ++i) {
-    if(ustack->neighbor_entries[i].time == MAX_TIME) {
-      oldest = i;
-      break;
-    }
-    if(uip_ip6addr_cmp(ustack->neighbor_entries[i].ipaddr, ipaddr)) {
-      oldest = i;
-      break;
-    }
-    if(ustack->neighbor_entries[i].time > oldest_time) {
-      oldest = i;
-      oldest_time = ustack->neighbor_entries[i].time;
-    }
-  }
+	e = find_entry(ustack, addr6);
+	if (e != NULL) {
+		e->time = 0;
+	}
 
-  /* Use the oldest or first free entry (either pointed to by the
-     "oldest" variable). */
-  ustack->neighbor_entries[oldest].time = 0;
-  uip_ip6addr_copy(ustack->neighbor_entries[oldest].ipaddr, ipaddr);
-  memcpy(&ustack->neighbor_entries[oldest].addr,
-  	 addr, sizeof(struct uip_eth_addr));
+	pthread_mutex_unlock(&ustack->lock);
 }
+
 /*---------------------------------------------------------------------------*/
-static struct neighbor_entry *
-find_entry(struct uip_stack *ustack,
-	   uip_ip6addr_t ipaddr)
+int uip_neighbor_lookup(struct uip_stack *ustack,
+			struct in6_addr *addr6, uint8_t * mac_addr)
 {
-  int i;
-  char buf[128];
-  inet_ntop(AF_INET6, ipaddr, buf, sizeof(buf));
-  
-  for(i = 0; i < UIP_NEIGHBOR_ENTRIES; ++i) {
-    if(uip_ip6addr_cmp(ustack->neighbor_entries[i].ipaddr, ipaddr)) {
+	struct neighbor_entry *e;
 
-      LOG_DEBUG("found %s at %02x:%02x:%02x:%02x:%02x:%02x\n",
-           buf,
-	   ustack->neighbor_entries[i].addr.addr[0],
-	   ustack->neighbor_entries[i].addr.addr[1],
-	   ustack->neighbor_entries[i].addr.addr[2],
-	   ustack->neighbor_entries[i].addr.addr[3],
-	   ustack->neighbor_entries[i].addr.addr[4],
-	   ustack->neighbor_entries[i].addr.addr[5]);
+	pthread_mutex_lock(&ustack->lock);
+	e = find_entry(ustack, addr6);
+	if (e != NULL) {
+		char addr6_str[INET6_ADDRSTRLEN];
+		uint8_t *entry_mac_addr;
 
-      return &ustack->neighbor_entries[i];
-    }
-  }
+		inet_ntop(AF_INET6, addr6->s6_addr, addr6_str,
+			  sizeof(addr6->s6_addr));
+		entry_mac_addr = &e->mac_addr.addr;
 
+		LOG_DEBUG(PFX
+			  "Found %s at %02x:%02x:%02x:%02x:%02x:%02x",
+			  addr6_str,
+			  entry_mac_addr[0], entry_mac_addr[1],
+			  entry_mac_addr[2], entry_mac_addr[3],
+			  entry_mac_addr[4], entry_mac_addr[5]);
 
-  LOG_WARN("Could not find entry: %s",
-  	   buf);
+		memcpy(mac_addr, entry_mac_addr, sizeof(e->mac_addr));
+		pthread_mutex_unlock(&ustack->lock);
+		return 0;
+	}
 
-  return NULL;
-}
-/*---------------------------------------------------------------------------*/
-void
-uip_neighbor_update(struct uip_stack *ustack, uip_ip6addr_t ipaddr)
-{
-  struct neighbor_entry *e;
-
-  e = find_entry(ustack, ipaddr);
-  if(e != NULL) {
-    e->time = 0;
-  }
-}
-/*---------------------------------------------------------------------------*/
-struct uip_eth_addr *
-uip_neighbor_lookup(struct uip_stack *ustack, uip_ip6addr_t ipaddr)
-{
-  struct neighbor_entry *e;
-
-  e = find_entry(ustack, ipaddr);
-  if(e != NULL) {
-    /*    printf("Lookup neighbor with link address %02x:%02x:%02x:%02x:%02x:%02x\n",
-	   e->addr.addr.addr[0], e->addr.addr.addr[1], e->addr.addr.addr[2], e->addr.addr.addr[3],
-	   e->addr.addr.addr[4], e->addr.addr.addr[5]);*/
-
-    return &e->addr;
-  }
-  return NULL;
+	pthread_mutex_unlock(&ustack->lock);
+	return -ENOENT;
 }
 
-void
-uip_neighbor_out(struct uip_stack *ustack)
+void uip_neighbor_out(struct uip_stack *ustack)
 {
-  struct neighbor_entry *e;
-  struct uip_ipv6_hdr *ipv6_hdr = (struct uip_ipv6_hdr *)IPv6_BUF(ustack);
-  
-  /* Find the destination IP address in the neighbor table and construct
-     the Ethernet header. If the destination IP addres isn't on the
-     local network, we use the default router's IP address instead.
+	struct neighbor_entry *e;
+	struct uip_eth_hdr *eth_hdr =
+	    (struct uip_eth_hdr *)ustack->data_link_layer;
+	struct uip_ipv6_hdr *ipv6_hdr =
+	    (struct uip_ipv6_hdr *)ustack->network_layer;
 
-     If not ARP table entry is found, we overwrite the original IP
-     packet with an ARP request for the IP address. */
-  e = find_entry(ustack, ipv6_hdr->destipaddr);
+	pthread_mutex_lock(&ustack->lock);
 
-  if(e == NULL)
-  	/* TODO determine what to do in IPv6 case */
-  	return;
+	/* Find the destination IP address in the neighbor table and construct
+	   the Ethernet header. If the destination IP addres isn't on the
+	   local network, we use the default router's IP address instead.
 
-  memcpy(ETH_BUF(ustack)->dest.addr, &e->addr, 6);
-  memcpy(ETH_BUF(ustack)->src.addr, ustack->uip_ethaddr.addr, 6);
-  
-  ETH_BUF(ustack)->type = htons(UIP_ETHTYPE_IPv6);
+	   If not ARP table entry is found, we overwrite the original IP
+	   packet with an ARP request for the IP address. */
+	e = find_entry(ustack, ipv6_hdr->destipaddr);
+	if (e == NULL) {
+		/* TODO determine what to do in IPv6 case */
+		pthread_mutex_unlock(&ustack->lock);
+		return;
+	}
 
-  ustack->uip_len += sizeof(struct uip_eth_hdr);
+	memcpy(eth_hdr->dest.addr, &e->mac_addr,
+	       sizeof(eth_hdr->dest.addr));
+	memcpy(eth_hdr->src.addr, ustack->uip_ethaddr.addr,
+	       sizeof(eth_hdr->src.addr));
+	eth_hdr->type = htons(UIP_ETHTYPE_IPv6);
+	ustack->uip_len += sizeof(struct uip_eth_hdr);
+
+	pthread_mutex_unlock(&ustack->lock);
 }
 
 /*---------------------------------------------------------------------------*/

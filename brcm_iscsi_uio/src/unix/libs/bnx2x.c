@@ -1,6 +1,6 @@
 /* bnx2x.c: bnx2x user space driver
  *
- * Copyright (c) 2004-2009 Broadcom Corporation
+ * Copyright (c) 2004-2010 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +13,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <linux/types.h>	/* Needed for linux/ethtool.h on RHEL 5.x */
+#include <linux/sockios.h>
+#include <linux/ethtool.h>
 #include <sys/mman.h>
+#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/user.h>
@@ -63,14 +67,22 @@ static const char cnic_uio_sysfs_resc_tempate[] = "/sys/class/uio/uio%i/device/r
 static const char brcm_57710[] = "Broadcom NetXtreme II BCM57710 10-Gigabit";
 static const char brcm_57711[] = "Broadcom NetXtreme II BCM57711 10-Gigabit";
 static const char brcm_57711e[] = "Broadcom NetXtreme II BCM57711E 10-Gigabit";
+static const char brcm_57712[] = "Broadcom NetXtreme II BCM57712 10-Gigabit";
+static const char brcm_57712e[] = "Broadcom NetXtreme II BCM57712E 10-Gigabit";
+static const char brcm_57713[] = "Broadcom NetXtreme II BCM57713 10-Gigabit";
+static const char brcm_57713e[] = "Broadcom NetXtreme II BCM57713E 10-Gigabit";
 
 /*******************************************************************************
  * PCI ID constants
  ******************************************************************************/
-#define PCI_VENDOR_ID_BROADCOM          0x14e4
-#define PCI_DEVICE_ID_NX2_57710         0x164e
-#define PCI_DEVICE_ID_NX2_57711         0x164f
-#define PCI_DEVICE_ID_NX2_57711E        0x1650
+#define PCI_VENDOR_ID_BROADCOM		0x14e4
+#define PCI_DEVICE_ID_NX2_57710		0x164e
+#define PCI_DEVICE_ID_NX2_57711		0x164f
+#define PCI_DEVICE_ID_NX2_57711E	0x1650
+#define PCI_DEVICE_ID_NX2_57712		0x1662
+#define PCI_DEVICE_ID_NX2_57712E	0x1663
+#define PCI_DEVICE_ID_NX2_57713		0x1651
+#define PCI_DEVICE_ID_NX2_57713E	0x1652
 #define PCI_ANY_ID (~0)
 
 /*  This is the table used to match PCI vendor and device ID's to the
@@ -82,7 +94,27 @@ static const struct pci_device_id bnx2x_pci_tbl[] = {
 	   PCI_ANY_ID, PCI_ANY_ID, brcm_57711 },
 	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57711E,
 	   PCI_ANY_ID, PCI_ANY_ID, brcm_57711e },
+	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57712,
+	   PCI_ANY_ID, PCI_ANY_ID, brcm_57712 },
+	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57712E,
+	   PCI_ANY_ID, PCI_ANY_ID, brcm_57712e },
+	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57713,
+	   PCI_ANY_ID, PCI_ANY_ID, brcm_57713 },
+	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57713E,
+	   PCI_ANY_ID, PCI_ANY_ID, brcm_57713e },
 };
+
+static struct iro e1_iro[1] = {
+	{ 0x45a0,   0x90,    0x8,    0x0,    0x8},
+	};
+
+static struct iro e1h_iro[1] = {
+	{ 0x1c40,   0xe0,    0x8,    0x0,    0x8},
+	};
+
+static struct iro e2_iro[1] = {
+	{ 0x6000,   0x20,    0x0,    0x0,    0x8},
+	};
 
 /*******************************************************************************
  * BNX2X Library Functions
@@ -185,6 +217,92 @@ struct nic_ops * bnx2x_get_ops()
 /*******************************************************************************
  * Utility Functions Used to read register from the bnx2x device
  ******************************************************************************/
+static void bnx2x_set_drv_version_unknown(bnx2x_t *bp)
+{
+	bp->version.major = BNX2X_UNKNOWN_MAJOR_VERSION;
+	bp->version.minor = BNX2X_UNKNOWN_MINOR_VERSION;
+	bp->version.sub_minor = BNX2X_UNKNOWN_SUB_MINOR_VERSION;
+}
+
+/**
+ * bnx2x_get_drv_version() - Used to determine the driver version
+ * @param bp - Device used to determine bnx2x driver version
+ */
+static int bnx2x_get_drv_version(bnx2x_t *bp)
+{
+	nic_t *nic = bp->parent;
+	int fd, rc;
+	struct ifreq ifr;
+	struct ethtool_drvinfo drvinfo;
+	char *tok, *save_ptr = NULL;
+
+	/* Setup our control structures. */
+	memset(&ifr, 0, sizeof(ifr));
+	strcpy(ifr.ifr_name, nic->eth_device_name);
+
+	/* Open control socket. */
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (fd < 0) {
+		LOG_ERR(PFX "%s: Cannot get socket to determine version "
+			    "[0x%x %s]",
+			nic->log_name, errno, strerror(errno));
+		return -EIO;
+	}
+
+	drvinfo.cmd = ETHTOOL_GDRVINFO;
+	ifr.ifr_data = (caddr_t)&drvinfo;
+	rc = ioctl(fd, SIOCETHTOOL, &ifr);
+        if (rc < 0) {
+		LOG_ERR(PFX "%s: call to ethool IOCTL failed [0x%x %s]",
+			nic->log_name, errno, strerror(errno));
+                return rc;
+        }
+
+	tok = strtok_r(drvinfo.version, ".", &save_ptr);
+	if (tok == NULL) {
+		rc = -EIO;
+		goto error;
+	}
+	bp->version.major = atoi(tok);
+
+	tok = strtok_r(NULL, ".", &save_ptr);
+	if (tok == NULL) {
+		rc = -EIO;
+		goto error;
+	}
+	bp->version.minor = atoi(tok);
+
+	tok = strtok_r(NULL, ".", &save_ptr);
+	if (tok == NULL) {
+		rc = -EIO;
+		goto error;
+	}
+	bp->version.sub_minor = atoi(tok);
+
+	LOG_INFO(PFX "%s: bnx2x driver using version %d.%d.%d",
+		nic->log_name,
+		bp->version.major, bp->version.minor, bp->version.sub_minor);
+
+	close(fd);
+
+	return 0;
+
+error:
+	close(fd);
+	bnx2x_set_drv_version_unknown(bp);
+
+	LOG_ERR(PFX "%s: error parsing driver string: '%s'",
+		nic->log_name, drvinfo.version);
+
+	return rc;
+
+}
+
+static inline int bnx2x_is_ver60(bnx2x_t *bp)
+{
+	return (bp->version.major == 1 && bp->version.minor == 60);
+}
+
 static void bnx2x_wr32(bnx2x_t *bp, __u32 off, __u32 val)
 {
 	*((volatile __u32 *)(bp->reg + off)) = val;
@@ -331,7 +449,7 @@ static unsigned long cnic_get_bar2(nic_t *nic)
  ******************************************************************************/
 static __u16 bnx2x_get_rx(bnx2x_t *bp)
 {
-	struct host_def_status_block *sblk = bp->status_blk;
+	struct host_def_status_block *sblk = bp->status_blk.def;
 	__u16 rx_comp_cons;
 
 	msync(sblk, sizeof(*sblk), MS_SYNC);
@@ -343,10 +461,23 @@ static __u16 bnx2x_get_rx(bnx2x_t *bp)
 	return rx_comp_cons;
 }
 
+static __u16 bnx2x_get_rx_60(bnx2x_t *bp)
+{
+	struct host_sp_status_block *sblk = bp->status_blk.sp;
+	__u16 rx_comp_cons;
+
+	msync(sblk, sizeof(*sblk), MS_SYNC);
+	rx_comp_cons = sblk->sp_sb.index_values[
+			HC_SP_INDEX_ETH_ISCSI_RX_CQ_CONS];
+	if ((rx_comp_cons & BNX2X_MAX_RCQ_DESC_CNT) == BNX2X_MAX_RCQ_DESC_CNT)
+		rx_comp_cons++;
+
+	return rx_comp_cons;
+}
 
 static __u16 bnx2x_get_tx(bnx2x_t *bp)
 {
-	struct host_def_status_block *sblk = bp->status_blk;
+	struct host_def_status_block *sblk = bp->status_blk.def;
 	__u16 tx_cons;
 
 	msync(sblk, sizeof(*sblk), MS_SYNC);
@@ -356,6 +487,17 @@ static __u16 bnx2x_get_tx(bnx2x_t *bp)
 	return tx_cons;
 }
 
+
+static __u16 bnx2x_get_tx_60(bnx2x_t *bp)
+{
+	struct host_sp_status_block *sblk = bp->status_blk.sp;
+	__u16 tx_cons;
+
+	msync(sblk, sizeof(*sblk), MS_SYNC);
+	tx_cons = sblk->sp_sb.index_values[HC_SP_INDEX_ETH_ISCSI_CQ_CONS];
+
+	return tx_cons;
+}
 
 typedef enum {
 	CNIC_VLAN_STRIPPING_ENABLED = 1,
@@ -396,6 +538,8 @@ static bnx2x_t * bnx2x_alloc(nic_t *nic)
 	bp->parent = nic;
 	nic->priv = (void *) bp;
 
+	bnx2x_set_drv_version_unknown(bp);
+
 	return bp;
 }
 
@@ -426,6 +570,8 @@ static int bnx2x_open(nic_t *nic)
 	bp = bnx2x_alloc(nic);
 	if(bp == NULL)
 		return -ENOMEM;
+
+	bnx2x_get_drv_version(bp);
 
 	while(nic->fd < 0) {
 		/*  udev might not have created the file yet */
@@ -501,7 +647,7 @@ static int bnx2x_open(nic_t *nic)
 		  nic->log_name, bp->rx_ring_size, bp->rx_buffer_size);
 
 	/*  Determine the number of UIO events that have already occured */
-	rc = determine_initial_uio_events(nic, &nic->intr_count);
+	rc = detemine_initial_uio_events(nic, &nic->intr_count);
 	if(rc != 0) {
 		LOG_ERR("Could not determine the number ofinitial UIO events");
 		nic->intr_count = 0;
@@ -529,13 +675,18 @@ static int bnx2x_open(nic_t *nic)
 
 	msync(bp->reg, BNX2X_BAR_SIZE, MS_SYNC);
 
-	bp->status_blk = mmap(NULL, sizeof(struct host_def_status_block),
+	if (bnx2x_is_ver60(bp))
+		bp->status_blk_size = sizeof(struct host_sp_status_block);
+	else
+		bp->status_blk_size = sizeof(struct host_def_status_block);
+
+	bp->status_blk.def = mmap(NULL, bp->status_blk_size,
 		 	     PROT_READ | PROT_WRITE, MAP_SHARED,
 			     nic->fd, (off_t) getpagesize());
-	if (bp->status_blk == MAP_FAILED) {
+	if (bp->status_blk.def == MAP_FAILED) {
 		LOG_INFO(PFX "%s: Could not mmap status block: %s",
 			 nic->log_name, strerror(errno));
-		bp->status_blk = NULL;
+		bp->status_blk.def = NULL;
 		rc = errno;
 		goto open_error;
 	}
@@ -580,10 +731,52 @@ static int bnx2x_open(nic_t *nic)
 	bp->func = func;
 	bp->port = bp->func % PORT_MAX;
 
-	bp->rx_prod_io = BAR_USTRORM_INTMEM +
-			USTORM_RX_PRODS_OFFSET(bp->port, 17);
+	if (CHIP_IS_E2(bp)) {
+		__u32 val = bnx2x_rd32(bp, MISC_REG_PORT4MODE_EN_OVWR);
+		if (!(val & 1))
+			val = bnx2x_rd32(bp, MISC_REG_PORT4MODE_EN);
+		else
+			val = (val >> 1) & 1;
 
-	bp->tx_doorbell = 17 * getpagesize() + 0x40;
+		if (val)
+			bp->pfid = func >> 1;
+		else
+			bp->pfid = func & 0x6;
+	} else {
+		bp->pfid = func;
+	}
+
+	if (bnx2x_is_ver60(bp))
+		bp->port = bp->pfid & 1;
+
+	if (CHIP_IS_E1(bp))
+		bp->iro = e1_iro;
+	else if (CHIP_IS_E1H(bp))
+		bp->iro = e1h_iro;
+	else if (CHIP_IS_E2(bp))
+		bp->iro = e2_iro;
+
+	if (bnx2x_is_ver60(bp)) {
+		__u32 cl_qzone_id = BNX2X_CL_QZONE_ID(bp, 17);
+
+		bp->rx_prod_io = BAR_USTRORM_INTMEM +
+				(CHIP_IS_E2(bp) ?
+			 	 USTORM_RX_PRODS_E2_OFFSET(cl_qzone_id) :
+			 	 USTORM_RX_PRODS_E1X_OFFSET(bp->port, 17));
+
+		bp->tx_doorbell = 17 * 0x80 + 0x40;
+
+		bp->get_rx_cons = bnx2x_get_rx_60;
+		bp->get_tx_cons = bnx2x_get_tx_60;
+	} else {
+		bp->rx_prod_io = BAR_USTRORM_INTMEM +
+				USTORM_RX_PRODS_OFFSET(bp->port, 17);
+	
+		bp->tx_doorbell = 17 * getpagesize() + 0x40;
+
+		bp->get_rx_cons = bnx2x_get_rx;
+		bp->get_tx_cons = bnx2x_get_tx;
+	}
 
 	bp->tx_cons = 0;
 	bp->tx_prod = 0;
@@ -631,6 +824,7 @@ static int bnx2x_open(nic_t *nic)
 		goto open_error;
 
 	msync(bp->reg, BNX2X_BAR_SIZE, MS_SYNC);
+
 	LOG_INFO("%s: bnx2x initialized", nic->log_name);
 
 	bnx2x_update_rx_prod(bp);
@@ -643,9 +837,9 @@ open_error:
 		bp->tx_ring = NULL;
 	}
 
-	if (bp->status_blk) {
-		munmap(bp->status_blk, sizeof(struct host_def_status_block));
-		bp->status_blk = NULL;
+	if (bp->status_blk.def) {
+		munmap(bp->status_blk.def, bp->status_blk_size);
+		bp->status_blk.def = NULL;
 	}
 
 	if (bp->reg) {
@@ -721,12 +915,12 @@ static int bnx2x_uio_close_resources(nic_t *nic, NIC_SHUTDOWN_T graceful)
 		bp->tx_ring = NULL;
 	}
 
-	if (bp->status_blk != NULL) {
-		rc = munmap(bp->status_blk, sizeof(struct host_def_status_block));
+	if (bp->status_blk.def != NULL) {
+		rc = munmap(bp->status_blk.def, bp->status_blk_size);
 		if (rc != 0)
 			LOG_WARN(PFX "%s: Couldn't unmap status block",
 				 nic->log_name);
-		bp->status_blk = NULL;
+		bp->status_blk.def = NULL;
 	}
 
 	if (bp->reg != NULL) {
@@ -765,6 +959,8 @@ static int bnx2x_uio_close_resources(nic_t *nic, NIC_SHUTDOWN_T graceful)
 		LOG_WARN(PFX "%s: Invalid uio file descriptor: %d",
 				 nic->log_name, nic->fd);
 	}
+
+	bnx2x_set_drv_version_unknown(bp);
 
 	LOG_INFO(PFX "%s: Closed all resources", nic->log_name);
 
@@ -893,7 +1089,7 @@ void bnx2x_start_xmit(nic_t *nic, size_t len)
  *  @return 0 if successful, <0 if failed
  */
 int bnx2x_write(nic_t *nic, nic_interface_t *nic_iface,
-		struct packet *pkt)
+		packet_t *pkt)
 {
 	bnx2x_t *bp = (bnx2x_t *) nic->priv;
 	struct uip_stack *uip = &nic_iface->ustack;
@@ -954,7 +1150,7 @@ static int bnx2x_read(nic_t *nic, packet_t *pkt)
 		return -EINVAL;
 	}
 
-	hw_cons = bnx2x_get_rx(bp);
+	hw_cons = bp->get_rx_cons(bp);
 	sw_cons = bp->rx_cons;
 	bd_cons = bp->rx_bd_cons;
 	bd_prod = bp->rx_bd_prod;
@@ -965,7 +1161,7 @@ static int bnx2x_read(nic_t *nic, packet_t *pkt)
 		union eth_rx_cqe *cqe;
 		__u8 cqe_fp_flags;
 		void *rx_pkt;
-		int len;
+		int len, pad = 0;;
 
 		cqe = &bp->rx_comp_ring[comp_ring_index];
 		cqe_fp_flags = cqe->fast_path_cqe.type_error_flags;
@@ -978,7 +1174,9 @@ static int bnx2x_read(nic_t *nic, packet_t *pkt)
 		if (!(cqe_fp_flags & ETH_FAST_PATH_RX_CQE_TYPE)) {
 			ring_index = bd_cons % 15;
 			len = cqe->fast_path_cqe.pkt_len;
-			rx_pkt = bp->rx_pkt_ring[ring_index];
+			if (bnx2x_is_ver60(bp))
+				pad = cqe->fast_path_cqe.placement_offset;
+			rx_pkt = bp->rx_pkt_ring[ring_index] + pad;
 
 			/*  Doto query MTU size of physical device */
 			/*  Ensure len is valid */
@@ -1037,7 +1235,7 @@ static int bnx2x_read(nic_t *nic, packet_t *pkt)
 static int bnx2x_clear_tx_intr(nic_t *nic)
 {
 	bnx2x_t *bp = (bnx2x_t *) nic->priv;
-	uint16_t hw_cons = bnx2x_get_tx(bp);
+	uint16_t hw_cons = bp->get_tx_cons(bp);
 
 	/* Sanity check: ensure the parameters passed in are valid */
 	if(unlikely(nic == NULL)) {

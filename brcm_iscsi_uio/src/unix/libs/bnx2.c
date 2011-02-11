@@ -1,6 +1,6 @@
 /* bnx2.c: CNIC user space driver
  *
- * Copyright (c) 2004-2008 Broadcom Corporation
+ * Copyright (c) 2004-2010 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -295,6 +295,7 @@ static __u16 bnx2_get_rx_msix(bnx2_t *bp)
 
 	msync(sblk, sizeof(*sblk), MS_SYNC);
 	rx_cons = sblk->status_rx_quick_consumer_index;
+	barrier();
 	if ((rx_cons & (MAX_RX_DESC_CNT)) == (MAX_RX_DESC_CNT))
 		rx_cons++;
 
@@ -308,6 +309,7 @@ static __u16 bnx2_get_rx_msi(bnx2_t *bp)
 
 	msync(sblk, sizeof(*sblk), MS_SYNC);
 	rx_cons = CNIC_SBLK_EVEN_IDX(sblk->rx2);
+	barrier();
 	if ((rx_cons & (MAX_RX_DESC_CNT)) == (MAX_RX_DESC_CNT))
 		rx_cons++;
 
@@ -321,6 +323,7 @@ static __u16 bnx2_get_tx_msix(bnx2_t *bp)
 
 	msync(sblk, sizeof(*sblk), MS_SYNC);
         tx_cons = sblk->status_tx_quick_consumer_index;
+	barrier();
         if ((tx_cons & (MAX_TX_DESC_CNT)) == (MAX_TX_DESC_CNT))
                 tx_cons++;
 
@@ -334,6 +337,7 @@ static __u16 bnx2_get_tx_msi(bnx2_t *bp)
 
 	msync(sblk, sizeof(*sblk), MS_SYNC);
 	tx_cons = CNIC_SBLK_EVEN_IDX(sblk->tx2);
+	barrier();
 	if ((tx_cons & (MAX_TX_DESC_CNT)) == (MAX_TX_DESC_CNT))
 		tx_cons++;
 
@@ -403,16 +407,19 @@ static int bnx2_open(nic_t *nic)
 	__u32 msix_vector = 0;
 
 	/*  Sanity Check: validate the parameters */
-	if(nic == NULL) {
+	if (nic == NULL) {
 		LOG_ERR(PFX "bnx2_open(): nic == NULL");
 		return -EINVAL;
 	}
 
 	bp = bnx2_alloc(nic);
-	if(bp == NULL)
+	if (bp == NULL) {
+		LOG_ERR(PFX "bnx2_open(): Couldn't allocate bp priv struct",
+			nic->log_name);
 		return -ENOMEM;
+	}
 
-	while(nic->fd < 0) {
+	while (nic->fd < 0) {
 		nic->fd = open(nic->uio_device_name, O_RDWR | O_NONBLOCK);
 		if (nic->fd != INVALID_FD) {
 			LOG_ERR(PFX "%s: uio device has been brought up via pid: %d on fd: %d",
@@ -424,7 +431,7 @@ static int bnx2_open(nic_t *nic)
 
 			break;
 		} else {
-			if( lib_bnx2_loaded == 0) {
+			if (lib_bnx2_loaded == 0) {
 				LOG_ERR(PFX "%s: Could not open device: %s, "
 					    "awaiting for the device to appear",
 					nic->log_name, nic->uio_device_name);
@@ -459,7 +466,7 @@ static int bnx2_open(nic_t *nic)
 		  nic->log_name, bp->rx_ring_size, bp->rx_buffer_size);
 
 	/*  Determine the number of UIO events that have already occured */
-	rc = determine_initial_uio_events(nic, &nic->intr_count);
+	rc = detemine_initial_uio_events(nic, &nic->intr_count);
 	if(rc != 0) {
 		LOG_ERR("Could not determine the number ofinitial UIO events");
 		nic->intr_count = 0;
@@ -688,7 +695,8 @@ static int bnx2_uio_close_resources(nic_t *nic, NIC_SHUTDOWN_T graceful)
 	/*  Check if there is an assoicated CNIC device */
 	if(bp == NULL) {
 		LOG_WARN(PFX "%s: when closing resources there is "
-			 "no associated bnx2", nic->log_name);
+		             "no assoicated bnx2",
+			     nic->log_name);
 		return -EIO;
 	}
 
@@ -721,7 +729,7 @@ static int bnx2_uio_close_resources(nic_t *nic, NIC_SHUTDOWN_T graceful)
 		bp->tx_ring = NULL;
 	}
 
-	if (bp->status_blk.msix != NULL ||
+	if (bp->status_blk.msix != NULL || 
 	    bp->status_blk.msi  != NULL) {
 		rc = munmap(bp->sblk_map, bp->status_blk_size);
 		if (rc != 0)
@@ -878,7 +886,7 @@ void bnx2_start_xmit(nic_t *nic, size_t len)
  *  @return 0 if successful, <0 if failed
  */
 int bnx2_write(nic_t *nic, nic_interface_t *nic_iface,
-	       struct packet *pkt)
+		packet_t *pkt)
 {
 	bnx2_t *bp = (bnx2_t *) nic->priv;
 	struct uip_stack *uip = &nic_iface->ustack;
@@ -933,7 +941,7 @@ static int bnx2_read(nic_t *nic, packet_t *pkt)
 	uint16_t hw_cons, sw_cons;
 
 	/* Sanity Check: validate the parameters */
-	if(nic == NULL || pkt == NULL) {
+	if (unlikely(nic == NULL || pkt == NULL)) {
 		LOG_ERR(PFX "%s: bnx2_write() nic == 0x%p || "
 			    " pkt == 0x%x", nic, pkt);
 		return -EINVAL;
@@ -949,21 +957,36 @@ static int bnx2_read(nic_t *nic, packet_t *pkt)
 		int len;
 		uint16_t errors;
 	
-		LOG_DEBUG(PFX "%s: clearing rx interrupt: %d %d",
+		LOG_DEBUG(PFX "%s: clearing rx interrupt: %d %d %d",
 			  nic->log_name,
-			  sw_cons, hw_cons);
+			  sw_cons, hw_cons, rx_index);
 
 		msync(rx_hdr, sizeof(struct l2_fhdr), MS_SYNC); 
 		errors = ((rx_hdr->l2_fhdr_status & 0xffff0000) >> 16);
 		len = ((rx_hdr->l2_fhdr_vtag_len & 0xffff0000) >> 16) - 4;
 
-		/*  Doto query MTU size of physical device */
-		/*  Ensure len is valid */
-		if(len > pkt->max_buf_size)
-			LOG_DEBUG(PFX "%s: bad BD length: %d",
-				  nic->log_name, len);
+		if (unlikely((errors & (L2_FHDR_ERRORS_BAD_CRC     |
+			      		L2_FHDR_ERRORS_PHY_DECODE  |
+					L2_FHDR_ERRORS_ALIGNMENT   |
+				        L2_FHDR_ERRORS_TOO_SHORT   |
+			       		L2_FHDR_ERRORS_GIANT_FRAME)) ||
+			     (len <= 0) ||
+			     (len > (bp->rx_buffer_size -
+			     		(sizeof(struct l2_fhdr) + 2))) || 
+			     (len > pkt->max_buf_size))) {
+			/*  One of the fields in the BD is bad */
+			uint16_t status = ((rx_hdr->l2_fhdr_status &
+					    0x0000ffff));
 
-		if ((errors == 0) && (len > 0)) {
+			LOG_ERR(PFX "%s: Recv error: 0x%x status: 0x%x "
+				    "len: %d",
+				nic->log_name, errors, status, len);
+
+			if ((len < (bp->rx_buffer_size -
+			     		(sizeof(struct l2_fhdr) + 2))) &&
+			     (len < pkt->max_buf_size))
+				dump_packet_to_log(pkt->nic_iface, rx_pkt, len);
+		} else {
 			msync(rx_pkt, len, MS_SYNC); 
 			/*  Copy the data */
 			memcpy(pkt->buf, rx_pkt, len);
@@ -982,15 +1005,6 @@ static int bnx2_read(nic_t *nic, packet_t *pkt)
 
 			LOG_DEBUG(PFX "%s: processing packet length: %d",
 				  nic->log_name, len);
-		} else {
-			/*  One of the fields in the BD is bad */
-			uint16_t status = ((rx_hdr->l2_fhdr_status & 0x0000ffff));
-
-			LOG_ERR(PFX "%s: Recv error: %x status: %x len: %d",
-				nic->log_name,
-				errors, status, len);
-
-			rc = 0;
 		}
 
 		bp->rx_index++;
@@ -1033,16 +1047,12 @@ static int bnx2_clear_tx_intr(nic_t *nic)
 
 	if(bp->flags & CNIC_UIO_TX_HAS_SENT) {
 		bp->flags &= ~CNIC_UIO_TX_HAS_SENT;
-		pthread_mutex_unlock(&nic->xmit_mutex);
-		return 0;
 	}
-
-	if(bp->tx_cons == hw_cons)
-		return 0;
 
 	LOG_DEBUG(PFX "%s: clearing tx interrupt [%d %d]",
 		  nic->log_name,
 		  bp->tx_cons, hw_cons);
+
 	bp->tx_cons = hw_cons;
 
 	/*  There is a queued TX packet that needs to be sent out.  The usual
@@ -1072,7 +1082,7 @@ static int bnx2_clear_tx_intr(nic_t *nic)
 					  bp->tx_cons, bp->tx_prod,
 					  bp->tx_bseq);
 
-			return 0;
+			return -EAGAIN;
 		}
 	}
 
@@ -1097,10 +1107,10 @@ struct nic_ops bnx2_op = {
 
 	.lib_ops = {
 		.get_library_name	= bnx2_get_library_name,
-		.get_pci_table		= bnx2_get_pci_table,
-		.get_library_version	= bnx2_get_library_version,
+        	.get_pci_table		= bnx2_get_pci_table,
+	        .get_library_version	= bnx2_get_library_version,
 		.get_build_date		= bnx2_get_build_date,
-		.get_transport_name	= bnx2_get_transport_name,
-		.get_uio_name		= bnx2_get_uio_name,
+	        .get_transport_name	= bnx2_get_transport_name,
+	        .get_uio_name		= bnx2_get_uio_name,
 	},
 };

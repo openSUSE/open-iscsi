@@ -53,6 +53,7 @@
 #ifndef __UIP_H__
 #define __UIP_H__
 
+#include <netinet/in.h>
 #include <pthread.h>
 
 #include "uipopt.h"
@@ -1295,7 +1296,8 @@ struct __attribute__ ((__packed__)) uip_ipv6_hdr {
   u8_t vtc,
     tcflow;
   u16_t flow;
-  u8_t len[2];
+//  u8_t len[2];
+  u16_t len;
   u8_t proto, ttl;
   uip_ip6addr_t srcipaddr, destipaddr;
 };
@@ -1544,9 +1546,12 @@ u16_t uip_tcpchksum(struct uip_stack *ustack);
  */
 u16_t uip_udpchksum(struct uip_stack *ustack);
 
+/*  IPv6 checksum */
+uint16_t icmpv6_checksum(uint8_t *data);
+
 struct neighbor_entry {
-	uip_ip6addr_t ipaddr;
-	struct uip_eth_addr addr;
+	struct in6_addr ipaddr;
+	struct uip_eth_addr mac_addr;
 	u8_t time;
 };
 
@@ -1603,8 +1608,11 @@ struct uip_stack {
 					   a new connection. */
 #endif /* UIP_ACTIVE_OPEN */
 
-#define IP_CONFIG_STATIC		0x01
-#define IP_CONFIG_DHCP			0x02
+#define IPV4_CONFIG_OFF			0x01
+#define IPV4_CONFIG_STATIC		0x02
+#define IPV4_CONFIG_DHCP		0x04
+#define IPV6_CONFIG_OFF			0x10
+#define IPV6_CONFIG_STATIC		0x11
         u8_t ip_config;
 
 	uip_ip4addr_t hostaddr, netmask, default_route_addr;
@@ -1635,7 +1643,7 @@ struct uip_stack {
  ******************************************************************************/
 int set_ipv6_link_local_address(struct uip_stack *ustack);
 
-
+void dump_uip_packet(struct uip_stack *ustack);
 
 #endif /* __UIP_H__ */
 

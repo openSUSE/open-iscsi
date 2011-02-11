@@ -1,6 +1,6 @@
 /* nic_util.c: shared NIC utility functions
  *
- * Copyright (c) 2004-2008 Broadcom Corporation
+ * Copyright (c) 2004-2010 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -447,19 +447,18 @@ int from_netdev_name_find_nic(char *interface_name,
 {
 	nic_t *current_nic;
 
-	pthread_mutex_lock(&nic_list_mutex);
 	current_nic = nic_list;
-	while(current_nic != NULL)
+	while (current_nic != NULL)
 	{
-		if (strcmp(interface_name, current_nic->eth_device_name) == 0) {
+		if (strcmp(interface_name,
+			   current_nic->eth_device_name) == 0) {
 			break;
 		}
 
 		current_nic = current_nic->next;
 	}
-	pthread_mutex_unlock(&nic_list_mutex);
 
-	if(current_nic == NULL)
+	if (current_nic == NULL)
 		return -EINVAL;
 
 	*nic = current_nic;
@@ -735,6 +734,9 @@ void prepare_nic(nic_t *nic)
 		struct timespec   ts;
 		struct timeval    tp;
 
+		LOG_INFO(PFX "%s: spinning up thread for nic",
+			 nic->log_name);
+
 		/*  Try to spin up the nic thread */
 		rc = pthread_create(&nic->thread, NULL, nic_loop, nic);
 		if (rc != 0) {
@@ -750,13 +752,13 @@ void prepare_nic(nic_t *nic)
 		ts.tv_sec += 5; /*  TODO: hardcoded wait for 5 seconds */
 
 		/*  Wait for the device to be disabled */
-		pthread_mutex_lock(&nic->nic_loop_started_mutex);
+		pthread_mutex_lock(&nic->nic_mutex);
 		rc = pthread_cond_timedwait(&nic->nic_loop_started_cond,
-					    &nic->nic_loop_started_mutex, &ts);
-		pthread_mutex_unlock(&nic->nic_loop_started_mutex);
-	}
+					    &nic->nic_mutex, &ts);
+		pthread_mutex_unlock(&nic->nic_mutex);
 
-	LOG_INFO("Created nic thread: %s", nic->log_name);
+		LOG_INFO("Created nic thread: %s", nic->log_name);
+	}
 
 error:
 	return;
@@ -779,13 +781,14 @@ int nic_enable(nic_t *nic)
 		struct timeval    tp;
 		int rc;
 
+		pthread_mutex_lock(&nic->nic_mutex);
 		/*  Signal the device to enable itself */
-		pthread_mutex_lock(&nic->enable_wait_mutex);
 		pthread_cond_signal(&nic->enable_wait_cond);
-		pthread_mutex_unlock(&nic->enable_wait_mutex);
 
 		nic->flags &= ~NIC_DISABLED;
 		nic->flags |= NIC_ENABLED;
+
+		pthread_mutex_unlock(&nic->nic_mutex);
 
 		/* Convert from timeval to timespec */
 		rc =  gettimeofday(&tp, NULL);
@@ -794,10 +797,10 @@ int nic_enable(nic_t *nic)
 		ts.tv_sec += 5; /*  TODO: hardcoded wait for 5 seconds */
 
 		/*  Wait for the device to be disabled */
-		pthread_mutex_lock(&nic->enable_done_mutex);
+		pthread_mutex_lock(&nic->nic_mutex);
 		rc = pthread_cond_timedwait(&nic->enable_done_cond,
-					    &nic->enable_done_mutex, &ts);
-		pthread_mutex_unlock(&nic->enable_done_mutex);
+					    &nic->nic_mutex, &ts);
+		pthread_mutex_unlock(&nic->nic_mutex);
 
 		if(rc == 0) {
 			LOG_DEBUG(PFX "%s: device enabled", nic->log_name);
@@ -834,10 +837,10 @@ int nic_disable(nic_t *nic)
 		nic->state |= NIC_STOPPED;
 
 		/*  Wait for the device to be disabled */
-		pthread_mutex_lock(&nic->disable_wait_mutex);
+		pthread_mutex_lock(&nic->nic_mutex);
 		pthread_cond_wait(&nic->disable_wait_cond,
-				  &nic->disable_wait_mutex);
-		pthread_mutex_unlock(&nic->disable_wait_mutex);
+				  &nic->nic_mutex);
+		pthread_mutex_unlock(&nic->nic_mutex);
 
 		LOG_DEBUG(PFX "%s: device disabled", nic->log_name);
 
@@ -860,7 +863,10 @@ void nic_close_all()
 	/*  Start the shutdown process */
 	nic = nic_list;
 	while (nic != NULL) {
+		pthread_mutex_lock(&nic->nic_mutex);
 		nic_close(nic, 1);
+		pthread_mutex_unlock(&nic->nic_mutex);
+
 		nic = nic->next;
 	}
 	pthread_mutex_unlock(&nic_list_mutex);
@@ -874,29 +880,30 @@ void nic_close_all()
  *****************************************************************************/
 /**
  * determine_initial_uio_events() - This utility function will
- *    determine the number of uio events that have occured on the
+ *    determine the number of uio events that have occured on the 
  *    given device.  This value is read from the UIO sysfs entry
  * @param dev - device to read from
  * @param num_of_event - number of UIO events
  * @return 0 is success, <0 failure
  */
-int determine_initial_uio_events(nic_t *nic, uint32_t *num_of_events)
+int detemine_initial_uio_events(nic_t *nic,
+			        uint32_t *num_of_events)
 {
-	char *raw = NULL;
+        char *raw = NULL;
 	uint32_t raw_size = 0;
 	ssize_t elements_read;
 	char temp_path[sizeof(cnic_sysfs_uio_event_template) + 8];
 	int rc;
 
 	/*  Capture RX buffer size */
-	snprintf(temp_path, sizeof(temp_path),
+	snprintf(temp_path, sizeof(temp_path), 
 		 cnic_sysfs_uio_event_template, nic->uio_minor);
 
-	rc = capture_file(&raw, &raw_size, temp_path);
-	if(rc != 0)
-	{
-		goto error;
-	}
+        rc = capture_file(&raw, &raw_size, temp_path);
+        if(rc != 0)
+        {
+                goto error;
+        }
 
 	elements_read = sscanf(raw, "%d", num_of_events);
 	if(elements_read != 1)
@@ -914,9 +921,6 @@ error:
 
 	return rc;
 }
-
-
-
 
 /**
  *  add_vlan_interfaces() - Using the associated ethernet device name, this
@@ -962,7 +966,7 @@ int add_vlan_interfaces(nic_t *nic)
 
 			if(found_entry->found == VLAN_ENTRY_FOUND)
 			{
-				nic_iface = nic_iface_init();
+	                        nic_iface = nic_iface_init(nic);
 				if(nic_iface == NULL)
 				{
 					LOG_ERR("Couldn't allocate space for net_iface");
@@ -997,7 +1001,7 @@ void nic_set_all_nic_iface_mac_to_parent(nic_t *nic)
 {
 	nic_interface_t *current;
 
-	pthread_mutex_lock(&nic->nic_iface_mutex);
+	pthread_mutex_lock(&nic->nic_mutex);
 
 	current = nic->nic_iface;
 	while(current != NULL)
@@ -1009,7 +1013,7 @@ void nic_set_all_nic_iface_mac_to_parent(nic_t *nic)
 		current = current->next;
 	}
 
-	pthread_mutex_unlock(&nic->nic_iface_mutex);
+	pthread_mutex_unlock(&nic->nic_mutex);
 }
 
 /*******************************************************************************
@@ -1112,6 +1116,42 @@ packet_t * nic_dequeue_tx_packet(nic_t *nic)
 	return pkt;
 }
 
+void nic_fill_ethernet_header(nic_interface_t *nic_iface,
+			      void *data,
+			      void *src_addr, void *dest_addr,
+			      int *pkt_size, void **start_addr,
+			      uint16_t ether_type)
+{
+	struct ether_header *eth;
+	uint16_t *vlan_hdr;
+
+	eth = data;
+
+	memcpy(eth->ether_shost, src_addr, ETH_ALEN);
+	memcpy(eth->ether_dhost, dest_addr, ETH_ALEN);
+
+	vlan_hdr = (uint16_t *)(eth + 1);
+	/*  Determine if we need to insert the VLAN tag */
+	if(nic_iface->vlan_id != 0)
+	{
+		uint16_t insert_tpid = htons(ether_type);
+		uint16_t insert_vlan_id = htons((0x0FFF & nic_iface->vlan_id) +
+			  ((0x000F & nic_iface->vlan_priority) << 12));
+
+		memcpy(vlan_hdr, &insert_vlan_id, 2);
+		vlan_hdr++;
+		memcpy(vlan_hdr, &insert_tpid, 2);
+		vlan_hdr++;
+
+		*pkt_size = *pkt_size + 4;
+		eth->ether_type = htons(ETHERTYPE_VLAN);
+	} else {
+		eth->ether_type = htons(ether_type);
+	}
+
+	*start_addr = vlan_hdr;
+}
+
 
 /*******************************************************************************
  *  NIC interface management utility functions
@@ -1119,6 +1159,7 @@ packet_t * nic_dequeue_tx_packet(nic_t *nic)
 /**
  *  nic_find_nic_iface() - This function is used to find an interface from the 
  *                         NIC
+ *  @param nic - NIC to look for network interfaces
  *  @param vlan_id - VLAN id to look for
  *  @return nic_iface - if found network interface with the given VLAN ID
  *                      if not found a NULL is returned
@@ -1128,25 +1169,59 @@ nic_interface_t * nic_find_nic_iface(nic_t *nic,
 {
 	nic_interface_t *current;
 
-	pthread_mutex_lock(&nic->nic_iface_mutex);
+	pthread_mutex_lock(&nic->nic_mutex);
 
 	current = nic->nic_iface;
-	while(current != NULL)
+	while (current != NULL)
 	{
-		if(current->vlan_id == vlan_id)
+		if (current->vlan_id == vlan_id)
 		{
-			pthread_mutex_unlock(&nic->nic_iface_mutex);
+			pthread_mutex_unlock(&nic->nic_mutex);
 			return current;
 		}
 
 		current = current->next;
 	}
 
-	pthread_mutex_unlock(&nic->nic_iface_mutex);
+	pthread_mutex_unlock(&nic->nic_mutex);
 
 	return NULL;
 }
 
+/**
+ *  nic_find_nic_iface_protocol() - This function is used to find an interface
+ *                                  from the NIC
+ *  @param nic - NIC to look for network interfaces
+ *  @param vlan_id - VLAN id to look for
+ *  @param protocol - either AF_INET or AF_INET6
+ *  @return nic_iface - if found network interface with the given VLAN ID
+ *                      if not found a NULL is returned
+ */
+nic_interface_t * nic_find_nic_iface_protocol(nic_t *nic,
+					      uint16_t vlan_id,
+					      uint16_t protocol)
+{
+	nic_interface_t *current;
+
+	pthread_mutex_lock(&nic->nic_mutex);
+
+	current = nic->nic_iface;
+	while (current != NULL)
+	{
+		if ((current->vlan_id == vlan_id) && 
+		    (current->protocol == protocol))
+		{
+			pthread_mutex_unlock(&nic->nic_mutex);
+			return current;
+		}
+
+		current = current->next;
+	}
+
+	pthread_mutex_unlock(&nic->nic_mutex);
+
+	return NULL;
+}
 
 /*******************************************************************************
  *  Packet management utility functions
@@ -1268,6 +1343,40 @@ uint32_t calculate_default_netmask(uint32_t ip_addr)
 	return netmask;
 }
 
+void dump_packet_to_log(struct nic_interface *iface,
+			uint8_t *buf, uint16_t buf_len)
+{
+
+        FILE *file;
+        char str[80];
+        int i, count;
+
+	file = fmemopen(str, sizeof(str), "w+");
+	if (file == NULL) {
+		LOG_ERR(PFX "Could not create logging file stream for packet "
+			    "logging: [%d: %s]", errno, strerror(errno));
+		return;
+	}
+
+	LOG_PACKET(PFX "%s: Start packet dump len: %d", iface->parent->log_name,
+						 	buf_len);
+
+	for (i = 0; i < buf_len; i++) {
+		rewind(file);
+		fprintf(file, "%03x:  ", i);
+
+		for (count = 0; (count < 8) && i < buf_len; count++, i++) {
+			fprintf(file, " %02x", buf[i]);
+		}
+		fflush(file);
+
+		LOG_PACKET(PFX "%s: %s", iface->parent->log_name, str);
+	}
+
+	LOG_PACKET(PFX "%s: end packet dump", iface->parent->log_name);
+
+	fclose(file);
+}
 
 
 /*******************************************************************************

@@ -1,6 +1,6 @@
-/* nic_vlan.c: CNIC UIO uIP user space stack
+/* nic_vlan.c: uIP user space stack VLAN utilities
  *
- * Copyright (c) 2004-2008 Broadcom Corporation
+ * Copyright (c) 2004-2010 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -308,4 +308,16 @@ int find_vlans_using_phy_interface(struct vlan_handle *handle,
 	}
 
 	return num_found;
+}
+
+/**
+ *  valid_vlan() - determine if the vlan value which is passed is valid
+ *  @param vlan - vlan value to test
+ *  @return 0 - not valid, 1 - valid
+ */
+int valid_vlan(short int vlan) {
+	if (vlan > 1 && vlan < 4095)
+		return 1;
+
+	return 0;
 }

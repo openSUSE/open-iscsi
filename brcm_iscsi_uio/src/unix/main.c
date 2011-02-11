@@ -158,7 +158,7 @@ static void main_usage()
 
 	printf("\nUsage: %s [OPTION]\n", APP_NAME);
 	printf("\
-Open-iSCSI initiator daemon.\n\
+Broadcom uIP daemon.\n\
   -f, --foreground        make the program run in the foreground\n\
   -d, --debug debuglevel  print debugging information\n\
   -p, --pid=pidfile       use pid file (default  %s ).\n\
@@ -233,7 +233,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if(!foreground) {
+	if (!foreground) {
 		char buf[64];
 
 		fd = open(pid_file, O_WRONLY|O_CREAT, 0644);
@@ -264,7 +264,7 @@ int main(int argc, char *argv[])
 		daemon_init();
 	}
 
-	if(main_log.enabled == LOGGER_ENABLED) {
+	if (main_log.enabled == LOGGER_ENABLED) {
 		/*  initialize the logger */
 		rc = init_logger(main_log.log_file);
 		if (rc != 0) {
@@ -282,7 +282,7 @@ int main(int argc, char *argv[])
 
 	/*  Load the NIC libraries */
 	rc = load_all_nic_libraries();
-	if(rc != 0) {
+	if (rc != 0) {
 		goto error;
 	}
 
@@ -294,7 +294,7 @@ int main(int argc, char *argv[])
 
 	/*  Setup the watching of uio devices */
 	rc = init_uevent_netlink_sock();
-	if(rc != 0) {
+	if (rc != 0) {
 		goto error;
 	}
 
@@ -316,7 +316,7 @@ int main(int argc, char *argv[])
 	pthread_mutex_lock(&nic_list_mutex);
 	/*  Start to spin off the nic threads */
 	nic = nic_list;
-	while(nic != NULL) {
+	while (nic != NULL) {
 		prepare_nic(nic);
 		nic = nic->next;
 	}

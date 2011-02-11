@@ -1,3 +1,6 @@
+#include <netinet/in.h>
+#include <netinet/ip6.h>
+#include <netinet/icmp6.h>
 #include <arpa/inet.h>
 #include "uip.h"
 #include "dhcpc.h"
@@ -107,6 +110,10 @@ const uip_ip6addr_t all_zeroes_addr6 =
 const uip_ip4addr_t all_zeroes_addr4 =
   {0x0000,0x0000};
 
+const uint8_t mutlicast_ipv6_prefix[16] =
+  {0xfc, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
 /* Structures and definitions. */
 #define TCP_FIN 0x01
 #define TCP_SYN 0x02
@@ -143,8 +150,11 @@ const uip_ip4addr_t all_zeroes_addr4 =
 /******************************************************************************
  * Utility Functions
  *****************************************************************************/
-int is_ipv6(struct uip_stack *ustack) {
-	return ntohs(ETH_BUF(ustack)->type) ==  UIP_ETHTYPE_IPv6 ? 1 : 0;
+int is_ipv6(struct uip_stack *ustack)
+{
+	u16_t type = ntohs(ETH_BUF(ustack->uip_buf)->type);
+
+	return (type == UIP_ETHTYPE_IPv6);
 }
 
 void uip_sethostaddr4(struct uip_stack *ustack, uip_ip4addr_t *addr)
@@ -187,8 +197,6 @@ void set_uip_stack(struct uip_stack *ustack,
 	uip_setethernetmac(ustack, mac_addr);
 
 	set_ipv6_link_local_address(ustack);
-	uip_ip6addr_copy(ustack->hostaddr6, ustack->link_local_addr);
-	/* resolv_conf(s->dnsaddr); */
 
 	if(LOG_LEVEL_INFO <= main_log.level)
 	{
@@ -287,13 +295,14 @@ uip_ipchksum(struct uip_stack *ustack)
   else
     uip_iph_len = UIP_IPv4_H_LEN;
 
-  sum = chksum(0, &ustack->uip_buf[UIP_LLH_LEN], uip_iph_len);
+  sum = chksum(0, ustack->network_layer, uip_iph_len);
   return (sum == 0) ? 0xffff : htons(sum);
 }
 #endif
+
 /*---------------------------------------------------------------------------*/
 static u16_t
-upper_layer_chksum(struct uip_stack *ustack, u8_t proto)
+upper_layer_chksum_ipv4(struct uip_stack *ustack, u8_t proto)
 {
   u16_t upper_layer_len;
   u16_t sum;
@@ -301,54 +310,94 @@ upper_layer_chksum(struct uip_stack *ustack, u8_t proto)
 
   tcp_ipv4_hdr = (struct uip_tcp_ipv4_hdr *)&ustack->uip_buf[UIP_LLH_LEN];
   
-  if(is_ipv6(ustack))
-    upper_layer_len = (((u16_t)(IPv6_BUF(ustack)->len[0]) << 8) + 
-    				IPv6_BUF(ustack)->len[1]);
-  else
-    upper_layer_len = (((u16_t)(tcp_ipv4_hdr->len[0]) << 8) +
-    				tcp_ipv4_hdr->len[1]) - UIP_IPv4_H_LEN;
+  upper_layer_len = (((u16_t)(tcp_ipv4_hdr->len[0]) << 8) +
+    			      tcp_ipv4_hdr->len[1]) - UIP_IPv4_H_LEN;
 
   /* First sum pseudoheader. */
-  
   /* IP protocol and length fields. This addition cannot carry. */
   sum = upper_layer_len + proto;
 
-  /* Sum IP source and destination addresses. */
-  if(is_ipv6(ustack)) {
-	  sum = chksum(sum, (u8_t *)&IPv6_BUF(ustack)->srcipaddr[0], 2 * sizeof(uip_ip6addr_t));
-	  /* Sum TCP header and data. */
-	  sum = chksum(sum, &ustack->uip_buf[UIP_IPv6_H_LEN + UIP_LLH_LEN],
-		       upper_layer_len);
-
-  } else {
-	  sum = chksum(sum, (u8_t *)&tcp_ipv4_hdr->srcipaddr[0], 2 * sizeof(uip_ip4addr_t));
-	  /* Sum TCP header and data. */
-	  sum = chksum(sum, &ustack->uip_buf[UIP_IPv4_H_LEN + UIP_LLH_LEN],
-		       upper_layer_len);
-  }
+  sum = chksum(sum, (u8_t *)&tcp_ipv4_hdr->srcipaddr[0], 2 * sizeof(uip_ip4addr_t));
+  /* Sum TCP header and data. */
+  sum = chksum(sum, &ustack->uip_buf[UIP_IPv4_H_LEN + UIP_LLH_LEN],
+	       upper_layer_len);
 
   return (sum == 0) ? 0xffff : htons(sum);
 }
+
+/*---------------------------------------------------------------------------*/
+static uint16_t upper_layer_checksum_ipv6(uint8_t *data, uint8_t proto)
+{
+	uint16_t upper_layer_len;
+	uint16_t sum;
+	struct ip6_hdr *ipv6_hdr;
+	uint8_t *upper_layer;
+	uint32_t val;
+
+	ipv6_hdr = (struct ip6_hdr *) data;
+  
+	upper_layer_len = ntohs(ipv6_hdr->ip6_plen);
+
+	/* First sum pseudoheader. */
+	sum = 0;
+	sum = chksum(sum, (const u8_t *) ipv6_hdr->ip6_src.s6_addr,
+		     sizeof(ipv6_hdr->ip6_src));
+	sum = chksum(sum, (const u8_t *) ipv6_hdr->ip6_dst.s6_addr,
+		     sizeof(ipv6_hdr->ip6_dst));
+
+	val = htons(upper_layer_len);
+	sum = chksum(sum, (u8_t *)&val, sizeof(val));
+
+	val = htons(proto);
+	sum = chksum(sum, (u8_t *)&val, sizeof(val));
+
+	upper_layer = (uint8_t *) (ipv6_hdr + 1);
+	sum = chksum(sum, upper_layer, upper_layer_len);
+
+	return (sum == 0) ? 0xffff : htons(sum);
+}
+
 /*---------------------------------------------------------------------------*/
 
 u16_t
 uip_icmp6chksum(struct uip_stack *ustack)
 {
-  return upper_layer_chksum(ustack, UIP_PROTO_ICMP6);
+  uint8_t *data = ustack->network_layer;
+
+  return upper_layer_checksum_ipv6(data, UIP_PROTO_ICMP6);
+}
+
+uint16_t icmpv6_checksum(uint8_t *data)
+{
+	return upper_layer_checksum_ipv6(data, IPPROTO_ICMPV6);
 }
 
 /*---------------------------------------------------------------------------*/
 u16_t
 uip_tcpchksum(struct uip_stack *ustack)
 {
-  return upper_layer_chksum(ustack, UIP_PROTO_TCP);
+  return upper_layer_chksum_ipv4(ustack, UIP_PROTO_TCP);
 }
 /*---------------------------------------------------------------------------*/
 #if UIP_UDP_CHECKSUMS
-u16_t
-uip_udpchksum(struct uip_stack *ustack)
+static u16_t uip_udpchksum_ipv4(struct uip_stack *ustack)
 {
-  return upper_layer_chksum(ustack, UIP_PROTO_UDP);
+  return upper_layer_chksum_ipv4(ustack, UIP_PROTO_UDP);
+}
+
+static u16_t uip_udpchksum_ipv6(struct uip_stack *ustack)
+{
+  uint8_t *data = ustack->network_layer;
+
+  return upper_layer_checksum_ipv6(ustack, UIP_PROTO_UDP);
+}
+
+u16_t uip_udpchksum(struct uip_stack *ustack)
+{
+  if (is_ipv6(ustack))
+     return uip_udpchksum_ipv6(ustack);
+  else
+     return uip_udpchksum_ipv4(ustack);
 }
 #endif /* UIP_UDP_CHECKSUMS */
 #endif /* UIP_ARCH_CHKSUM */
@@ -977,6 +1026,7 @@ uip_process(struct uip_stack *ustack, u8_t flag)
   u16_t uip_iph_len     = 0;
   u16_t uip_ip_udph_len = 0;
   u16_t uip_ip_tcph_len = 0;
+  struct ip6_hdr *ipv6_hdr;
   struct uip_tcp_ipv4_hdr *tcp_ipv4_hdr = NULL;
   struct uip_tcp_hdr *tcp_hdr = NULL;
   struct uip_icmpv4_hdr *icmpv4_hdr = NULL;
@@ -989,6 +1039,8 @@ uip_process(struct uip_stack *ustack, u8_t flag)
     uip_iph_len     = UIP_IPv6_H_LEN;
     uip_ip_udph_len = UIP_IPv6_UDPH_LEN;
     uip_ip_tcph_len = UIP_IPv6_TCPH_LEN;
+
+    ipv6_hdr = (struct ip6_hdr *) ustack->network_layer;
 
     buf = ustack->network_layer;
     buf += sizeof(struct uip_ipv6_hdr);
@@ -1171,11 +1223,13 @@ uip_process(struct uip_stack *ustack, u8_t flag)
   /* Start of IP input header processing code. */
   
   if(is_ipv6(ustack)) {
+          u8_t version = ((ipv6_hdr->ip6_vfc) & 0xf0) >> 4;
+
 	  /* Check validity of the IP header. */
-	  if((IPv6_BUF(ustack)->vtc & 0xf0) != 0x60)  { /* IP version and header length. */
+	  if(version != 0x6)  { /* IP version and header length. */
 	    ++ustack->stats.ip.drop;
 	    ++ustack->stats.ip.vhlerr;
-	    LOG_ERR(PFX "ipv6: invalid version.");
+	    LOG_ERR(PFX "ipv6: invalid version(0x%x).", version);
 	    goto drop;
 	  }
   } else {
@@ -1196,10 +1250,13 @@ uip_process(struct uip_stack *ustack, u8_t flag)
      value.. */
 
   if(is_ipv6(ustack)) {
-	  if((IPv6_BUF(ustack)->len[0] << 8) + 
-	      IPv6_BUF(ustack)->len[1] <= ustack->uip_len) {
-	    ustack->uip_len = (IPv6_BUF(ustack)->len[0] << 8) +
-	    		       IPv6_BUF(ustack)->len[1];
+	  u16_t len = ntohs(ipv6_hdr->ip6_plen);
+          if (len <= ustack->uip_len) {
+//	  if((IPv6_BUF(ustack)->len[0] << 8) + 
+//	      IPv6_BUF(ustack)->len[1] <= ustack->uip_len) {
+//	    ustack->uip_len = (IPv6_BUF(ustack)->len[0] << 8) +
+//	    		       IPv6_BUF(ustack)->len[1];
+#if 0
 	    ustack->uip_len += 40; /* The length reported in the IPv6 header is the
 				      length of the payload that follows the
 				      header. However, uIP uses the uip_len variable
@@ -1209,10 +1266,12 @@ uip_process(struct uip_stack *ustack, u8_t flag)
 				      contains the length of the entire packet. But
 				      for IPv6 we need to add the size of the IPv6
 				      header (40 bytes). */
+#endif
 	  } else {
 	    LOG_WARN(PFX "ip: packet shorter than reported in IP header:"
 	    		 "IPv6_BUF(ustack)->len: %d ustack->uip_len:%d.",
-	             (IPv6_BUF(ustack)->len[0] << 8) + IPv6_BUF(ustack)->len[1],
+//	             (IPv6_BUF(ustack)->len[0] << 8) + IPv6_BUF(ustack)->len[1],
+                     len,
 		     ustack->uip_len);
 	    goto drop;
 	  }
@@ -1266,8 +1325,9 @@ uip_process(struct uip_stack *ustack, u8_t flag)
        hosts multicast address, and the solicited-node multicast
        address) as well. However, we will cheat here and accept all
        multicast packets that are sent to the ff02::/16 addresses. */
-    if(!uip_ip6addr_cmp(IPv6_BUF(ustack)->destipaddr, ustack->hostaddr6) &&
-       IPv6_BUF(ustack)->destipaddr[0] != htons(0xff02)) {
+    if(!uip_ip6addr_cmp(ipv6_hdr->ip6_dst.s6_addr, ustack->hostaddr6) &&
+       ipv6_hdr->ip6_dst.s6_addr16[0] != const_htons(0xff02)) {
+      LOG_WARN(PFX "ipv6: multicast packet ff02::/16 accepted");
       ++ustack->stats.ip.drop;
       goto drop;
     }
@@ -1330,13 +1390,14 @@ uip_process(struct uip_stack *ustack, u8_t flag)
 #endif /* UIP_UDP */
 
 	  /* This is IPv6 ICMPv6 processing code. */
-	  LOG_DEBUG(PFX "icmp6_input: length %d\n", ustack->uip_len);
+	  LOG_DEBUG(PFX "icmp6_input: length %d", ustack->uip_len);
 
-	  if(IPv6_BUF(ustack)->proto != UIP_PROTO_ICMP6) { /* We only allow ICMPv6 packets from
-					 here. */
+	  if(ipv6_hdr->ip6_nxt != UIP_PROTO_ICMP6) { /* We only allow
+						      ICMPv6 packets from
+						      here. */
 	    ++ustack->stats.ip.drop;
 	    ++ustack->stats.ip.protoerr;
-	    LOG_ERR(PFX "ip: neither tcp nor icmp6.");
+	    LOG_ERR(PFX "ipv6: neither tcp nor icmp6: ip6_nxt: %x.");
 	    goto drop;
 	  }
 
@@ -1345,16 +1406,20 @@ uip_process(struct uip_stack *ustack, u8_t flag)
 	  /* If we get a neighbor solicitation for our address we should send
 	     a neighbor advertisement message back. */
 	  if(icmpv6_hdr->type == ICMP6_NEIGHBOR_SOLICITATION) {
+            char buf[128], buf2[128];
+
+	    LOG_DEBUG(PFX "IPv6 ICMP6_NEIGHBOR_SOLICITATION message recv");
 	    if(uip_ip6addr_cmp(icmpv6_hdr->icmp6data,
 	    		       ustack->hostaddr6)) {
-
+#if 0
 	      if(icmpv6_hdr->options[0] == ICMP6_OPTION_SOURCE_LINK_ADDRESS) {
 		/* Save the sender's address in our neighbor list. */
 
 		uip_neighbor_add(ustack,
-				 IPv6_BUF(ustack)->srcipaddr,
+				 ipv6_hdr->ip6_src.s6_addr,
 				 (struct uip_eth_addr *) &(icmpv6_hdr->options[2]));
 	      }
+#endif
       
 	      /* We should now send a neighbor advertisement back to where the
 		 neighbor solicication came from. */
@@ -1363,9 +1428,9 @@ uip_process(struct uip_stack *ustack, u8_t flag)
       
 	      icmpv6_hdr->reserved1 = icmpv6_hdr->reserved2 = icmpv6_hdr->reserved3 = 0;
       
-	      uip_ip6addr_copy(IPv6_BUF(ustack)->destipaddr,
-	      		       IPv6_BUF(ustack)->srcipaddr);
-	      uip_ip6addr_copy(IPv6_BUF(ustack)->srcipaddr,
+	      uip_ip6addr_copy(ipv6_hdr->ip6_dst.s6_addr,
+	      		       ipv6_hdr->ip6_src.s6_addr);
+	      uip_ip6addr_copy(ipv6_hdr->ip6_src.s6_addr,
 	      		       ustack->hostaddr6);
 	      icmpv6_hdr->options[0] = ICMP6_OPTION_TARGET_LINK_ADDRESS;
 	      icmpv6_hdr->options[1] = 1;  /* Options length, 1 = 8 bytes. */
@@ -1376,7 +1441,52 @@ uip_process(struct uip_stack *ustack, u8_t flag)
 	      goto send;
       
 	    }
+	    LOG_DEBUG(PFX "ipv6 ICMP6_NEIGHBOR_SOLICITATION unknown host: %s "
+			  "expecting %s",
+			   inet_ntop(AF_INET6, icmpv6_hdr->icmp6data, buf,
+				     sizeof(buf)),
+			   inet_ntop(AF_INET6, ustack->hostaddr6, buf2,
+				     sizeof(buf2)));
 	    goto drop;
+          } else if(icmpv6_hdr->type == ICMP6_NEIGHBOR_ADVERTISEMENT) {
+            char buf[INET6_ADDRSTRLEN], buf2[INET6_ADDRSTRLEN];
+            struct in6_addr multi;
+            struct nd_neighbor_advert *advert;
+            struct nd_opt_hdr *opt_hdr;
+	    struct uip_eth_addr *mac_addr;
+
+	    advert = (struct nd_neighbor_advert *)(ipv6_hdr + 1);
+	    opt_hdr = (struct nd_opt_hdr *) (advert + 1);
+            mac_addr = (opt_hdr + 1);
+
+            /*  Generate the IPv6 Multicast address */
+            memcpy(&multi, &mutlicast_ipv6_prefix, sizeof(multi));
+	    multi.s6_addr16[7] = 0;
+            multi.s6_addr16[7] |= ustack->hostaddr6[7];
+
+	    if(uip_ip6addr_cmp(ipv6_hdr->ip6_dst.s6_addr, ustack->hostaddr6)) {
+		    LOG_DEBUG(PFX "ICMP6_NEIGHBOR_ADVERTISEMENT "
+		    		   "message recv via global address");
+		    uip_neighbor_add(ustack,
+				     &advert->nd_na_target,
+				     (struct uip_eth_addr *) (mac_addr));
+            } else if (uip_ip6addr_cmp(ipv6_hdr->ip6_dst.s6_addr, &multi)) {
+		    LOG_DEBUG(PFX "ICMP6_NEIGHBOR_ADVERTISEMENT "
+		    		  "message recv via mutlicast");
+		    uip_neighbor_add(ustack,
+				     &advert->nd_na_target,
+				     (struct uip_eth_addr *) (mac_addr));
+            } else {
+		    LOG_DEBUG(PFX "ipv6 ICMP6_NEIGHBOR_ADVERTISEMENT "
+		    		  "unknown host: %s expecting %s",
+			   inet_ntop(AF_INET6, ipv6_hdr->ip6_dst.s6_addr, buf,
+				     sizeof(buf)),
+			   inet_ntop(AF_INET6, ustack->hostaddr6, buf2,
+				     sizeof(buf2)));
+	    }
+
+	    goto drop;
+
 	  } else if(icmpv6_hdr->type == ICMP6_ECHO) {
 	    /* ICMP echo (i.e., ping) processing. This is simple, we only
 	       change the ICMP type from ECHO to ECHO_REPLY and update the
@@ -1384,9 +1494,9 @@ uip_process(struct uip_stack *ustack, u8_t flag)
 
 	    icmpv6_hdr->type = ICMP6_ECHO_REPLY;
     
-	    uip_ip6addr_copy(IPv6_BUF(ustack)->destipaddr,
-	    		     IPv6_BUF(ustack)->srcipaddr);
-	    uip_ip6addr_copy(IPv6_BUF(ustack)->srcipaddr,
+	    uip_ip6addr_copy(ipv6_hdr->ip6_dst.s6_addr,
+	    		     ipv6_hdr->ip6_src.s6_addr);
+	    uip_ip6addr_copy(ipv6_hdr->ip6_src.s6_addr,
 	    		     ustack->hostaddr6);
 	    icmpv6_hdr->icmpchksum = 0;
 	    icmpv6_hdr->icmpchksum = ~uip_icmp6chksum(ustack);

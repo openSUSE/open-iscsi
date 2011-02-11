@@ -194,6 +194,7 @@ typedef struct iface_rec {
 	/* network layer iface name (eth0) */
 	char			netdev[IFNAMSIZ];
 	char			ipaddress[NI_MAXHOST];
+
 	/*
 	 * TODO: we may have to make this bigger and interconnect
 	 * specific for infinniband 
@@ -206,6 +207,8 @@ typedef struct iface_rec {
 	 */
 	char			alias[TARGET_NAME_MAXLEN + 1];
 	char			iname[TARGET_NAME_MAXLEN + 1];
+
+	char			vlan[ISCSI_MAX_IFACE_LEN];
 } iface_rec_t;
 
 #if 0

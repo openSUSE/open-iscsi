@@ -45,12 +45,60 @@
 #include "uip.h"
 #include "uip_eth.h"
 
+/*  ICMP types */
+/*  ICMPv6 error Messages */
+#define ICMPV6_DEST_UNREACH		1
+#define ICMPV6_PKT_TOOBIG		2
+#define ICMPV6_TIME_EXCEED		3
+#define ICMPV6_PARAMPROB		4
+
+/*  ICMPv6 Informational Messages */
+#define ICMPV6_ECHO_REQUEST		128
+#define ICMPV6_ECHO_REPLY		129
+#define ICMPV6_MGM_QUERY		130
+#define ICMPV6_MGM_REPORT		131
+#define ICMPV6_MGM_REDUCTION		132
+
+/* Codes for Destination Unreachable  */
+#define ICMPV6_NOROUTE			0
+#define ICMPV6_ADM_PROHIBITED		1
+#define ICMPV6_NOT_NEIGHBOUR		2
+#define ICMPV6_ADDR_UNREACH		3
+#define ICMPV6_PORT_UNREACH		4
+
+/* Codes for Time Exceeded */
+#define ICMPV6_EXC_HOPLIMIT             0
+#define ICMPV6_EXC_FRAGTIME             1
+
+/* Codes for Parameter Problem */
+#define ICMPV6_HDR_FIELD                0
+#define ICMPV6_UNK_NEXTHDR              1
+#define ICMPV6_UNK_OPTION               2
+
+#if 0
+struct __attribute__ ((__packed__)) icmpv6_hdr {
+	u8_t	type;
+	u8_t	code;
+	u16_t	checksum;
+	union {
+			struct {
+			u16_t	id;
+			u16_t	sequence;
+		} echo;
+		u32_t	gateway;
+		struct {
+			u16_t	unused;
+			u16_t	mtu;
+		} frag;
+	} un;
+};
+#endif
+
 void uip_neighbor_init(struct uip_stack *ustack);
 void uip_neighbor_add(struct uip_stack *ustack,
-		      uip_ip6addr_t ipaddr, struct uip_eth_addr *addr);
-void uip_neighbor_update(struct uip_stack *ustack, uip_ip6addr_t ipaddr);
-struct uip_eth_addr *uip_neighbor_lookup(struct uip_stack *ustack,
-					 uip_ip6addr_t ipaddr);
+		      struct in6_addr *addr6, struct uip_eth_addr *addr);
+void uip_neighbor_update(struct uip_stack *ustack, struct in6_addr *addr6);
+int uip_neighbor_lookup(struct uip_stack *ustack, struct in6_addr *ipaddr, uint8_t *mac_addr);
 void uip_neighbor_periodic(void);
 void uip_neighbor_out(struct uip_stack *ustack);
 

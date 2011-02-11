@@ -1,6 +1,6 @@
-/* nic_vlan.h: CNIC UIO uIP user space stack
+/* nic_vlan.h: uIP user space stack VLAN utilities
  *
- * Copyright (c) 2004-2008 Broadcom Corporation
+ * Copyright (c) 2004-2010 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -62,4 +62,5 @@ int init_vlan_found_handle(struct vlan_found_handle *found_handle,
                            struct vlan_handle *handle);
 void release_vlan_found_handle(struct vlan_found_handle *found_handle);
 
+int valid_vlan(short int vlan);
 #endif /* __NIC_VLAN_H__ */

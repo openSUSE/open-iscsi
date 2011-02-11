@@ -7,7 +7,6 @@ noinst_LIBRARIES = libbrcm_iscsi_uip.a
 
 libbrcm_iscsi_uip_a_SOURCES = 	uip.c		\
 				uip_arp.c	\
-				uiplib.c	\
 				psock.c		\
 				timer.c		\
 				uip-neighbor.c	\

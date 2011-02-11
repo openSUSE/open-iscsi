@@ -93,7 +93,7 @@ uip_arp_init(void)
 {
   u8_t i;
   for(i = 0; i < UIP_ARPTAB_SIZE; ++i) {
-    memset(arp_table[i].ipaddr, 0, 4);
+    memset(&arp_table[i], 0, sizeof(arp_table[i]));
   }
 
   pthread_mutex_init(&arp_table_mutex, NULL);
@@ -129,7 +129,9 @@ static void
 uip_arp_update(u16_t *ipaddr, struct uip_eth_addr *ethaddr)
 {
   u8_t i;
-  register struct arp_entry *tabptr;
+  struct arp_entry *tabptr;
+
+  pthread_mutex_lock(&arp_table_mutex);
   /* Walk through the ARP mapping table and try to find an entry to
      update. If none is found, the IP -> MAC address mapping is
      inserted in the ARP table. */
@@ -145,10 +147,9 @@ uip_arp_update(u16_t *ipaddr, struct uip_eth_addr *ethaddr)
       if(ipaddr[0] == tabptr->ipaddr[0] &&
 	 ipaddr[1] == tabptr->ipaddr[1]) {
 	 
-	/* An old entry found, update this and return. */
-	memcpy(tabptr->ethaddr.addr, ethaddr->addr, 6);
 	tabptr->time = arptime;
 
+        pthread_mutex_unlock(&arp_table_mutex);
 	return;
       }
     }
@@ -188,6 +189,8 @@ uip_arp_update(u16_t *ipaddr, struct uip_eth_addr *ethaddr)
   memcpy(tabptr->ipaddr, ipaddr, 4);
   memcpy(tabptr->ethaddr.addr, ethaddr->addr, 6);
   tabptr->time = arptime;
+
+  pthread_mutex_unlock(&arp_table_mutex);
 }
 
 /**
@@ -211,6 +214,22 @@ uip_arp_update(u16_t *ipaddr, struct uip_eth_addr *ethaddr)
  * header in the uip_buf[] buffer, and the length of the packet in the
  * global variable uip_len.
  */
+void
+uip_arp_ipin(struct uip_stack *ustack, packet_t *pkt)
+{
+  struct ip_hdr *ip;
+  struct uip_eth_hdr *eth;
+
+  eth = (struct uip_eth_hdr *)pkt->data_link_layer;
+  ip = (struct ip_hdr *)pkt->network_layer;
+
+    if(uip_ip4addr_cmp(ip->destipaddr, ustack->hostaddr)) {
+      /* First, we register the one who made the request in our ARP
+	 table, since it is likely that we will do more communication
+	 with this host in the future. */
+      uip_arp_update(ip->srcipaddr, &eth->src);
+    }
+}
 
 void
 uip_arp_arpin(struct uip_stack *ustack, packet_t *pkt)
@@ -297,12 +316,12 @@ uip_determine_dest_ipv4_addr(struct uip_stack *ustack,
 			     u16_t *ipaddr)
 {
   struct arp_hdr *arp;
-  struct ethip_hdr *ethip_buf;
   struct uip_eth_hdr *eth;
-  
+  struct ip_hdr *ip_buf;
+
   arp = (struct arp_hdr *)ustack->network_layer;
-  ethip_buf = (struct ethip_hdr *)ustack->uip_buf;
   eth = (struct uip_eth_hdr *) ustack->data_link_layer;
+  ip_buf = (struct ip_hdr *)ustack->network_layer;
 
   /* Find the destination IP address in the ARP table and construct
      the Ethernet header. If the destination IP addres isn't on the
@@ -312,13 +331,13 @@ uip_determine_dest_ipv4_addr(struct uip_stack *ustack,
      packet with an ARP request for the IP address. */
 
   /* First check if destination is a local broadcast. */
-  if(uip_ip4addr_cmp(ethip_buf->destipaddr, broadcast_ipaddr)) {
-    memcpy(ethip_buf->ethhdr.dest.addr, broadcast_ethaddr.addr, 6);
+  if(uip_ip4addr_cmp(ip_buf->destipaddr, broadcast_ipaddr)) {
+    memcpy(&eth->dest, broadcast_ethaddr.addr, 6);
 
     return LOCAL_BROADCAST;
   } else {
     /* Check if the destination address is on the local network. */
-    if(!uip_ip4addr_maskcmp(ethip_buf->destipaddr, 
+    if(!uip_ip4addr_maskcmp(ip_buf->destipaddr, 
     			   ustack->hostaddr, 
 			   ustack->netmask)) {
       /* Destination address was not on the local network, so we need to
@@ -327,7 +346,7 @@ uip_determine_dest_ipv4_addr(struct uip_stack *ustack,
       uip_ip4addr_copy(ipaddr, ustack->default_route_addr);
     } else {
       /* Else, we use the destination IP address. */
-      uip_ip4addr_copy(ipaddr, ethip_buf->destipaddr);
+      uip_ip4addr_copy(ipaddr, ip_buf->destipaddr);
     }
 
     return NONLOCAL_BROADCAST;
@@ -394,13 +413,16 @@ void
 uip_build_eth_header(struct uip_stack *ustack,
 		     u16_t *ipaddr,
 		     struct arp_entry *tabptr,
-		     struct packet *pkt)
+		     struct packet *pkt,
+		     u16_t vlan_id)
 {
   struct uip_ipv4_hdr *ip_buf;
   struct uip_eth_hdr *eth;
-  
+  struct uip_vlan_eth_hdr *eth_vlan;
+
   ip_buf = (struct uip_ipv4_hdr *)ustack->network_layer;
   eth = (struct uip_eth_hdr *) ustack->data_link_layer;
+  eth_vlan = (struct uip_eth_hdr *) ustack->data_link_layer;
 
   /* First check if destination is a local broadcast. */
   if(uip_ip4addr_cmp(ip_buf->destipaddr, broadcast_ipaddr)) {
@@ -411,10 +433,19 @@ uip_build_eth_header(struct uip_stack *ustack,
   }
   memcpy(eth->src.addr, ustack->uip_ethaddr.addr, 6);
   
-  eth->type = htons(UIP_ETHTYPE_IPv4);
+  if (vlan_id == 0) {
+    eth->type = htons(UIP_ETHTYPE_IPv4);
 
-  ustack->uip_len += sizeof(struct uip_eth_hdr);
-  pkt->buf_size += sizeof(struct uip_eth_hdr);
+    ustack->uip_len += sizeof(struct uip_eth_hdr);
+    pkt->buf_size += sizeof(struct uip_eth_hdr);
+  } else {
+    eth_vlan->tpid = htons(UIP_ETHTYPE_8021Q);
+    eth_vlan->vid  = htons(vlan_id);
+    eth_vlan->type = htons(UIP_ETHTYPE_IPv4);
+
+    ustack->uip_len += sizeof(struct uip_vlan_eth_hdr);
+    pkt->buf_size += sizeof(struct uip_vlan_eth_hdr);
+  }
 }
 
 static struct arp_entry *

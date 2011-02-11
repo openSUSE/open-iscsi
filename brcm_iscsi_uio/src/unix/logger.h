@@ -1,3 +1,14 @@
+/* logger.h: Logging Utilities
+ *
+ * Copyright (c) 2004-2010 Broadcom Corporation
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation.
+ *
+ * Written by: Benjamin Li  (benli@broadcom.com)
+ */
+
 #ifndef __LOGGER_H__
 #define __LOGGER_H__
 
@@ -10,12 +21,14 @@
 /*******************************************************************************
  * Logger Levels
  ******************************************************************************/
+#define LOG_LEVEL_PACKET	5
 #define LOG_LEVEL_DEBUG		4
 #define LOG_LEVEL_INFO		3
 #define LOG_LEVEL_WARN		2
 #define LOG_LEVEL_ERR		1
 #define LOG_LEVEL_UNKNOWN	0
 
+#define LOG_LEVEL_PACKET_STR	"PKT  "
 #define LOG_LEVEL_DEBUG_STR	"DBG  "
 #define LOG_LEVEL_INFO_STR	"INFO "
 #define LOG_LEVEL_WARN_STR	"WARN "
@@ -25,6 +38,10 @@
 /*******************************************************************************
  * Logging Macro's
  ******************************************************************************/
+#define LOG_PACKET(fmt, args...) { if (LOG_LEVEL_PACKET <= \
+					      main_log.level) { \
+					log_uip(LOG_LEVEL_PACKET_STR, fmt, ##args);\
+				} }
 #define LOG_DEBUG(fmt, args...) { if (LOG_LEVEL_DEBUG <= main_log.level) { \
 					log_uip(LOG_LEVEL_DEBUG_STR, fmt, ##args);\
 				} }
@@ -72,7 +89,7 @@ extern struct logger main_log;
 
 int init_logger(char *);
 void log_uip(char *level_str, char *fmt, ...);
-void fini_logger(int);
+void fini_logger();
 
 int backup_logger_settings(struct logger *src, struct logger *dest);
 int restore_backup(struct logger *src, struct logger *dest);

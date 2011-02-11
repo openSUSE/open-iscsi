@@ -1,6 +1,6 @@
 /* bnx2x.h: bnx2x user space driver
  *
- * Copyright (c) 2004-2008 Broadcom Corporation
+ * Copyright (c) 2004-2010 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -81,6 +81,32 @@ struct host_def_status_block {
 #define HC_INDEX_DEF_U_ETH_ISCSI_RX_CQ_CONS 1
 #define HC_INDEX_DEF_U_ETH_ISCSI_RX_BD_CONS 3
 #define HC_INDEX_DEF_C_ETH_ISCSI_CQ_CONS 5
+
+struct atten_sp_status_block {
+	__u32 attn_bits;
+	__u32 attn_bits_ack;
+	__u8 status_block_id;
+	__u8 reserved0;
+	__u16 attn_bits_index;
+	__u32 reserved1;
+};
+
+#define HC_SP_SB_MAX_INDICES	16
+
+struct hc_sp_status_block {
+	__u16 index_values[HC_SP_SB_MAX_INDICES];
+	__u16 running_index;
+	__u16 rsrv;
+	__u32 rsrv1;
+};
+
+struct host_sp_status_block {
+	struct atten_sp_status_block atten_status_block;
+	struct hc_sp_status_block sp_sb;
+};
+
+#define HC_SP_INDEX_ETH_ISCSI_CQ_CONS		5
+#define HC_SP_INDEX_ETH_ISCSI_RX_CQ_CONS	1
 
 /*  TX Buffer descriptor */
 struct eth_tx_bd_flags {
@@ -236,11 +262,17 @@ union eth_rx_cqe {
 #define CHIP_NUM_57710			0x164e
 #define CHIP_NUM_57711			0x164f
 #define CHIP_NUM_57711E			0x1650
+#define CHIP_NUM_57712			0x1662
+#define CHIP_NUM_57712E			0x1663
 #define CHIP_IS_E1(bp)			(BNX2X_CHIP_NUM(bp) == CHIP_NUM_57710)
 #define CHIP_IS_57711(bp)		(BNX2X_CHIP_NUM(bp) == CHIP_NUM_57711)
 #define CHIP_IS_57711E(bp)		(BNX2X_CHIP_NUM(bp) == CHIP_NUM_57711E)
+#define CHIP_IS_57712(bp)		(BNX2X_CHIP_NUM(bp) == CHIP_NUM_57712)
+#define CHIP_IS_57712E(bp)		(BNX2X_CHIP_NUM(bp) == CHIP_NUM_57712E)
 #define CHIP_IS_E1H(bp)			(CHIP_IS_57711(bp) || \
 					 CHIP_IS_57711E(bp))
+#define CHIP_IS_E2(bp)			(CHIP_IS_57712(bp) || \
+					 CHIP_IS_57712E(bp))
 #define IS_E1H_OFFSET			CHIP_IS_E1H(bp)
 
 #define MISC_REG_SHARED_MEM_ADDR			0xa2b4
@@ -250,6 +282,9 @@ union eth_rx_cqe {
 #define MISC_REG_CHIP_NUM				0xa408
 #define MISC_REG_CHIP_REV				0xa40c
 
+#define MISC_REG_PORT4MODE_EN				0x4750
+#define MISC_REG_PORT4MODE_EN_OVWR			0x4720
+
 #define BAR_USTRORM_INTMEM				0x400000
 #define BAR_CSTRORM_INTMEM				0x410000
 #define BAR_XSTRORM_INTMEM				0x420000
@@ -258,6 +293,28 @@ union eth_rx_cqe {
 #define USTORM_RX_PRODS_OFFSET(port, client_id) \
 	(IS_E1H_OFFSET ? (0x1000 + (port * 0x680) + (client_id * 0x40)) \
 	: (0x4000 + (port * 0x360) + (client_id * 0x30)))
+
+struct iro {
+	__u32 base;
+	__u16 m1;
+	__u16 m2;
+	__u16 m3;
+	__u16 size;
+};
+
+#define USTORM_RX_PRODS_E1X_OFFSET(port, client_id) \
+	bp->iro[0].base + ((port) * bp->iro[0].m1) + ((client_id) * bp->iro[0].m2)
+
+#define USTORM_RX_PRODS_E2_OFFSET(qzone_id) \
+	(bp->iro[0].base + ((qzone_id) * bp->iro[0].m1))
+
+#define ETH_MAX_RX_CLIENTS_E1H		28
+#define ETH_MAX_RX_CLIENTS_E2		28
+
+#define BNX2X_CL_QZONE_ID(bp, cli)					\
+		cli + (bp->port * (CHIP_IS_E2(bp) ?			\
+				   ETH_MAX_RX_CLIENTS_E2 :		\
+				   ETH_MAX_RX_CLIENTS_E1H))
 
 #define	SHMEM_P0_ISCSI_MAC_UPPER	0x4c
 #define	SHMEM_P0_ISCSI_MAC_LOWER	0x50
@@ -298,8 +355,19 @@ struct ustorm_eth_rx_producers {
 	__u16 reserved;
 };
 
+#define BNX2X_UNKNOWN_MAJOR_VERSION	-1
+#define BNX2X_UNKNOWN_MINOR_VERSION	-1
+#define BNX2X_UNKNOWN_SUB_MINOR_VERSION	-1
+struct bnx2x_driver_version {
+	uint16_t	major;
+	uint16_t	minor;
+	uint16_t	sub_minor;
+};
+
 typedef struct bnx2x {
 	nic_t	*parent;
+
+	struct bnx2x_driver_version version;
 
 	uint16_t   flags;
 #define CNIC_UIO_UNITIALIZED		0x0001
@@ -320,6 +388,9 @@ typedef struct bnx2x {
 	__u32 shmem_base;
 	int func;
 	int port;
+	int pfid;
+
+	struct iro *iro;
 
 	__u32 tx_doorbell;
 
@@ -334,6 +405,9 @@ typedef struct bnx2x {
 	__u16 rx_cons;
 	__u16 rx_bd_cons;
 
+	__u16 (*get_rx_cons)(struct bnx2x *);
+	__u16 (*get_tx_cons)(struct bnx2x *);
+
 	/*  RX ring parameters */
 	uint32_t rx_ring_size;
 	uint32_t rx_buffer_size;
@@ -342,7 +416,12 @@ typedef struct bnx2x {
 
 	/*  Hardware Status Block locations */
 	void *sblk_map;
-	struct host_def_status_block *status_blk;
+	union {
+		struct host_def_status_block *def;
+		struct host_sp_status_block *sp;
+	} status_blk;
+
+	int status_blk_size;
 
 	uint16_t rx_index;
 	union eth_rx_cqe *rx_comp_ring;

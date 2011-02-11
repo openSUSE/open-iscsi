@@ -1,6 +1,6 @@
-dnl admin_sock.h: CNIC UIO uIP user space stack
+dnl brcm_iscsiuio uIP user space stack configure.ac file
 dnl
-dnl Copyright (c) 2004-2008 Broadcom Corporation
+dnl Copyright (c) 2004-2010 Broadcom Corporation
 dnl
 dnl This program is free software; you can redistribute it and/or modify
 dnl it under the terms of the GNU General Public License as published by
@@ -10,9 +10,9 @@ dnl Written by: Benjamin Li  (benli@broadcom.com)
 dnl
 
 PACKAGE=brcm_iscsiuio
-VERSION=0.5.7
+VERSION=0.5.15
 
-AC_INIT(brcm_iscsi, 0.5.7, benli@broadcom.com)
+AC_INIT(brcm_iscsi, 0.5.15, benli@broadcom.com)
 
 AM_INIT_AUTOMAKE($PACKAGE, $VERSION)
 AC_CONFIG_HEADER(config.h)
@@ -20,8 +20,8 @@ AC_PATH_PROGS(BASH, bash)
 
 AC_PROG_CC
 AM_PROG_CC_C_O
-AC_PROG_LEX
-AC_PROG_YACC
+
+AC_PROG_RANLIB
 
 AC_GNU_SOURCE
 AC_PROG_INSTALL
@@ -62,6 +62,8 @@ AC_ARG_ENABLE(debug,
 AM_CONDITIONAL([DEBUG], [test x$debug = xtrue])
 
 AC_CONFIG_COMMANDS([default],[[ echo 'char *build_date ="'`date`'";' > src/unix/build_date.c  && echo 'char *build_date; '> src/unix/build_date.h]],[[]])
+
+AC_PREFIX_DEFAULT()
 
 AC_OUTPUT([Makefile
 src/Makefile

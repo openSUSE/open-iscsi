@@ -53,6 +53,8 @@ typedef enum iscsid_uip_mgmt_ipc_err {
 	ISCISD_UIP_MGMT_IPC_ERR                    = 1,
 	ISCISD_UIP_MGMT_IPC_ERR_NOT_FOUND          = 2,
 	ISCISD_UIP_MGMT_IPC_ERR_NOMEM              = 3,
+	ISCISD_UIP_MGMT_IPC_DEVICE_UP              = 4,
+	ISCISD_UIP_MGMT_IPC_DEVICE_INITIALIZING    = 5,
 } iscsid_uip_mgmt_ipc_err_e;
 
 /* IPC Response */

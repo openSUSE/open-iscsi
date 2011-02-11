@@ -1,6 +1,6 @@
 /* uevent.c: CNIC UIO uIP user space stack
  *
- * Copyright (c) 2004-2008 Broadcom Corporation
+ * Copyright (c) 2004-2010 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -197,7 +197,7 @@ static void parse_uevent(char *buf, int buf_len, struct parsed_uevent *event)
 }
 
 /******************************************************************************
- *  wakeup_cnic_dev() - This function will notify all those waiting on the
+ *  wakeup_cnic_dev() - This function will notify all those waiting on the 
  *                      uio_wait_event conditionial.  This should trigger
  *                      all threads waiting on this event.
  *  @param event  - The uevent which comes from the kernel
@@ -259,6 +259,8 @@ static int wakeup_cnic_dev(struct parsed_uevent *event)
 	pthread_mutex_unlock(&nic_list_mutex);
 
 	if (nic == NULL) {
+                int uio_minor;
+
 		/*  time to alloc a new cnic/uio device */
 		LOG_INFO(PFX "Couldn't find dev instance");
 
@@ -289,7 +291,7 @@ static int wakeup_cnic_dev(struct parsed_uevent *event)
 
 		nic->flags |= NIC_UIO_NAME_MALLOC;
 
-		rc = from_uio_find_associated_eth_device(nic->uio_minor,
+                rc = from_uio_find_associated_eth_device(uio_minor,
 						nic->eth_device_name,
 						sizeof(nic->eth_device_name));
 

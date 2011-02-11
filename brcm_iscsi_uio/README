@@ -1,6 +1,6 @@
 Broadcom iSCSI Userspace Tools
-Version 0.5.7
-March 17, 2010
+Version 0.5.15
+May 20, 2010
 ------------------------------------------------------
 
 This tools is to be used in conjunction with the Broadcom NetXtreme II Linux
@@ -9,13 +9,14 @@ and the Broadcom iSCSI driver (Kernel module name: 'bnx2i').
 This user space driver is used  in conjunction with the following
 Broadcom Network Controllers:
   bnx2:  BCM5708, BCM5709 devices
-  bnx2x: BCM57710, BCM57711, BCM57711E devices
+  bnx2x: BCM57710, BCM57711, BCM57711E, BCM57712, BCM57712E,
+  	 BCM57713, BCM57713E devices
 
 This utility will provide the ARP and DHCP functionality for the iSCSI offload.
 The communication to the driver is done via Userspace I/O (Kernel module name
 'uio').
 
-There are two components to this application:
+There is one component to this application:
 
 1.  'brcm_iscsiuio' - This is the daemon which aids in creating iSCSI offloaded
                       connections.
@@ -49,9 +50,9 @@ Compiling / Installing
 1.  Please untar the tarball.
 2.  Run the configure script.  This will create the Makefiles and proper
     header files needed for the build.
-3.  Run 'make'.  This will create 2 binaries, 'brcm_iscsiuio' and
-    'admin_client'
+3.  Run 'make'.  This will create the binary, 'brcm_iscsiuio'
 4.  Run 'make install' to place the binaries in their installed location.
+    (The default location is '/sbin')
 
 iscsid IFACE Configuration File:
 =======================================
@@ -150,3 +151,9 @@ ERROR         1 - Only print critical errors
 
 Note: The messages to the log file are not flushed unless debugging is enabled.
 
+Note:  If the daemon brcm_iscsiuio is running, one will not be able to
+       trample over the exisiting binary.  One might see the following message:
+
+       'cannot create regular file `/sbin/brcm_iscsiuio': Text file busy'
+
+       The solve this, please stop the iscsid service and then install.

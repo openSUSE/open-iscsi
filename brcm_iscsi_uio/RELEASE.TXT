@@ -1,14 +1,171 @@
                               Release Notes
                         Broadcom uIP Linux Driver
-                              Version 0.5.7
-                                03/17/2010
+                              Version 0.5.15
+                                05/20/2010
 
                           Broadcom Corporation
                          5300 California Avenue,
                             Irvine, CA 92617
 
-               Copyright (c) 2004 - 2009 Broadcom Corporation
+               Copyright (c) 2004 - 2010 Broadcom Corporation
                            All rights reserved
+
+uIP v0.5.15 (May 20, 2010)
+=======================================================
+
+   Fixes
+   -----
+   1. Problem: brcm_iscsiuio would echo packets off the wire
+
+      Cause:  Stale packets from the uIP stack could potentially
+              make it onto the wire causing a network flood
+
+      Change: Only place on the wire packets uIP intended to place
+              on the wire.  Drop all other packets.
+
+uIP v0.5.14 (May 18, 2010)
+=======================================================
+
+   Fixes
+   -----
+   1. Problem: brcm_iscsiuio would crash when offloading using a
+               bnx2x device /dev/mem could not be
+               opened, (ie. SE Linux enabled)
+
+      Cause:  /dev/mem could not be opened, (ie. SE Linux enabled)
+              and then the NIC would be improperly initialized.
+
+      Change: If /dev/mem is not able to be opened, then the device
+              is closed
+
+   2. Problem: brcm_iscsiuio would crash when brcm_iscsiuio is
+               being shutdown
+
+      Cause:  The NIC mutex was deferenced imporperly when the NIC
+              is being closed
+
+      Change: Take the NIC mutex lock only when the NIC is closed.
+
+uIP v0.5.13 (May 16, 2010)
+=======================================================
+
+   Fixes
+   -----
+   1. Problem: brcm_iscsiuio would crash with heavy traffic directed
+               at the iSCSI traffic
+
+      Cause:  Packets which are sized between 1006-1024 bytes would
+              crash brcm_iscsiuio because brcm_iscsiuio is not sized
+	      to handle such large packets
+
+      Change: Drop large packets, properly hold the NIC mutex lock
+              for the duration when NIC fields are being used.
+
+
+uIP v0.5.12 (May 13, 2010)
+=======================================================
+
+   Fixes
+   -----
+   1. Problem: brcm_iscsiuio could crash on when L2 interface is
+               ifdown'ed
+
+      Cause:  The local NIC pointer was not initialized properly
+              in the routine parse_iface()
+
+      Change: Properly initialize the NIC pointer
+
+   2. Problem: Documentation referred to older admin_client which
+               doesn't exist any more because brcm_iscsiuio uses
+	       the iscsid iface file
+
+      Change: Remove the stale references
+
+
+uIP v0.5.11 (May 11, 2010)
+=======================================================
+
+   Fixes
+   -----
+   1. Problem: brcm_iscsiuio could crash on invalid packet sizes
+
+      Cause:  The hardware BD could be a large value because of a
+              hardware error
+
+      Change: Limit the size of the packet dumped to the MTU size
+
+   Enhancements
+   ------------
+
+   1. Change: During the running of the configure script now
+              the script will check for ar and ranlib binaries
+
+
+uIP v0.5.10 (May 03, 2010)
+=======================================================
+
+   Fixes
+   -----
+   1. Problem: BCM57712 not recognized
+
+      Cause:  The PCI ID's in the bnx2x file were missing.
+
+      Change: Added proper BCM57712, BCM57712E, BCM57713, BCM57713E
+              PCI ID's
+
+   2. Problem: (CQ 47481) brcm_iscsiuio not installed in correct location
+
+      Cause:  Default install path for autoconf is /usr/local
+
+      Change: Change the default prefix to '/' so the brcm_iscsiuio
+              binary is installed to /sbin/
+
+   Enhancements
+   ------------
+
+   1. Change: Remove dependency on Yacc and Lex
+
+
+uIP v0.5.9 (April 28, 2010)
+=======================================================
+
+   Fixes
+   -----
+   1. Problem: bnx2x T6.0 driver would not login
+
+      Cause:  The bnx2x code was not using the T6.0 HSI offsets
+
+      Change: Determine to bnx2x driver version eariler to properly use the
+              T4.8 or T6.0 HSI
+
+   Enhancements
+   ------------
+
+   1. Change: Collapse all the various locks to use the NIC lock to shrink
+              memory footprint
+
+   2. Change: Consolidate upper layer checksumming code
+
+
+uIP v0.5.5 (March 02, 2010)
+=======================================================
+
+   Enhancements
+   ------------
+
+   1. Change: Add support for T6.0 bnx2x HSI and 57712.
+
+   2. Change: Initial support for IPv6
+
+uIP v0.5.8 (April 22, 2010)
+=======================================================
+
+   Enhancements
+   ------------
+
+   1. Change: Add support for T6.0 bnx2x HSI and 57712.
+
+   2. Change: Initial support for IPv6
 
 uIP v0.5.7 (March 17, 2010)
 =======================================================

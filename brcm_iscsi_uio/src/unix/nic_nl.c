@@ -1,6 +1,6 @@
-/* nic_nl.c: CNIC UIO uIP user space stack
+/* nic_nl.c: NIC uIP NetLink user space stack
  *
- * Copyright (c) 2004-2008 Broadcom Corporation
+ * Copyright (c) 2004-2010 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -326,16 +326,39 @@ static int ctldev_handle()
 		goto error;
 	}
 
+	payload = (uint8_t *) ((uint8_t *)ev) + sizeof(*ev);
+	path = (struct iscsi_path *)payload;
+
 	if (ev->type == ISCSI_KEVENT_PATH_REQ) {
 		struct timespec sleep_req, sleep_rem;
+		nic_interface_t *nic_iface;
+		uint16_t ip_type;
 
 		sleep_req.tv_sec  = 0;
 		sleep_req.tv_nsec = 250000000;
 
+		if (path->ip_addr_len == 4)
+			ip_type = AF_INET;
+		else if (path->ip_addr_len == 16)
+			ip_type = AF_INET6;
+		else 
+			ip_type = 0;
+
+		nic_iface = nic_find_nic_iface_protocol(nic, path->vlan_id,
+							ip_type);
+		if (nic_iface == NULL) {
+			LOG_WARN(PFX "%s: Couldn't find nic_iface  "
+				     "vlan: %d ip_addr_len",
+				 nic->log_name,
+				 path->vlan_id, path->ip_addr_len);
+			goto error;
+		}
+
 		/*  Ensure that the NIC is RUNNING */
 		rc = -EIO;
 		for (i=0; i<10; i++) {
-			if((nic->state & NIC_RUNNING) == NIC_RUNNING) {
+			if(((nic->state & NIC_RUNNING) == NIC_RUNNING) &&
+			   (nic_iface->state & NIC_IFACE_RUNNING))  {
 				rc = 0;
 				break;
 			}
@@ -350,10 +373,6 @@ static int ctldev_handle()
 			goto error;
 		}
 	}
-
-	ev = (struct iscsi_uevent *)NLMSG_DATA(data);
-	payload = (uint8_t *) ((uint8_t *)ev) + sizeof(*ev);
-	path = (struct iscsi_path *)payload;
 
 	if(nic->ops) {
 		switch (ev->type) {

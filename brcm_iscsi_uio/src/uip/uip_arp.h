@@ -73,6 +73,21 @@ struct  __attribute__ ((__packed__)) arp_hdr {
   u16_t dipaddr[2];
 };
 
+struct __attribute__ ((__packed__)) ip_hdr {
+  /* IP header. */
+  u8_t vhl,
+    tos,
+    len[2],
+    ipid[2],
+    ipoffset[2],
+    ttl,
+    proto;
+  u16_t ipchksum;
+  u16_t srcipaddr[2],
+    destipaddr[2];
+};
+
+
 struct  __attribute__ ((__packed__)) ethip_hdr {
   struct uip_eth_hdr ethhdr;
   /* IP header. */
@@ -106,7 +121,8 @@ void uip_arp_init(void);
    IP packet with an Ethernet header is present in the uip_buf buffer
    and that the length of the packet is in the uip_len variable. */
 /*void uip_arp_ipin(void);*/
-#define uip_arp_ipin()
+//#define uip_arp_ipin()
+void uip_arp_ipin(struct uip_stack *ustack, struct packet *pkt);
 
 /* The uip_arp_arpin() should be called when an ARP packet is received
    by the Ethernet driver. This function also assumes that the
@@ -146,7 +162,8 @@ void
 uip_build_eth_header(struct uip_stack *ustack,
                      u16_t *ipaddr,
 		     struct arp_entry *tabptr,
-		     struct packet *pkt);
+		     struct packet *pkt,
+		     u16_t vlan_id);
 
 /* The uip_arp_out() function should be called when an IP packet
    should be sent out on the Ethernet. This function creates an

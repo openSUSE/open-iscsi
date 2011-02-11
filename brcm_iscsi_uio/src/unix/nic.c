@@ -1,6 +1,6 @@
 /* nic.c: Generic NIC management/utility functions
  *
- * Copyright (c) 2004-2008 Broadcom Corporation
+ * Copyright (c) 2004-2010 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,8 +15,10 @@
 #include <pthread.h>
 #include <signal.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -98,11 +100,11 @@ static int load_nic_library(nic_lib_handle_t *handle)
 	pthread_mutex_lock(&handle->mutex);
 
 	/* Validate the NIC ops table ensure that all the fields are not NULL */
-	if((handle->ops->open)  == NULL ||
-	   (handle->ops->close) == NULL ||
-	   (handle->ops->read)  == NULL ||
-	   (handle->ops->write) == NULL ||
-	   (handle->ops->clear_tx_intr == NULL)) {
+	if ((handle->ops->open)  == NULL ||
+	    (handle->ops->close) == NULL ||
+	    (handle->ops->read)  == NULL ||
+	    (handle->ops->write) == NULL ||
+	    (handle->ops->clear_tx_intr == NULL)) {
 		LOG_ERR("Invalid NIC ops table: open: 0x%x, close: 0x%x,"
 			"read: 0x%x, write: 0x%x clear_tx_intr: 0x%x "
 			"lib_ops: 0x%x",
@@ -117,12 +119,12 @@ static int load_nic_library(nic_lib_handle_t *handle)
 
 	/*  Validate the NIC library ops table to ensure that all the proper
 	 *  fields are filled */
-	if((handle->ops->lib_ops.get_library_name == NULL) ||
-           (handle->ops->lib_ops.get_pci_table == NULL)    || 
-           (handle->ops->lib_ops.get_library_version == NULL) ||
-           (handle->ops->lib_ops.get_build_date == NULL)   ||
-           (handle->ops->lib_ops.get_transport_name == NULL)) {
-		rc =-EINVAL;
+	if ((handle->ops->lib_ops.get_library_name == NULL) ||
+            (handle->ops->lib_ops.get_pci_table == NULL)    || 
+            (handle->ops->lib_ops.get_library_version == NULL) ||
+            (handle->ops->lib_ops.get_build_date == NULL)   ||
+            (handle->ops->lib_ops.get_transport_name == NULL)) {
+		rc = -EINVAL;
 		goto error;
 	}
 
@@ -365,26 +367,17 @@ nic_t *nic_init()
 	nic->tx_packet_queue = NULL;
 	nic->nic_library = NULL;
 	nic->pci_id	 = NULL;
-	
-	pthread_mutex_init(&nic->uio_wait_mutex, NULL);
-	pthread_cond_init(&nic->uio_wait_cond, NULL);
 
-	pthread_mutex_init(&nic->enable_wait_mutex, NULL);
-	pthread_cond_init(&nic->enable_wait_cond, NULL);
-
-	pthread_mutex_init(&nic->enable_done_mutex, NULL);
-	pthread_cond_init(&nic->enable_done_cond, NULL);
-
-	pthread_mutex_init(&nic->nic_loop_started_mutex, NULL);
-	pthread_cond_init(&nic->nic_loop_started_cond, NULL);
-
-	pthread_mutex_init(&nic->disable_wait_mutex, NULL);
-	pthread_cond_init(&nic->disable_wait_cond, NULL);
-
+	pthread_mutex_init(&nic->nic_mutex, NULL);
 	pthread_mutex_init(&nic->xmit_mutex, NULL);
-	pthread_mutex_init(&nic->nic_iface_mutex, NULL);
-
+	pthread_mutex_init(&nic->uio_wait_mutex, NULL);
 	pthread_mutex_init(&nic->free_packet_queue_mutex, NULL);
+
+	pthread_cond_init(&nic->uio_wait_cond, NULL);
+	pthread_cond_init(&nic->enable_wait_cond, NULL);
+	pthread_cond_init(&nic->enable_done_cond, NULL);
+	pthread_cond_init(&nic->nic_loop_started_cond, NULL);
+	pthread_cond_init(&nic->disable_wait_cond, NULL);
 
 	nic->rx_poll_usec = DEFAULT_RX_POLL_USEC;
 
@@ -407,13 +400,15 @@ nic_t *nic_init()
 	return nic;
 }
 
-void nic_remove(nic_t *nic, int locked)
+int nic_remove(nic_t *nic, int locked)
 {
 	int rc;
 	nic_t *prev, *current;
 
+	pthread_mutex_lock(&nic->nic_mutex);
 	if(nic->ops)
 		nic->ops->close(nic, 0);
+	pthread_mutex_unlock(&nic->nic_mutex);
 
 	nic->state = NIC_EXIT;
 	rc = pthread_cancel(nic->thread);
@@ -458,6 +453,7 @@ void nic_remove(nic_t *nic, int locked)
 
 /** 
  *  nic_close() - Used to indicate to a NIC that it should close
+ *                Must be called with nic->nic_mutex
  *  @param nic - the nic to close
  *  @param graceful -  ALLOW_GRACEFUL_SHUTDOWN will check the nic state
  *                     before proceeding to close()
@@ -479,7 +475,7 @@ void nic_close(nic_t *nic, NIC_SHUTDOWN_T graceful)
 	if(nic->ops == NULL) {
 		LOG_WARN(PFX "%s: when closing nic->ops == NULL",
 			 nic->log_name);
-		return;
+		goto error;
 	}
 
 	rc = (*nic->ops->close)(nic, graceful);
@@ -491,15 +487,16 @@ void nic_close(nic_t *nic, NIC_SHUTDOWN_T graceful)
 		nic->flags |= NIC_DISABLED;
 	}
 
-	pthread_mutex_lock(&nic->nic_iface_mutex);
-
 	nic_iface = nic->nic_iface;
 	while(nic_iface != NULL)
 	{
+		nic_iface->state = NIC_IFACE_STOPPED;
 		uip_reset(&nic_iface->ustack);
 		nic_iface = nic_iface->next;
 	}
-	pthread_mutex_unlock(&nic->nic_iface_mutex);
+
+error:
+	return;
 }
 
 
@@ -508,7 +505,7 @@ void nic_close(nic_t *nic, NIC_SHUTDOWN_T graceful)
  *                     structure cnic_uio
  *  @return 0 on success, <0 on failure
  */
-nic_interface_t * nic_iface_init(void)
+nic_interface_t * nic_iface_init()
 {
 	nic_interface_t *nic_iface = malloc(sizeof(*nic_iface));
 	if(nic_iface == NULL)
@@ -534,7 +531,7 @@ int nic_add_nic_iface(nic_t *nic,
 		      nic_interface_t *nic_iface)
 {
 
-	pthread_mutex_lock(&nic->nic_iface_mutex);
+	pthread_mutex_lock(&nic->nic_mutex);
 
 	/*  Add the nic_interface */
 	if(nic->nic_iface == NULL) {
@@ -554,7 +551,7 @@ int nic_add_nic_iface(nic_t *nic,
 	nic_iface->parent = nic;
 	nic->num_of_nic_iface++;
 
-	pthread_mutex_unlock(&nic->nic_iface_mutex);
+	pthread_mutex_unlock(&nic->nic_mutex);
 
 	return 0;
 }
@@ -618,6 +615,7 @@ int nic_process_intr(nic_t *nic, int discard_check)
 		return 0;
 	}
 
+	pthread_mutex_lock(&nic->nic_mutex);
 	ret = read(nic->fd, &count, sizeof(count));
 	if (ret > 0) {
 		nic->stats.interrupts++;
@@ -628,6 +626,7 @@ int nic_process_intr(nic_t *nic, int discard_check)
 			LOG_ERR(PFX "%s: got interrupt but count still the "
 				    "same", 
 				     nic->log_name, count);
+			pthread_mutex_unlock(&nic->nic_mutex);
 			return 0;
 		}
 
@@ -644,6 +643,7 @@ int nic_process_intr(nic_t *nic, int discard_check)
 		(*nic->ops->clear_tx_intr)(nic);
 		ret = 1;
 	}
+	pthread_mutex_unlock(&nic->nic_mutex);
 
 	return ret;
 }
@@ -662,7 +662,8 @@ static void prepare_ipv4_packet(nic_t *nic,
 	dest_ipv4_addr = uip_determine_dest_ipv4_addr(ustack, ipaddr);
 	if(dest_ipv4_addr == LOCAL_BROADCAST)
 	{
-		uip_build_eth_header(ustack, ipaddr, NULL, pkt);
+		uip_build_eth_header(ustack, ipaddr, NULL, pkt,
+				     nic_iface->vlan_id);
 		return;
 	}
 
@@ -673,7 +674,8 @@ static void prepare_ipv4_packet(nic_t *nic,
 			uip_build_eth_header(ustack,
 					     ipaddr,
 					     tabptr,
-					     pkt);
+					     pkt,
+					     nic_iface->vlan_id);
 			break;
 		case NOT_IN_ARP_TABLE:
 			queue_rc = nic_queue_tx_packet(nic,
@@ -725,7 +727,7 @@ static int check_timers(nic_t *nic,
 		timer_reset(periodic_timer);
 
 		if(take_iface_mutex)
-			pthread_mutex_lock(&nic->nic_iface_mutex);
+			pthread_mutex_lock(&nic->nic_mutex);
 
 		current = nic->nic_iface;
 		while(current != NULL)
@@ -798,7 +800,7 @@ static int check_timers(nic_t *nic,
 	        }
 
 		if(take_iface_mutex)
-	        	pthread_mutex_unlock(&nic->nic_iface_mutex);
+	        	pthread_mutex_unlock(&nic->nic_mutex);
 	}
 
 	return 0;
@@ -816,7 +818,10 @@ int process_packets(nic_t *nic,
 	if(pkt == NULL)
 		return -ENOMEM;
 
+	pthread_mutex_lock(&nic->nic_mutex);
 	rc = (*nic->ops->read)(nic, pkt);
+	pthread_mutex_unlock(&nic->nic_mutex);
+
 	if (rc != 0) {
 		uint16_t type;
 		struct uip_stack *ustack;
@@ -836,7 +841,7 @@ int process_packets(nic_t *nic,
 					LOG_ERR(PFX "%s: Couldn't find interface for "
 						    "VLAN: %d",
 						nic->log_name, pkt->vlan_tag);
-					rc =0;
+					rc = 0;
 					goto done;
 				}
 			}
@@ -874,23 +879,29 @@ int process_packets(nic_t *nic,
 		 *  ethernet type */
 		switch(type) {
 		case UIP_ETHTYPE_IPv6:
+			uip_input(ustack);
+			if (ustack->uip_len > 0) {
+				pthread_mutex_lock(&nic->nic_mutex);
+				uip_neighbor_out(ustack);
+
+				(*nic->ops->write)(nic, nic_iface, pkt);
+				pthread_mutex_unlock(&nic->nic_mutex);
+			}
+			break;
 		case UIP_ETHTYPE_IPv4:
-			uip_arp_ipin();
+			uip_arp_ipin(ustack, pkt);
 			uip_input(ustack);
 			/* If the above function invocation resulted 
 			 * in data that should be sent out on the 
 			 * network, the global variable uip_len is 
 			 * set to a value > 0. */
 			if (ustack->uip_len > 0) {
-				if(is_ipv6(ustack))
-					uip_neighbor_out(ustack);
-				else 
-					prepare_ipv4_packet(nic,
-							    nic_iface,
-							    ustack,
-							    pkt);
+				pthread_mutex_lock(&nic->nic_mutex);
+				prepare_ipv4_packet(nic, nic_iface,
+						    ustack, pkt);
 
 				(*nic->ops->write)(nic, nic_iface, pkt);
+				pthread_mutex_unlock(&nic->nic_mutex);
 			}
 			break;
 		case UIP_ETHTYPE_ARP:
@@ -901,8 +912,9 @@ int process_packets(nic_t *nic,
 			 * network, the global variable uip_len 
 			 * is set to a value > 0. */
 			if (pkt->buf_size > 0) {
-
+				pthread_mutex_lock(&nic->nic_mutex);
 				(*nic->ops->write)(nic, nic_iface, pkt);
+				pthread_mutex_unlock(&nic->nic_mutex);
 			}
 			break;
 		}
@@ -921,8 +933,27 @@ static int process_dhcp_loop(nic_t *nic,
 {
 	struct dhcpc_state *s;
 	int rc;
+	struct timeval start_time;
+	struct timeval current_time;
+	struct timeval wait_time;
+	struct timeval total_time;
+	struct timespec sleep_req, sleep_rem;
+
+	sleep_req.tv_sec  = 0;
+	sleep_req.tv_nsec = 250000000;
+
+	wait_time.tv_sec  = 10;
+	wait_time.tv_usec = 0;
 
 	s = nic_iface->ustack.dhcpc;
+
+	if (gettimeofday(&start_time, NULL)) {
+		LOG_ERR(PFX "%s: Couldn't get time of day to start DHCP timer",
+			nic->log_name);
+                return -EIO;
+        }
+
+	timeradd(&start_time, &wait_time, &total_time);
 
 	while ((event_loop_stop == 0) &&
 	       (s->state != STATE_CONFIG_RECEIVED) &&
@@ -939,7 +970,19 @@ static int process_dhcp_loop(nic_t *nic,
 					     nic_iface);
 		}
 
-		sleep(1);
+		if (gettimeofday(&current_time, NULL)) {
+			LOG_ERR(PFX "%s: Couldn't get current time for "
+					"DHCP start", nic->log_name);
+	                return -EIO;
+        	}
+
+		if (timercmp(&total_time, &current_time, <)) {
+			LOG_ERR(PFX "%s: timeout waiting for DHCP",
+				nic->log_name);
+			return -EIO;
+		}
+
+		nanosleep(&sleep_req, &sleep_rem);
 	}
 
 	return 0;
@@ -950,7 +993,9 @@ static void nic_loop_close(void *arg)
 {
 	nic_t *nic = (nic_t *) arg;
 
+	pthread_mutex_lock(&nic->nic_mutex);
 	(*nic->ops->close)(nic, 0);
+	pthread_mutex_unlock(&nic->nic_mutex);
 }
 
 void *nic_loop(void *arg)
@@ -972,9 +1017,9 @@ void *nic_loop(void *arg)
 	pthread_cleanup_push(nic_loop_close, arg);
 
 	/*  Signal the device to enable itself */
-	pthread_mutex_lock(&nic->nic_loop_started_mutex);
+	pthread_mutex_lock(&nic->nic_mutex);
 	pthread_cond_signal(&nic->nic_loop_started_cond);
-	pthread_mutex_unlock(&nic->nic_loop_started_mutex);
+	pthread_mutex_unlock(&nic->nic_mutex);
 
 	while(event_loop_stop == 0) {
 		nic_interface_t *nic_iface;
@@ -985,10 +1030,10 @@ void *nic_loop(void *arg)
 				  nic->log_name);
 
 			/*  Wait for the device to be enabled */
-			pthread_mutex_lock(&nic->enable_wait_mutex);
+			pthread_mutex_lock(&nic->nic_mutex);
 			pthread_cond_wait(&nic->enable_wait_cond,
-					  &nic->enable_wait_mutex);
-			pthread_mutex_unlock(&nic->enable_wait_mutex);
+					  &nic->nic_mutex);
+			pthread_mutex_unlock(&nic->nic_mutex);
 
 			if (nic->state == NIC_EXIT)
 				pthread_exit(NULL);	
@@ -1002,16 +1047,25 @@ void *nic_loop(void *arg)
 		{
 			LOG_ERR(PFX "%s: Could not initialize CNIC UIO device",
 				nic->log_name);
+			goto dev_close;
 		}
 
-//		add_vlan_interfaces(nic);
 		nic_set_all_nic_iface_mac_to_parent(nic);
 
 		rc = alloc_free_queue(nic, 5);
 		if(rc != 5)
 		{
-			LOG_WARN(PFX "%s: Allocated %d packets instead of %d",
-				 nic->log_name, rc, 5);
+			if (rc != 0) {
+				LOG_WARN(PFX "%s: Allocated %d packets "
+					     "instead of %d",
+					 nic->log_name, rc, 5);
+			} else {
+				LOG_ERR(PFX "%s: No packets allocated "
+					    "instead of %d",
+					 nic->log_name, 5);
+
+				goto dev_close;
+			}
 		}
 
 		/*  Initialize the system clocks */
@@ -1019,7 +1073,7 @@ void *nic_loop(void *arg)
 		timer_set(&arp_timer, CLOCK_SECOND * 10);
 
 		/*  Prepare the stack for each of the VLAN interfaces */
-		pthread_mutex_lock(&nic->nic_iface_mutex);
+		pthread_mutex_lock(&nic->nic_mutex);
 
 		nic_iface = nic->nic_iface;
 		while(nic_iface != NULL)
@@ -1039,7 +1093,8 @@ void *nic_loop(void *arg)
 				 nic_iface->mac_addr[4],
 				 nic_iface->mac_addr[5]);
 
-			if( nic_iface->ustack.ip_config == IP_CONFIG_STATIC ) {
+			if (nic_iface->ustack.ip_config ==
+			    IPV4_CONFIG_STATIC) {
 				struct in_addr addr;
 				uip_ip4addr_t tmp = { 0, 0};
 
@@ -1063,11 +1118,11 @@ void *nic_loop(void *arg)
 					      &tmp,
 					      nic_iface->mac_addr);
 
-			} else {
+			} else if (nic_iface->ustack.ip_config ==
+			           IPV4_CONFIG_DHCP) {
 				struct uip_stack *ustack = &nic_iface->ustack;
 				uip_ip4addr_t tmp = { 0, 0};
 				
-
 				set_uip_stack(&nic_iface->ustack, 
 					      &nic_iface->ustack.hostaddr,
 					      &nic_iface->ustack.netmask,
@@ -1076,28 +1131,38 @@ void *nic_loop(void *arg)
 
 				dhcpc_init(nic, ustack,
 					   nic_iface->mac_addr, ETH_ALEN);
+				pthread_mutex_unlock(&nic->nic_mutex);
 				rc = process_dhcp_loop(nic, nic_iface,
 						       &periodic_timer,
 						       &arp_timer);
+				pthread_mutex_lock(&nic->nic_mutex);
 
-				if(nic->flags & NIC_DISABLED)
+				if (rc) {
+					pthread_mutex_unlock(&nic->nic_mutex);
+					goto dev_close;
+				}
+
+				if(nic->flags & NIC_DISABLED) {
+					pthread_mutex_unlock(&nic->nic_mutex);
 					break;
+				}
 
 				LOG_INFO(PFX "%s: Initialized dhcp client",
 					 nic->log_name);
 			}
+			nic_iface->state = NIC_IFACE_RUNNING;
 
 			nic_iface = nic_iface->next;
 		}
 
+		pthread_mutex_unlock(&nic->nic_mutex);
+
                 if(nic->flags & NIC_DISABLED) {
-			LOG_WARN(PFX "%s: nic was disabled durin nic loop "
-				     "closing",
-				 nic->log_name);
+			LOG_WARN(PFX "%s: nic was disabled during nic loop, "
+				     "closing flag 0x%x",
+				 nic->log_name, nic->flags);
                         goto dev_close;
 		}
-
-		pthread_mutex_unlock(&nic->nic_iface_mutex);
 
 		/*  This is when we start the processing of packets */
 		nic->start_time = time(NULL);
@@ -1106,9 +1171,9 @@ void *nic_loop(void *arg)
 		nic->state |= NIC_RUNNING;
 
                 /*  Signal that the device enable is done */
-		pthread_mutex_lock(&nic->enable_done_mutex);
+		pthread_mutex_lock(&nic->nic_mutex);
 		pthread_cond_broadcast(&nic->enable_done_cond);
-		pthread_mutex_unlock(&nic->enable_done_mutex);
+		pthread_mutex_unlock(&nic->nic_mutex);
 
 		LOG_INFO(PFX "%s: is now enabled done", nic->log_name);
 
@@ -1129,13 +1194,23 @@ void *nic_loop(void *arg)
 		}
 
 dev_close:
+		pthread_mutex_lock(&nic->nic_mutex);
+
+		/*  Ensure that the IP configuration is cleared */
+		nic_iface = nic->nic_iface;
+		while(nic_iface != NULL)
+		{
+			nic_iface->ustack.ip_config =
+				(IPV4_CONFIG_OFF | IPV6_CONFIG_OFF);
+			nic_iface = nic_iface->next;
+		}
+
 		nic->state = NIC_STOPPED;
 		nic_close(nic, 1);
 
 		/*  Signal we are done closing CNIC/UIO device */
-		pthread_mutex_lock(&nic->disable_wait_mutex);
 		pthread_cond_broadcast(&nic->disable_wait_cond);
-		pthread_mutex_unlock(&nic->disable_wait_mutex);
+		pthread_mutex_unlock(&nic->nic_mutex);
 	}
 
 	pthread_cleanup_pop(0);
