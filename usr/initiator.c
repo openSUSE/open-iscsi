@@ -1076,6 +1076,20 @@ static void iscsi_login_timedout(void *data)
 	}
 }
 
+static void iscsi_uio_poll_login_timedout(void *data)
+{
+	struct queue_task *qtask = data;
+	struct iscsi_conn *conn = qtask->conn;
+
+	log_debug(3, "timeout waiting for UIO ...\n");
+	/*
+	 * Flush polls and other events
+	 */
+	iscsi_flush_context_pool(conn->session);
+
+	session_conn_shutdown(conn, qtask, MGMT_IPC_ERR_TRANS_TIMEOUT);
+}
+
 static void iscsi_login_redirect(iscsi_conn_t *conn)
 {
 	iscsi_session_t *session = conn->session;
@@ -2025,6 +2039,50 @@ cleanup:
 	session_conn_shutdown(conn, qtask, err);
 }
 
+static void session_conn_uio_poll(void *data)
+{
+	struct iscsi_conn_context *conn_context = data;
+	iscsi_conn_t *conn = conn_context->conn;
+	struct iscsi_session *session = conn->session;
+	queue_task_t *qtask = conn_context->data;
+	int rc;
+
+	log_debug(4, "retrying uio poll");
+	rc = __set_net_config(session->t, session, &conn->session->nrec.iface);
+	if (rc != 0) {
+		if (rc == -EAGAIN) {
+			conn_context->data = qtask;
+			iscsi_sched_conn_context(conn_context, conn, 2,
+						 EV_UIO_POLL);
+			return;
+		} else {
+			log_error("session_conn_uio_poll() "
+				  "connection failure [0x%x]", rc);
+			actor_delete(&conn->login_timer);
+			iscsi_login_eh(conn, qtask, MGMT_IPC_ERR_INTERNAL);
+			iscsi_conn_context_put(conn_context);
+			return;
+		}
+	}
+
+	actor_delete(&conn->login_timer);
+	log_debug(4, "UIO ready trying connect");
+
+	/*  uIP is ready try to connect */
+	if (gettimeofday(&conn->initial_connect_time, NULL))
+		log_error("Could not get initial connect time. If "
+			  "login errors iscsid may give up the initial "
+			  "login early. You should manually login.");
+
+        conn->state = STATE_XPT_WAIT;
+        if (iscsi_conn_connect(conn, qtask)) {
+		int delay = ISCSI_CONN_ERR_REOPEN_DELAY;
+		log_debug(4, "Waiting %u seconds before trying to reconnect.\n", delay);
+		queue_delayed_reopen(qtask, delay);
+        }
+}
+
+
 void iscsi_sched_conn_context(struct iscsi_conn_context *conn_context,
 			      struct iscsi_conn *conn, unsigned long tmo,
 			      int event)
@@ -2058,6 +2116,11 @@ void iscsi_sched_conn_context(struct iscsi_conn_context *conn_context,
 		break;
 	case EV_CONN_POLL:
 		actor_new(&conn_context->actor, session_conn_poll,
+			  conn_context);
+		actor_schedule(&conn_context->actor);
+		break;
+	case EV_UIO_POLL:
+		actor_new(&conn_context->actor, session_conn_uio_poll,
 			  conn_context);
 		actor_schedule(&conn_context->actor);
 		break;
@@ -2175,6 +2238,7 @@ session_login_task(node_rec_t *rec, queue_task_t *qtask)
 	iscsi_session_t *session;
 	iscsi_conn_t *conn;
 	struct iscsi_transport *t;
+	int rc;
 
 	if (session_is_running(rec)) {
 		log_error("session [%s,%s,%d] already running.", rec->name,
@@ -2251,9 +2315,45 @@ session_login_task(node_rec_t *rec, queue_task_t *qtask)
 	conn = &session->conn[0];
 	qtask->conn = conn;
 
-	if (iface_set_param(t, &rec->iface, session)) {
-		__session_destroy(session);
-		return MGMT_IPC_ERR_LOGIN_FAILURE;
+	rc =  iface_set_param(t, &rec->iface, session);
+	if (t->template->set_net_config) {
+		/*  Ensure that the net config setting was taken */
+		if ( rc == -EAGAIN )  {
+			struct iscsi_conn_context *conn_context;
+
+			conn_context = iscsi_conn_context_get(conn, 0);
+			if (!conn_context) {
+				/* while reopening the recv pool should be full */
+				log_error("BUG: __session_conn_reopen could not get conn "
+					  "context for recv.");
+				return ENOMEM;
+			}
+			conn_context->data = qtask;
+			conn->state = STATE_XPT_WAIT;
+
+			iscsi_sched_conn_context(conn_context, conn, 0,
+						 EV_UIO_POLL);
+
+			log_debug(3, "Setting login UIO poll timer "
+				     "%p timeout %d", &conn->login_timer,
+				  conn->login_timeout);
+			actor_timer(&conn->login_timer,
+				    conn->login_timeout * 1000,
+		 		    iscsi_uio_poll_login_timedout, qtask);
+
+			qtask->rsp.command = MGMT_IPC_SESSION_LOGIN;
+			qtask->rsp.err = MGMT_IPC_OK;
+
+			return MGMT_IPC_OK;
+		} else if (rc)  {
+			__session_destroy(session);
+			return MGMT_IPC_ERR_LOGIN_FAILURE;
+		}
+	} else {
+		if (rc)  {
+			__session_destroy(session);
+			return MGMT_IPC_ERR_LOGIN_FAILURE;
+		}
 	}
 
 	conn->state = STATE_XPT_WAIT;

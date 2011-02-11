@@ -398,6 +398,8 @@ int uip_broadcast(void *buf, size_t buf_len)
 		return err;
 	}
 
+	log_debug(3, "connected to uIP daemon");
+
 	/*  Send the data to uIP */
 	if ((err = write(fd, buf, buf_len)) != buf_len) {
 		log_error("got write error (%d/%d), daemon died?",
@@ -405,6 +407,8 @@ int uip_broadcast(void *buf, size_t buf_len)
 		close(fd);
 		return -EIO;
 	}
+
+	log_debug(3, "send iface config to uIP daemon");
 
 	/*  Set the socket to a non-blocking read, this way if there are
 	 *  problems waiting for uIP, iscsid can bailout early */
@@ -424,8 +428,10 @@ int uip_broadcast(void *buf, size_t buf_len)
 		/*  Wait for the response */
 		err = read(fd, &rsp, sizeof(rsp));
 		if (err == sizeof(rsp)) {
-			log_debug(3, "Broadcasted to uIP with length: %ld\n",
-				  buf_len);
+			log_debug(3, "Broadcasted to uIP with length: %ld "
+				     "cmd: 0x%x rsp: 0x%x\n", buf_len,
+				     rsp.command, rsp.err);
+			err = 0;
 			break;
 		} else if((err == -1) && (errno == EAGAIN)) {
 			usleep(250000);
@@ -437,12 +443,18 @@ int uip_broadcast(void *buf, size_t buf_len)
 		}
 	}
 
-	if(count == MAX_UIP_BROADCAST_READ_TRIES)
-		log_error("Could not broadcast to uIP");
+	if (count == MAX_UIP_BROADCAST_READ_TRIES) {
+		log_error("Could not broadcast to uIP after %d tries",
+			  count);
+		err = -EAGAIN;
+	} else if (rsp.err != ISCISD_UIP_MGMT_IPC_DEVICE_UP) {
+		log_debug(3, "Device is not ready\n");
+		err = -EAGAIN;
+	}
 
 	close(fd);
 
-	return 0;
+	return err;
 }
 
 void idbm_node_setup_defaults(node_rec_t *rec)
