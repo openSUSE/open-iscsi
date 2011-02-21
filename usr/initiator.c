@@ -1495,9 +1495,12 @@ static void iscsi_recv_logout_rsp(iscsi_conn_t *conn, struct iscsi_hdr *hdr)
 	log_debug(3, "Recv: logout response\n");
 
 
-	conn->session->def_time2wait = ntohl(logout_rsp->t2wait);
-	log_debug(4, "logout rsp returned time2wait %u",
-		  conn->session->def_time2wait);
+	log_debug(3, "Recv: logout response %d\n", logout_rsp->response);
+	if (logout_rsp->response == 2 || logout_rsp->response == 3) {
+		conn->session->def_time2wait = ntohs(logout_rsp->t2wait);
+		log_debug(4, "logout rsp returned time2wait %u",
+			  conn->session->def_time2wait);
+	}
 	/* TODO process the hdr */
 	__conn_error_handle(conn->session, conn);
 }
