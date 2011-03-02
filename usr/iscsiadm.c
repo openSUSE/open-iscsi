@@ -1604,7 +1604,7 @@ do_sofware_sendtargets(idbm_t *db, discovery_rec_t *drec,
 	 * ops for them
 	 */
 	if (!op)
-		op = OP_NEW | OP_DELETE;
+		op = OP_NEW | OP_DELETE | OP_UPDATE;
 
 	drec->type = DISCOVERY_TYPE_SENDTARGETS;
 	rc = discovery_sendtargets(db, drec, &new_rec_list);
