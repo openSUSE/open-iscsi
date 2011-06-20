@@ -299,6 +299,9 @@ static int bind_conn_to_iface(iscsi_conn_t *conn, struct iface_rec *iface)
 {
 	struct iscsi_session *session = conn->session;
 
+	if (strcmp(iface->transport_name, DEFAULT_TRANSPORT))
+		return 0;
+
 	memset(session->netdev, 0, IFNAMSIZ);
 	if (iface_is_bound_by_hwaddr(iface) &&
 	    net_get_netdev_from_hwaddress(iface->hwaddress, session->netdev)) {
@@ -433,7 +436,7 @@ iscsi_io_tcp_poll(iscsi_conn_t *conn, int timeout_ms)
 	struct pollfd pdesc;
 	char serv[NI_MAXSERV], lserv[NI_MAXSERV];
 	struct sockaddr_storage ss;
-	socklen_t len = sizeof(ss);
+	socklen_t len;
 
 	pdesc.fd = conn->socket_fd;
 	pdesc.events = POLLOUT;
@@ -470,7 +473,7 @@ iscsi_io_tcp_poll(iscsi_conn_t *conn, int timeout_ms)
 	}
 
 	len = sizeof(ss);
-	if (log_level > 0 || !conn->session->netdev)
+	if (log_level > 0 || !conn->session->netdev[0])
 		rc = getsockname(conn->socket_fd, (struct sockaddr *)&ss, &len);
 	if (log_level > 0 && rc >= 0) {
 		getnameinfo((struct sockaddr *) &conn->saddr,
