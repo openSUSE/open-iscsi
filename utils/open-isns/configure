@@ -4373,7 +4373,6 @@ _ACEOF
 esac
 
 if test "$GCC" = "yes"; then
-        CFLAGS="-Wall -fno-strict-aliasing $CFLAGS"
 	CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE"
 fi
 
