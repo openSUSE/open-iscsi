@@ -72,7 +72,7 @@ Authors:
 %patch4 -p1
 
 %build
-%{__make} OPTFLAGS="${RPM_OPT_FLAGS} -DLOCK_DIR=\\\"/etc/iscsi\\\"" user
+%{__make} OPTFLAGS="${RPM_OPT_FLAGS} -DLOCK_DIR=\\\"/etc/iscsi\\\" -DOFFLOAD_BOOT_SUPPORTED" user
 cd brcm_iscsi_uio
 touch NEWS
 touch AUTHORS
