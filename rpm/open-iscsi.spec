@@ -109,12 +109,14 @@ fi
 %defattr(-,root,root)
 %dir /etc/iscsi
 %attr(0600,root,root) %config(noreplace) /etc/iscsi/iscsid.conf
+%attr(0600,root,root) %config(noreplace) /etc/iscsi/initiatorname.iscsi
 %dir /etc/iscsi/ifaces
 %config /etc/iscsi/ifaces/iface.example
 /etc/iscsid.conf
 %config /etc/init.d/open-iscsi
 %config /etc/init.d/boot.open-iscsi
 /sbin/*
+/etc/logrotate.d/*
 %dir /lib/mkinitrd
 %dir /lib/mkinitrd/scripts
 /lib/mkinitrd/scripts/setup-iscsi.sh
