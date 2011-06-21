@@ -1,0 +1,11 @@
+/var/log/brcm-iscsi.log {
+    weekly
+    missingok
+    notifempty
+    rotate 4
+    sharedscripts
+    postrotate
+    pkill -USR1 brcm_iscsiuio 2> /dev/null || true
+    endscript
+}
+
