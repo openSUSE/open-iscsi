@@ -29,6 +29,7 @@ Version:        2.0.872
 Release:        0.<RELEASE26>
 Provides:       linux-iscsi
 Obsoletes:      linux-iscsi
+Recommends:     logrotate
 %define iscsi_release 872
 Summary:        Linux* Open-iSCSI Software Initiator
 Source:         %{name}-2.0-%{iscsi_release}.tar.bz2
@@ -116,7 +117,7 @@ fi
 %config /etc/init.d/open-iscsi
 %config /etc/init.d/boot.open-iscsi
 /sbin/*
-/etc/logrotate.d/*
+%config /etc/logrotate.d/brcm_iscsiuiolog
 %dir /lib/mkinitrd
 %dir /lib/mkinitrd/scripts
 /lib/mkinitrd/scripts/setup-iscsi.sh
