@@ -20,6 +20,7 @@ PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi_discovery utils/iscsi-iname
 INSTALL = install
 ETCFILES = etc/iscsid.conf
 IFACEFILES = etc/iface.example
+OPTFLAGS ?= -O2 -g
 
 # Random comments:
 # using '$(MAKE)' instead of just 'make' allows make to run in parallel
@@ -28,7 +29,7 @@ IFACEFILES = etc/iface.example
 all: user
 
 user: ;
-	cd utils/open-isns; ./configure --with-security=no; $(MAKE)
+	cd utils/open-isns; ./configure CFLAGS="$(OPTFLAGS)" --with-security=no; $(MAKE)
 	$(MAKE) -C utils/sysdeps
 	$(MAKE) -C utils/fwparam_ibft
 	$(MAKE) -C usr
