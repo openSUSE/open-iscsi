@@ -64,10 +64,15 @@ AM_CONDITIONAL([DEBUG], [test x$debug = xtrue])
 
 ISCSID_VERSION_DEFAULT="871"
 ISCSID_VERSION=$ISCSID_VERSION_DEFAULT
+if [ test -f ../usr/version.h ] ; then
+	ISCSID_VERSION=`sed -n 's/.*\"2.0-\(.*\)\"/\1/p' ../usr/version.h`
+	echo "Detected source version $ISCSID_VERSION"
+else
 which iscsid 2>&1 > /dev/null
 if [ test $? -eq 0 ]; then
 	ISCSID_VERSION=`iscsid  -v | awk '{ print $3 }' | awk -F- '{ print $2 }'`
 	echo "Detected iscsid version $ISCSID_VERSION"
+fi
 fi
 
 AC_ARG_WITH(iscsid-version,
