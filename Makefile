@@ -19,6 +19,7 @@ PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi_discovery utils/iscsi-iname iscsi
 INSTALL = install
 ETCFILES = etc/iscsid.conf
 IFACEFILES = etc/iface.example
+OPTFLAGS ?= -O2 -g
 
 # Random comments:
 # using '$(MAKE)' instead of just 'make' allows make to run in parallel
@@ -47,7 +48,7 @@ utils/open-isns/Makefile: utils/open-isns/configure utils/open-isns/Makefile.in
 	cd utils/open-isns; ./configure CFLAGS="$(OPTFLAGS)" --with-security=no
 
 iscsiuio/Makefile: iscsiuio/configure iscsiuio/Makefile.in
-	cd iscsiuio; ./configure
+	cd iscsiuio; ./configure CFLAGS="$(OPTFLAGS)"
 
 iscsiuio/configure iscsiuio/Makefile.in: iscsiuio/configure.ac iscsiuio/Makefile.am
 	cd iscsiuio; autoreconf --install

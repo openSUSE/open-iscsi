@@ -28,7 +28,6 @@ IPC_OBJ=ioctl.o
 endif
 endif
 
-OPTFLAGS ?= -O2 -g
 WARNFLAGS ?= -Wall -Wstrict-prototypes
 CFLAGS += $(OPTFLAGS) $(WARNFLAGS) -I../include -I. -I../utils/open-isns \
 				-D$(OSNAME) $(IPC_CFLAGS)
