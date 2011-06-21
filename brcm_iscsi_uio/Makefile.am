@@ -6,16 +6,14 @@ build_date:
 	echo 'char *build_date ="'`date`'";' > build_date.c
 	echo 'char *build_date; '> build_date.h
 
+dist_man_MANS = docs/brcm_iscsiuio.8
+
 manprefix = /usr/share
 mandir = ${manprefix}/man
-logdir = /etc/logrotate.d
+logdir = $(DESTDIR)/etc/logrotate.d
 
 install-am: all-am
-	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am install-man install-log
-
-install-man:
-	cat docs/brcm_iscsiuio.8 | GZIP=$(GZIP_ENV) gzip -c > brcm_iscsiuio.8.gz
-	$(INSTALL_PROGRAM) brcm_iscsiuio.8.gz $(mandir)/man8
+	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am install-log
 
 install-log:
-	$(INSTALL_PROGRAM) brcm_iscsiuiolog $(logdir)
+	$(INSTALL_DATA) -D brcm_iscsiuiolog $(logdir)/brcm_iscsiuiolog
