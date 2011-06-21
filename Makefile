@@ -13,6 +13,7 @@ bindir = $(exec_prefix)/bin
 mandir = $(prefix)/share/man
 etcdir = /etc
 initddir = $(etcdir)/init.d
+mkinitrd = $(exec_prefix)/lib/mkinitrd/scripts
 
 MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8
 PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi_discovery utils/iscsi-iname
@@ -96,6 +97,13 @@ install_initd_suse:
 		$(DESTDIR)$(initddir)/open-iscsi
 	$(INSTALL) -m 755 etc/initd/boot.suse \
 		$(DESTDIR)$(initddir)/boot.open-iscsi
+	$(INSTALL) -d $(DESTDIR)$(mkinitrd)
+	$(INSTALL) -m 755 etc/mkinitrd/mkinitrd-boot.sh \
+		$(DESTDIR)$(mkinitrd)/boot-iscsi.sh
+	$(INSTALL) -m 755 etc/mkinitrd/mkinitrd-setup.sh \
+		$(DESTDIR)$(mkinitrd)/setup-iscsi.sh
+	$(INSTALL) -m 755 etc/mkinitrd/mkinitrd-stop.sh \
+		$(DESTDIR)$(mkinitrd)/boot-killiscsi.sh
 
 install_initd_redhat:
 	$(INSTALL) -d $(DESTDIR)$(initddir)
