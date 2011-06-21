@@ -25,54 +25,18 @@ License:        GPL v2 or later
 Group:          Productivity/Networking/Other
 PreReq:         %fillup_prereq %insserv_prereq
 AutoReqProv:    on
-Version:        2.0.871
+Version:        2.0.872
 Release:        0.<RELEASE26>
 Provides:       linux-iscsi
 Obsoletes:      linux-iscsi
 %define iscsi_release 865
 Summary:        Linux* Open-iSCSI Software Initiator
-Source:         %{name}-2.0-871.tar.bz2
+Source:         %{name}-2.0-872.tar.bz2
 Source11:       iscsi-gen-initiatorname.sh
-Patch1:         %{name}-git-update
-Patch2:         %{name}-update-init-script
-Patch3:         %{name}-add-mkinitrd-scriptlets
-Patch4:         %{name}-install-mkinitrd-scriptlets
-Patch5:         %{name}-add-ibft-scriptlet
-Patch6:         %{name}-allow-onboot-for-loginall
-Patch7:         %{name}-option-no-pid-file
-Patch8:         %{name}-set-LOCK_DIR-during-compilation
-Patch9:         %{name}-fixup-onboot-for-loginall
-Patch10:        %{name}-remove-dump-char
-Patch11:        %{name}-allow-empty-usernames-for-chap
-Patch12:        %{name}-overflow-search-ibft
-Patch13:        %{name}-synchronize-startup-settings
-Patch14:        %{name}-do-not-use-temp-file-in-iscsi_discovery
-Patch15:        %{name}-do-not-build-modules-without-kernel-source
-Patch16:        %{name}-fixup-init-scripts
-Patch17:        %{name}-ibft-upstream-kernel-compat
-Patch18:        %{name}-dont-modify-network-with-no-ibft
-Patch19:        %{name}-use-correct-ibft-origin-value
-Patch20:        %{name}-add-brcm-uip
-Patch21:        %{name}-brcm-uip-build-fixes
-Patch22:        %{name}-start-brcm-uip-conditionally
-Patch23:        %{name}-missing-include
-Patch24:        %{name}-dont-close-sessions-if-umount-fails
-Patch25:        %{name}-update-brcm-uip-to-0.5.7
-Patch26:        %{name}-load-transport-modules-if-configured
-Patch27:        %{name}-do-not-umount-rootfs
-Patch28:        %{name}-set-nettype-correctly-when-dhcp-failed
-Patch29:        %{name}-correct-shutdown-messages
-Patch30:        %{name}-remove-ibft-mkinitrd-scripts
-Patch31:        %{name}-set-correct-interface-variable-for-mkinitrd
-Patch32:        %{name}-no-SIGTERM-to-pid-0
-Patch33:        %{name}-start-multipath-before-iscsi
-Patch34:        %{name}-init-script-returns-failure-on-stop
-Patch35:        %{name}-extract-correct-session-information-from-firmware
-Patch36:        %{name}-start-multipathd-before-open-iscsi
-Patch37:        %{name}-handle-offload-sessions
-Patch38:        %{name}-teardown-block-devices-on-stop
-Patch39:        %{name}-dont-show-failed-for-root-on-iscsi-fix
-Patch40:        %{name}-fix-iSCSI-actor-list-corruption
+Patch1:         %{name}-git-update.diff.bz2
+Patch2:         %{name}-git-merge.diff.bz2
+Patch3:         %{name}-brcm_iscsi_uio.diff.bz2
+Patch4:         %{name}-sles11-sp2.diff.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -106,42 +70,6 @@ Authors:
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
-%patch5 -p1
-%patch6 -p1
-%patch7 -p1
-%patch8 -p1
-%patch9 -p1
-%patch10 -p1
-%patch11 -p1
-%patch12 -p1
-%patch13 -p1
-%patch14 -p1
-%patch15 -p1
-%patch16 -p1
-%patch17 -p1
-%patch18 -p1
-%patch19 -p1
-%patch20 -p1
-%patch21 -p1
-%patch22 -p1
-%patch23 -p1
-%patch24 -p1
-%patch25 -p1
-%patch26 -p1
-%patch27 -p1
-%patch28 -p1
-%patch29 -p1
-%patch30 -p1
-%patch31 -p1
-%patch32 -p1
-%patch33 -p1
-%patch34 -p1
-%patch35 -p1
-%patch36 -p1
-%patch37 -p1
-%patch38 -p1
-%patch39 -p1
-%patch40 -p1
 
 %build
 %{__make} OPTFLAGS="${RPM_OPT_FLAGS} -DLOCK_DIR=\\\"/etc/iscsi\\\"" user
