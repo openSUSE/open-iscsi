@@ -29,9 +29,9 @@ Version:        2.0.872
 Release:        0.<RELEASE26>
 Provides:       linux-iscsi
 Obsoletes:      linux-iscsi
-%define iscsi_release 865
+%define iscsi_release 872
 Summary:        Linux* Open-iSCSI Software Initiator
-Source:         %{name}-2.0-872.tar.bz2
+Source:         %{name}-2.0-%{iscsi_release}.tar.bz2
 Source11:       iscsi-gen-initiatorname.sh
 Patch1:         %{name}-git-update.diff.bz2
 Patch2:         %{name}-git-merge.diff.bz2
@@ -65,7 +65,7 @@ Authors:
     open-iscsi@googlegroups.com
 
 %prep
-%setup -n %{name}-2.0-871
+%setup -n %{name}-2.0-%{iscsi_release}
 %patch1 -p1
 %patch2 -p1
 %patch3 -p1
