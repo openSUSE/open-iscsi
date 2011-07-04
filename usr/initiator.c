@@ -1492,8 +1492,6 @@ static void iscsi_recv_nop_in(iscsi_conn_t *conn, struct iscsi_hdr *hdr)
 static void iscsi_recv_logout_rsp(iscsi_conn_t *conn, struct iscsi_hdr *hdr)
 {
 	struct iscsi_logout_rsp *logout_rsp = (struct iscsi_logout_rsp *)hdr;
-	log_debug(3, "Recv: logout response\n");
-
 
 	log_debug(3, "Recv: logout response %d\n", logout_rsp->response);
 	if (logout_rsp->response == 2 || logout_rsp->response == 3) {

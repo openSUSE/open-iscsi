@@ -26,7 +26,17 @@ MAIN = fwparam_main.o
 LIB = libfwparam.a
 OBJS := fwparam_ibft.o fw_entry.o
 OBJS += prom_lex.o prom_parse.tab.o fwparam_ppc.o
-CLEANFILES = $(OBJS) *.output *~
+GENFILES := prom_lex.c prom_parse.tab.c prom_parse.tab.h
+CLEANFILES = $(OBJS) $(GENFILES) *.output *~
+
+BISONFLAGS = -d
+FLEXFLAGS =  -t
+# turn off #line number markers
+NOL = 0
+ifneq (0 ,$(NOL))
+	FLEXFLAGS += -L
+	BISONFLAGS +=  --no-lines
+endif # NOL
 
 OPTFLAGS ?= -O2 -g -fPIC
 WARNFLAGS ?= -Wall -Wstrict-prototypes
@@ -39,6 +49,14 @@ $(LIB): $(OBJS)
 
 clean:
 	rm -f *.o $(CLEANFILES) .depend
+
+%.c : %.l
+	flex ${FLEXFLAGS} $< | perl -pe '/define YYLMAX/ && s{8192}{2048}' >$@
+
+%.tab.c %.tab.h: %.y
+	bison  ${BISONFLAGS} $<
+
+$(GENFILES): Makefile
 
 $(OBJS): prom_parse.tab.h prom_parse.h fwparam_ibft.h
 

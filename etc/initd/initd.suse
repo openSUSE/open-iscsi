@@ -229,7 +229,7 @@ iscsi_check_if_mounted()
     local dev=$1
     local d m t o x p
 
-    cat /proc/mounts | sed -ne '/^\/dev\/.*/p' | while read d m t o x; do 
+    cat /proc/mounts | sed -ne '/^\/dev\/.*/p' | while read d m t o x; do
 	if [ -L "$d" ] ; then
 	    d=$(readlink -f $d)
 	fi
@@ -275,10 +275,10 @@ iscsi_check_holders()
 
 #
 # Unwind block device stack
-# 
+#
 # Stops unwinding if either no more 'holders'
 # are found or if a device is mounted
-# 
+#
 # Unmounts top-level device and deconfigures
 # all devices down the stack
 #

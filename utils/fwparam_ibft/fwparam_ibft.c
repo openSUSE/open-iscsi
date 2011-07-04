@@ -34,12 +34,12 @@
 #include "fwparam_ibft.h"
 #include "fw_context.h"
 
-char ID_ROMEXT[]={0x55, 0xaa, 0}; /* extended rom magic */
-
 char *progname = "fwparam_ibft";
 int debug;
 int dev_count;
 char filename[FILENAMESZ];
+
+char ID_ROMEXT[]={0x55, 0xaa, 0}; /* extended rom magic */
 
 const char nulls[16]; /* defaults to zero */
 
@@ -161,7 +161,7 @@ format_netmask(char *buf, size_t size, uint8_t mask)
 	uint32_t tmp;
 
 	tmp = 0xffffffff << (32 - mask);
-	sprintf(buf,"%02x.%02x.%02x.%02x",
+	sprintf(buf,"%d.%d.%d.%d",
 		(tmp >> 24) & 0xff,
 		(tmp >> 16) & 0xff,
 		(tmp >>  8) & 0xff,
