@@ -2057,6 +2057,10 @@ static int idbm_rec_write(idbm_t *db, node_rec_t *rec)
 	}
 
 	if (!S_ISDIR(statb.st_mode)) {
+		if (rec->tpgt == PORTAL_GROUP_TAG_UNKNOWN)
+			/* drop down to old style portal as config */
+			goto open_conf;
+
 		/*
 		 * Old style portal as a file. Let's update it.
 		 */
