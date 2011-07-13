@@ -1,4 +1,4 @@
-dnl brcm_iscsiuio uIP user space stack configure.ac file
+dnl iscsiuio uIP user space stack configure.ac file
 dnl
 dnl Copyright (c) 2004-2011 Broadcom Corporation
 dnl
@@ -10,10 +10,10 @@ dnl Written by: Benjamin Li  (benli@broadcom.com)
 dnl Maintained by: Eddie Wai (eddie.wai@broadcom.com)
 dnl
 
-PACKAGE=brcm_iscsiuio
-VERSION=0.7.0.4
+PACKAGE=iscsiuio
+VERSION=0.7.0.7
 
-AC_INIT(brcm_iscsi, 0.7.0.4, eddie.wai@broadcom.com)
+AC_INIT(iscsiuio, 0.7.0.7, eddie.wai@broadcom.com)
 
 AM_INIT_AUTOMAKE($PACKAGE, $VERSION)
 AC_CONFIG_HEADER(config.h)
@@ -64,15 +64,10 @@ AM_CONDITIONAL([DEBUG], [test x$debug = xtrue])
 
 ISCSID_VERSION_DEFAULT="871"
 ISCSID_VERSION=$ISCSID_VERSION_DEFAULT
-if [ test -f ../usr/version.h ] ; then
-	ISCSID_VERSION=`sed -n 's/.*\"2.0-\(.*\)\"/\1/p' ../usr/version.h`
-	echo "Detected source version $ISCSID_VERSION"
-else
 which iscsid 2>&1 > /dev/null
 if [ test $? -eq 0 ]; then
 	ISCSID_VERSION=`iscsid  -v | awk '{ print $3 }' | awk -F- '{ print $2 }'`
 	echo "Detected iscsid version $ISCSID_VERSION"
-fi
 fi
 
 AC_ARG_WITH(iscsid-version,

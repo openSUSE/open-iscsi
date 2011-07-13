@@ -1,6 +1,6 @@
 Broadcom iSCSI Userspace Tools
-Version 0.7.0.4
-May 24, 2011
+Version 0.7.0.7
+Jun 23, 2011
 ------------------------------------------------------
 
 This tools is to be used in conjunction with the Broadcom NetXtreme II Linux
@@ -18,7 +18,7 @@ The communication to the driver is done via Userspace I/O (Kernel module name
 
 There is one component to this application:
 
-1.  'brcm_iscsiuio' - This is the daemon which aids in creating iSCSI offloaded
+1.  'iscsiuio' - This is the daemon which aids in creating iSCSI offloaded
                       connections.
 
 Dependencies:
@@ -40,7 +40,7 @@ Directory Structure of this Package:
      |
      +- uip - the uIP stack
      |
-     +- unix - brcm_iscsiuio source
+     +- unix - iscsiuio source
      
 
 
@@ -50,7 +50,7 @@ Compiling / Installing
 1.  Please untar the tarball.
 2.  Run the configure script.  This will create the Makefiles and proper
     header files needed for the build.
-3.  Run 'make'.  This will create the binary, 'brcm_iscsiuio'
+3.  Run 'make'.  This will create the binary, 'iscsiuio'
 4.  Run 'make install' to place the binaries in their installed location.
     (The default location is '/sbin')
 
@@ -181,16 +181,16 @@ generated depending on the destination IP address.
 Debugging:
 =======================================
 
-The brcm_iscsiuio daemon will output messages to the log file,
-'/var/log/brcm-iscsi.log'.  These messages can be used to help debug any issues.
+The iscsiuio daemon will output messages to the log file,
+'/var/log/iscsiuio.log'.  These messages can be used to help debug any issues.
 
 A sample banner message:
 
-INFO  [Wed Feb 17 15:59:13 2010]Started BRCM iSCSI stack: Ver 0.5.2
-INFO  [Wed Feb 17 15:59:13 2010]Build date: Wed Feb 17 15:36:04 PST 2010
-INFO  [Wed Feb 17 15:59:13 2010]Debug mode enabled
+INFO  [Mon Jun 20 11:23:14 2011]Started iSCSI uio stack: Ver 0.7.0.6
+INFO  [Mon Jun 20 11:23:14 2011]Build date: Mon Jun 20 11:22:05 PDT 2011
+INFO  [Mon Jun 20 11:23:14 2011]Debug mode enabled
 
-When debugging issues like the iscsid, the brcm_iscsiuio daemon can be run
+When debugging issues like the iscsid, the iscsiuio daemon can be run
 in the foreground and the maximum debugging level should be used.
 
 To place the daemon in foreground mode please pass the parameter '-f'
@@ -205,15 +205,15 @@ ERROR         1 - Only print critical errors
 
 Note: The messages to the log file are not flushed unless debugging is enabled.
 
-Note:  If the daemon brcm_iscsiuio is running, one will not be able to
+Note:  If the daemon iscsiuio is running, one will not be able to
        trample over the exisiting binary.  One might see the following message:
 
-       'cannot create regular file `/sbin/brcm_iscsiuio': Text file busy'
+       'cannot create regular file `/sbin/iscsiuio': Text file busy'
 
        The solve this, please stop the iscsid service and then install.
 
 Warning:  If full debug is enabled, this may quickly fill the partition
-containing the brcm_iscsiuio logs.  This is because full debugging will log
+containing the iscsiuio logs.  This is because full debugging will log
 packet activity which on a busy network will quickly fill the logs.
 
 Note:  If the bnx2i and cnic drivers are unloaed,  Then uIP will also need to be restarted so that it can determine the drvier version.

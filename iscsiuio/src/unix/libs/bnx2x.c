@@ -347,12 +347,21 @@ error:
 
 }
 
+static inline int bnx2x_is_ver70(bnx2x_t *bp)
+{
+	return (bp->version.major == 1 && bp->version.minor == 70);
+}
+
 static inline int bnx2x_is_ver60(bnx2x_t * bp)
 {
 	return (bp->version.major == 1 && (bp->version.minor == 60 ||
 					   bp->version.minor == 62 ||
-					   bp->version.minor == 64 ||
-					   bp->version.minor == 70));
+					   bp->version.minor == 64));
+}
+
+static inline int bnx2x_is_ver60_plus(bnx2x_t *bp)
+{
+	return bnx2x_is_ver60(bp) || bnx2x_is_ver70(bp);
 }
 
 static inline int bnx2x_is_ver52(bnx2x_t * bp)
@@ -519,7 +528,8 @@ static __u16 bnx2x_get_rx(bnx2x_t * bp)
 	rx_comp_cons =
 	    sblk->u_def_status_block.
 	    index_values[HC_INDEX_DEF_U_ETH_ISCSI_RX_CQ_CONS];
-	if ((rx_comp_cons & BNX2X_MAX_RCQ_DESC_CNT) == BNX2X_MAX_RCQ_DESC_CNT)
+	if ((rx_comp_cons & BNX2X_MAX_RCQ_DESC_CNT(bp)) ==
+	    BNX2X_MAX_RCQ_DESC_CNT(bp))
 		rx_comp_cons++;
 
 	return rx_comp_cons;
@@ -533,7 +543,8 @@ static __u16 bnx2x_get_rx_60(bnx2x_t * bp)
 	msync(sblk, sizeof(*sblk), MS_SYNC);
 	rx_comp_cons =
 	    sblk->sp_sb.index_values[HC_SP_INDEX_ETH_ISCSI_RX_CQ_CONS];
-	if ((rx_comp_cons & BNX2X_MAX_RCQ_DESC_CNT) == BNX2X_MAX_RCQ_DESC_CNT)
+	if ((rx_comp_cons & BNX2X_MAX_RCQ_DESC_CNT(bp)) ==
+	    BNX2X_MAX_RCQ_DESC_CNT(bp))
 		rx_comp_cons++;
 
 	return rx_comp_cons;
@@ -741,7 +752,7 @@ static int bnx2x_open(nic_t * nic)
 
 	msync(bp->reg, BNX2X_BAR_SIZE, MS_SYNC);
 
-	if (bnx2x_is_ver60(bp))
+	if (bnx2x_is_ver60_plus(bp))
 		bp->status_blk_size = sizeof(struct host_sp_status_block);
 	else if (bnx2x_is_ver52(bp))
 		bp->status_blk_size = sizeof(struct host_def_status_block);
@@ -776,7 +787,7 @@ static int bnx2x_open(nic_t * nic)
 		goto open_error;
 	}
 
-	bp->rx_comp_ring = (union eth_rx_cqe *)
+	bp->rx_comp_ring.cqe = (union eth_rx_cqe *)
 	    (((__u8 *) bp->tx_ring) + 2 * getpagesize());
 
 	bp->bufs = mmap(NULL, (bp->rx_ring_size + 1) * bp->rx_buffer_size,
@@ -819,13 +830,13 @@ static int bnx2x_open(nic_t * nic)
 		bp->pfid = func;
 	}
 
-	if (bnx2x_is_ver60(bp))
+	if (bnx2x_is_ver60_plus(bp))
 		bp->port = bp->pfid & 1;
 
 	bp->cid = 17;
 	bp->client_id = 17;
 
-	if (bnx2x_is_ver60(bp)) {
+	if (bnx2x_is_ver60_plus(bp)) {
 		struct client_init_general_data *data = bp->bufs;
 
 		bp->client_id = data->client_id;
@@ -841,7 +852,7 @@ static int bnx2x_open(nic_t * nic)
 	else if (CHIP_IS_E2_PLUS(bp))
 		bp->iro = e2_iro;
 
-	if (bnx2x_is_ver60(bp)) {
+	if (bnx2x_is_ver60_plus(bp)) {
 		__u32 cl_qzone_id = BNX2X_CL_QZONE_ID(bp, bp->client_id);
 
 		bp->iro_idx = 0;
@@ -900,7 +911,7 @@ static int bnx2x_open(nic_t * nic)
 	nic->mac_addr[4] = (__u8) (val >> 8);
 	nic->mac_addr[5] = (__u8) val;
 
-	if (bnx2x_is_ver60(bp) && CHIP_IS_E2_PLUS(bp)) {
+	if (bnx2x_is_ver60_plus(bp) && CHIP_IS_E2_PLUS(bp)) {
 		__u32 mf_cfg_addr = 0;
 
 		val = bnx2x_rd32(bp, (BNX2X_PATH(bp) ? MISC_REG_GENERIC_CR_1 :
@@ -1125,8 +1136,20 @@ static void bnx2x_prepare_xmit_packet(nic_t * nic,
 				      struct packet *pkt)
 {
 	bnx2x_t *bp = (bnx2x_t *) nic->priv;
+	struct uip_vlan_eth_hdr *eth_vlan = (struct uip_vlan_eth_hdr *)pkt->buf;
+	struct uip_eth_hdr *eth = (struct uip_eth_hdr *)bp->tx_pkt;
 
-	memcpy(bp->tx_pkt, pkt->buf, pkt->buf_size);
+	if (eth_vlan->tpid == htons(UIP_ETHTYPE_8021Q)) {
+		memcpy(bp->tx_pkt, pkt->buf, sizeof(struct uip_eth_hdr));
+		eth->type = eth_vlan->type;
+		pkt->buf_size -= (sizeof(struct uip_vlan_eth_hdr) -
+				  sizeof(struct uip_eth_hdr));
+		memcpy(bp->tx_pkt + sizeof(struct uip_eth_hdr),
+		       pkt->buf + sizeof(struct uip_vlan_eth_hdr),
+		       pkt->buf_size - sizeof(struct uip_eth_hdr));
+	} else
+		memcpy(bp->tx_pkt, pkt->buf, pkt->buf_size);
+
 	msync(bp->tx_pkt, pkt->buf_size, MS_SYNC);
 }
 
@@ -1257,7 +1280,10 @@ static inline int bnx2x_get_rx_pad(bnx2x_t * bp, union eth_rx_cqe *cqe)
 {
 	int pad = 0;
 
-	if (bnx2x_is_ver60(bp)) {
+	if (bnx2x_is_ver70(bp))
+		pad = ((union eth_rx_cqe_70 *)cqe)->fast_path_cqe_70. \
+						    placement_offset;
+	else if (bnx2x_is_ver60(bp)) {
 		if (bp->version.minor >= 64)
 			pad = cqe->fast_path_cqe_64.placement_offset;
 		else
@@ -1291,21 +1317,29 @@ static int bnx2x_read(nic_t * nic, packet_t * pkt)
 	bd_prod = BNX2X_RX_BD(bp->rx_bd_prod);
 
 	if (sw_cons != hw_cons) {
-		uint16_t comp_ring_index = sw_cons & BNX2X_MAX_RCQ_DESC_CNT;
+		uint16_t comp_ring_index = sw_cons & BNX2X_MAX_RCQ_DESC_CNT(bp);
 		uint8_t ring_index;
 		union eth_rx_cqe *cqe;
 		__u8 cqe_fp_flags;
 		void *rx_pkt;
-		int len, pad;
+		int len, pad, cqe_size;
 		rc = 1;
 
-		cqe = &bp->rx_comp_ring[comp_ring_index];
+		if (bnx2x_is_ver70(bp)) {
+			cqe = (union eth_rx_cqe *)
+			      &bp->rx_comp_ring.cqe70[comp_ring_index];
+			cqe_size = sizeof(union eth_rx_cqe_70);
+		} else {
+			cqe = &bp->rx_comp_ring.cqe[comp_ring_index];
+			cqe_size = sizeof(union eth_rx_cqe);
+		}
 		cqe_fp_flags = cqe->fast_path_cqe.type_error_flags;
 
 		LOG_DEBUG(PFX "%s: clearing rx interrupt: %d %d",
 			  nic->log_name, sw_cons, hw_cons);
 
-		msync(cqe, sizeof(*cqe), MS_SYNC);
+		msync(cqe, cqe_size, MS_SYNC);
+
 		if (!(cqe_fp_flags & ETH_FAST_PATH_RX_CQE_TYPE)) {
 			ring_index = bd_cons % 15;
 			len = cqe->fast_path_cqe.pkt_len;
@@ -1347,8 +1381,8 @@ static int bnx2x_read(nic_t * nic, packet_t * pkt)
 			bd_prod = BNX2X_NEXT_RX_IDX(bd_prod);
 
 		}
-		sw_cons = BNX2X_NEXT_RCQ_IDX(sw_cons);
-		bp->rx_prod = BNX2X_NEXT_RCQ_IDX(bp->rx_prod);
+		sw_cons = BNX2X_NEXT_RCQ_IDX(bp, sw_cons);
+		bp->rx_prod = BNX2X_NEXT_RCQ_IDX(bp, bp->rx_prod);
 	}
 	bp->rx_cons = sw_cons;
 	bp->rx_bd_cons = bd_cons;

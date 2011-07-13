@@ -248,6 +248,16 @@ struct common_ramrod_eth_rx_cqe {
 	__u32 reserved2[4];
 };
 
+struct common_ramrod_eth_rx_cqe_70 {
+	volatile __u8 ramrod_type;
+	volatile __u8 conn_type;
+	volatile __u16 reserved1;
+	volatile __u32 conn_and_cmd_data;
+	struct ramrod_data protocol_data;
+	__u32 echo;
+	__u32 reserved2[11];
+};
+
 struct parsing_flags {
 	volatile __u16 flags;
 };
@@ -333,10 +343,30 @@ struct eth_fast_path_rx_cqe_64 {
 	union eth_sgl_or_raw_data sgl_or_raw_data;
 };
 
+struct eth_fast_path_rx_cqe_70 {
+	volatile __u8 type_error_flags;
+	volatile __u8 status_flags;
+	volatile __u8 queue_index;
+	volatile __u8 placement_offset;
+	volatile __u32 rss_hash_result;
+	volatile __u16 vlan_tag;
+	volatile __u16 pkt_len;
+	volatile __u16 len_on_bd;
+	struct parsing_flags pars_flags;
+	union eth_sgl_or_raw_data sgl_or_raw_data;
+	__u32 reserved1[8];
+};
+
 struct eth_rx_cqe_next_page {
 	__u32 addr_lo;
 	__u32 addr_hi;
 	__u32 reserved[6];
+};
+
+struct eth_rx_cqe_next_page_70 {
+	__u32 addr_lo;
+	__u32 addr_hi;
+	__u32 reserved[14];
 };
 
 union eth_rx_cqe {
@@ -344,6 +374,12 @@ union eth_rx_cqe {
 	struct eth_fast_path_rx_cqe_64 fast_path_cqe_64;
 	struct common_ramrod_eth_rx_cqe ramrod_cqe;
 	struct eth_rx_cqe_next_page next_page_cqe;
+};
+
+union eth_rx_cqe_70 {
+	struct eth_fast_path_rx_cqe_70 fast_path_cqe_70;
+	struct common_ramrod_eth_rx_cqe_70 ramrod_cqe_70;
+	struct eth_rx_cqe_next_page_70 next_page_cqe_70;
 };
 
 struct client_init_general_data {
@@ -416,8 +452,8 @@ struct client_init_general_data {
 #define MISC_REG_CHIP_NUM				0xa408
 #define MISC_REG_CHIP_REV				0xa40c
 
-#define MISC_REG_PORT4MODE_EN				0x4750
-#define MISC_REG_PORT4MODE_EN_OVWR			0x4720
+#define MISC_REG_PORT4MODE_EN				0xa750
+#define MISC_REG_PORT4MODE_EN_OVWR			0xa720
 
 #define MISC_REG_GENERIC_CR_0				0xa460
 #define MISC_REG_GENERIC_CR_1				0xa464
@@ -456,10 +492,10 @@ struct iro {
 				   ETH_MAX_RX_CLIENTS_E1H))
 
 #define BNX2X_CL_QZONE_ID_64(bp, cli)					\
-		(CHIP_IS_E2(bp) ? (cli) :				\
+		(CHIP_IS_E2_PLUS(bp) ? (cli) :				\
 		 (cli + (bp->port * ETH_MAX_RX_CLIENTS_E1H)))
 
-#define BNX2X_PATH(bp)			(!CHIP_IS_E2(bp) ? 0 : (bp)->func & 1)
+#define BNX2X_PATH(bp)		(!CHIP_IS_E2_PLUS(bp) ? 0 : (bp)->func & 1)
 
 #define	SHMEM_P0_ISCSI_MAC_UPPER	0x4c
 #define	SHMEM_P0_ISCSI_MAC_LOWER	0x50
@@ -473,7 +509,9 @@ struct iro {
 	(((bp)->port == 0) ? SHMEM_P0_ISCSI_MAC_LOWER : SHMEM_P1_ISCSI_MAC_LOWER)
 
 #define BNX2X_RCQ_DESC_CNT	(4096 / sizeof(union eth_rx_cqe))
-#define BNX2X_MAX_RCQ_DESC_CNT		(BNX2X_RCQ_DESC_CNT - 1)
+#define BNX2X_RCQ_DESC_CNT_70	(4096 / sizeof(union eth_rx_cqe_70))
+#define BNX2X_MAX_RCQ_DESC_CNT(bp)	\
+	((bnx2x_is_ver70(bp) ? BNX2X_RCQ_DESC_CNT_70 : BNX2X_RCQ_DESC_CNT) - 1)
 
 #define BNX2X_RX_DESC_CNT	(4096 / sizeof(struct eth_rx_bd))
 #define BNX2X_MAX_RX_DESC_CNT		(BNX2X_RX_DESC_CNT - 2)
@@ -486,8 +524,9 @@ struct iro {
 #define BNX2X_NEXT_RX_IDX(x)	((((x) & (BNX2X_RX_DESC_CNT - 1)) == \
 				  (BNX2X_MAX_RX_DESC_CNT - 1)) ? (x) + 3 : (x) + 1)
 
-#define BNX2X_NEXT_RCQ_IDX(x)	((((x) & BNX2X_MAX_RCQ_DESC_CNT) == \
-				  (BNX2X_MAX_RCQ_DESC_CNT - 1)) ? (x) + 2 : (x) + 1)
+#define BNX2X_NEXT_RCQ_IDX(bp, x)	\
+			((((x) & BNX2X_MAX_RCQ_DESC_CNT(bp)) == \
+			  (BNX2X_MAX_RCQ_DESC_CNT(bp) - 1)) ? (x) + 2 : (x) + 1)
 #define BNX2X_RX_BD(x)		((x) & BNX2X_MAX_RX_BD)
 
 #define BNX2X_NEXT_TX_BD(x) (((x) & (BNX2X_MAX_TX_DESC_CNT - 1)) ==	\
@@ -579,7 +618,10 @@ typedef struct bnx2x {
 	int status_blk_size;
 
 	uint16_t rx_index;
-	union eth_rx_cqe *rx_comp_ring;
+	union {
+		union eth_rx_cqe *cqe;
+		union eth_rx_cqe_70 *cqe70;
+	} rx_comp_ring;
 	void **rx_pkt_ring;
 
 	struct eth_tx_start_bd *tx_ring;

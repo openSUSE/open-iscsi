@@ -69,6 +69,7 @@
  *  Constants
  *****************************************************************************/
 #define PFX "nic "
+#define PCI_ANY_ID (~0)
 
 /******************************************************************************
  *  Global variables
@@ -348,12 +349,12 @@ int find_nic_lib_using_pci_id(uint32_t vendor, uint32_t device,
 				  pci_table[i].subvendor,
 				  pci_table[i].subdevice);
 
-			if (((vendor & pci_table[i].vendor) == vendor) &&
-			    /* Device ID must be unique, no mask */
+			if ((pci_table[i].vendor == vendor) &&
 			    (pci_table[i].device == device) &&
-			    ((subvendor & pci_table[i].subvendor) == subvendor)
-			    && ((subdevice & pci_table[i].subdevice) ==
-				subdevice)) {
+			    (pci_table[i].subvendor == PCI_ANY_ID ||
+			     pci_table[i].subvendor == subvendor) &&
+			    (pci_table[i].subdevice == PCI_ANY_ID ||
+			     pci_table[i].subdevice == subdevice)) {
 				*handle = current;
 				*pci_entry = &pci_table[i];
 				rc = 0;
@@ -753,11 +754,14 @@ static void prepare_ipv4_packet(nic_t * nic,
 	dest_ipv4_addr_t dest_ipv4_addr;
 	struct arp_entry *tabptr;
 	int queue_rc;
+	int vlan_id = 0;
+
+	if (nic_iface->vlan_id && !(NIC_VLAN_STRIP_ENABLED & nic->flags))
+		vlan_id = nic_iface->vlan_id;
 
 	dest_ipv4_addr = uip_determine_dest_ipv4_addr(ustack, ipaddr);
 	if (dest_ipv4_addr == LOCAL_BROADCAST) {
-		uip_build_eth_header(ustack, ipaddr, NULL, pkt,
-				     nic_iface->vlan_id);
+		uip_build_eth_header(ustack, ipaddr, NULL, pkt, vlan_id);
 		return;
 	}
 
@@ -766,7 +770,7 @@ static void prepare_ipv4_packet(nic_t * nic,
 	switch (arp_query) {
 	case IS_IN_ARP_TABLE:
 		uip_build_eth_header(ustack,
-				     ipaddr, tabptr, pkt, nic_iface->vlan_id);
+				     ipaddr, tabptr, pkt, vlan_id);
 		break;
 	case NOT_IN_ARP_TABLE:
 		queue_rc = nic_queue_tx_packet(nic, nic_iface, pkt);
@@ -784,14 +788,18 @@ static void prepare_ipv6_packet(nic_t * nic,
 {
 	struct uip_eth_hdr *eth;
 	struct uip_vlan_eth_hdr *eth_vlan;
+	int vlan_id = 0;
+
+	if (nic_iface->vlan_id && !(NIC_VLAN_STRIP_ENABLED & nic->flags))
+		vlan_id = nic_iface->vlan_id;
 
 	eth = (struct uip_eth_hdr *)ustack->data_link_layer;
 	eth_vlan = (struct uip_vlan_eth_hdr *)ustack->data_link_layer;
-	if (nic_iface->vlan_id == 0) {
+	if (vlan_id == 0) {
 		eth->type = htons(UIP_ETHTYPE_IPv6);
 	} else {
 		eth_vlan->tpid = htons(UIP_ETHTYPE_8021Q);
-		eth_vlan->vid = htons(nic_iface->vlan_id);
+		eth_vlan->vid = htons(vlan_id);
 		eth_vlan->type = htons(UIP_ETHTYPE_IPv6);
 	}
 }

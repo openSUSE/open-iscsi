@@ -809,8 +809,20 @@ static void bnx2_prepare_xmit_packet(nic_t * nic,
 				     struct packet *pkt)
 {
 	bnx2_t *bp = (bnx2_t *) nic->priv;
+	struct uip_vlan_eth_hdr *eth_vlan = (struct uip_vlan_eth_hdr *)pkt->buf;
+	struct uip_eth_hdr *eth = (struct uip_eth_hdr *)bp->tx_pkt;
 
-	memcpy(bp->tx_pkt, pkt->buf, pkt->buf_size);
+	if (eth_vlan->tpid == htons(UIP_ETHTYPE_8021Q)) {
+		memcpy(bp->tx_pkt, pkt->buf, sizeof(struct uip_eth_hdr));
+		eth->type = eth_vlan->type;
+		pkt->buf_size -= (sizeof(struct uip_vlan_eth_hdr) -
+				  sizeof(struct uip_eth_hdr));
+		memcpy(bp->tx_pkt + sizeof(struct uip_eth_hdr),
+		       pkt->buf + sizeof(struct uip_vlan_eth_hdr),
+		       pkt->buf_size - sizeof(struct uip_eth_hdr));
+	} else
+		memcpy(bp->tx_pkt, pkt->buf, pkt->buf_size);
+
 	msync(bp->tx_pkt, pkt->buf_size, MS_SYNC);
 }
 

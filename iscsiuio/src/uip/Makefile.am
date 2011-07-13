@@ -3,9 +3,9 @@ INCLUDES =	-I${top_srcdir}/src/unix	\
 		-I${top_srcdir}/src/apps/brcm-iscsi \
 		-I${top_srcdir}/include
 
-noinst_LIBRARIES = libbrcm_iscsi_uip.a
+noinst_LIBRARIES = lib_iscsi_uip.a
 
-libbrcm_iscsi_uip_a_SOURCES = 	uip.c		\
+lib_iscsi_uip_a_SOURCES = 	uip.c		\
 				uip_arp.c	\
 				psock.c		\
 				timer.c		\
@@ -14,4 +14,4 @@ libbrcm_iscsi_uip_a_SOURCES = 	uip.c		\
 				ipv6_ndpc.c	\
 				ipv6.c
 
-libbrcm_iscsi_uip_a_CFLAGS = 	-DBYTE_ORDER=@ENDIAN@
+lib_iscsi_uip_a_CFLAGS = 	-DBYTE_ORDER=@ENDIAN@

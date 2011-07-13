@@ -76,7 +76,7 @@
  ******************************************************************************/
 #define PFX "main "
 
-static char default_pid_filepath[] = "/var/run/brcm_iscsiuio.pid";
+static char default_pid_filepath[] = "/var/run/iscsiuio.pid";
 
 /*******************************************************************************
  *  Global Variables
@@ -256,7 +256,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	LOG_INFO("Started BRCM iSCSI stack: Ver " PACKAGE_VERSION);
+	LOG_INFO("Started iSCSI uio stack: Ver " PACKAGE_VERSION);
 	LOG_INFO("Build date: %s", build_date);
 
 	if (opt.debug == DEBUG_ON) {

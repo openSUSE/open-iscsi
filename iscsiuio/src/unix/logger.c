@@ -47,7 +47,7 @@
 /******************************************************************************
  * Default logger values
  ******************************************************************************/
-static const char default_logger_filename[] = "/var/log/brcm-iscsi.log";
+static const char default_logger_filename[] = "/var/log/iscsiuio.log";
 
 struct logger main_log = {
 	.enabled = LOGGER_ENABLED,

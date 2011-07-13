@@ -1,7 +1,7 @@
                               Release Notes
                         Broadcom uIP Linux Driver
-                            Version 0.7.0.4
-                               05/24/2011
+                            Version 0.7.0.7
+                               06/23/2011
 
                           Broadcom Corporation
                          5300 California Avenue,
@@ -9,6 +9,46 @@
 
                Copyright (c) 2004 - 2011 Broadcom Corporation
                            All rights reserved
+
+uIP v0.7.0.7 (Jun 23, 2011)
+=======================================================
+   Fixes
+   -----
+   1. Problem: Cont00056460 - iSCSI Offload boot RHEL5u5 x64 dropped tagged
+               packets with iSCSI Offload Boot with untagged
+      Cause:   The ICMP echo replies to the target was corrupted in both
+               1g and 10g mode
+      Change:  The code will now handle both VLAN stripped and no VLAN stripped
+               incoming packets correctly.  Also modified the transmit routine
+               to strip out any inline VLAN tag before setting up the hw to
+               insert VLAN tag.
+
+
+uIP v0.7.0.6 (Jun 21, 2011)
+=======================================================
+   Fixes
+   -----
+   1. Problem: Cont00056231 - DHCPv4 not working with iSCSI HBA w/
+               linux-nx2 v7.0.7
+      Cause:   The 10g L2 FW HSI has been modified for PCIe performance
+               enhancement in the 7.0.7 package (FW 1.70.20) which uIP
+               has not adapted to.
+      Change:  The eth_rx_cqe size has been increased from 32B to 64B.
+
+   Enhancements
+   ------------
+   1. Change:  The utility name has changed from brcm_iscsiuio to iscsiuio
+               as preparation for upstream submission.
+   2. Change:  Updated README
+
+
+uIP v0.7.0.5 (Jun 02, 2011)
+=======================================================
+   Fixes
+   -----
+   1. Problem: Cont00055915 - iSCSI does not connect on 57800 in 4-port mode
+      Cause:   The 4-port mode was not being determined correctly
+      Change:  Fixed the PORT4MODE register offset and the QZONE_ID macros
 
 
 uIP v0.7.0.4 (May 24, 2011)
