@@ -592,6 +592,7 @@ static void iscsi_flush_context_pool(struct iscsi_session *session)
 			iscsi_conn_context_put(conn_context);
 		}
 	}
+	actor_delete(&conn->login_timer);
 }
 
 static void
