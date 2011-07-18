@@ -13,11 +13,7 @@ mandir = ${manprefix}/man
 logdir = $(DESTDIR)/etc/logrotate.d
 
 install-am: all-am
-	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am install-log install-brcm
+	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am install-log
 
 install-log:
-	$(INSTALL_PROGRAM) iscsiuiolog $(logdir)
-
-install-brcm:
-	-rm -f $(sbindir)/brcm_iscsiuio
-	-ln -s $(sbindir)/iscsiuio $(sbindir)/brcm_iscsiuio
+	$(INSTALL_DATA) -D iscsiuiolog $(logdir)/iscsiuiolog

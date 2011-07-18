@@ -115,7 +115,7 @@ fi
 %config /etc/init.d/open-iscsi
 %config /etc/init.d/boot.open-iscsi
 /sbin/*
-%config /etc/logrotate.d/brcm_iscsiuiolog
+%config /etc/logrotate.d/iscsiuiolog
 %dir /lib/mkinitrd
 %dir /lib/mkinitrd/scripts
 /lib/mkinitrd/scripts/setup-iscsi.sh
