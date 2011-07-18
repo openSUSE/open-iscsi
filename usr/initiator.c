@@ -45,6 +45,7 @@
 #include "iscsi_sysfs.h"
 #include "iscsi_settings.h"
 #include "iface.h"
+#include "host.h"
 #include "sysdeps.h"
 #include "iscsi_err.h"
 
@@ -594,6 +595,11 @@ __session_conn_reopen(iscsi_conn_t *conn, queue_task_t *qtask, int do_stop,
 
 	if (!redirected)
 		session->reopen_cnt++;
+
+	/* uIP will needs to be re-triggered on the connection re-open */
+	if (iface_setup_netdev(conn->session->t, conn->session,
+			       &conn->session->nrec.iface) != 0)
+		goto queue_reopen;
 
 	if (iscsi_conn_connect(conn, qtask)) {
 		delay = ISCSI_CONN_ERR_REOPEN_DELAY;

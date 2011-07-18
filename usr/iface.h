@@ -22,6 +22,7 @@
 
 #define IFACE_CONFIG_DIR	ISCSI_CONFIG_ROOT"ifaces"
 
+struct iscsi_session;
 struct iface_rec;
 struct list_head;
 struct db_set_param;
@@ -54,6 +55,9 @@ extern int iface_setup_from_boot_context(struct iface_rec *iface,
                                    struct boot_context *context);
 extern int iface_create_ifaces_from_boot_contexts(struct list_head *ifaces,
 						  struct list_head *targets);
+extern int iface_setup_netdev(struct iscsi_transport *t,
+			      struct iscsi_session *session,
+			      struct iface_rec *iface);
 
 #define iface_fmt "[hw=%s,ip=%s,net_if=%s,iscsi_if=%s]"
 #define iface_str(_iface) \

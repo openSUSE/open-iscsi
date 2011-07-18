@@ -576,6 +576,10 @@ int iscsi_host_set_net_params(struct iface_rec *iface,
 		return EINVAL;
 	}
 
+	rc = iface_setup_netdev(t, session, iface);
+	if (rc != 0)
+		return rc;
+
 	rc = host_set_param(t, session->hostno,
 			    ISCSI_HOST_PARAM_IPADDRESS,
 			    iface->ipaddress, ISCSI_STRING);
