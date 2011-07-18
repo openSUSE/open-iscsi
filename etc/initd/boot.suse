@@ -7,7 +7,7 @@
 # Required-Start:
 # Should-Start:      boot.multipath
 # Required-Stop:
-# Should-Stop:
+# Should-Stop:       boot.multipath
 # Default-Start:     B
 # Default-Stop:      
 # Short-Description: iSCSI initiator daemon root-fs support
