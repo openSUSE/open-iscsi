@@ -840,10 +840,12 @@ static int bnx2x_open(nic_t * nic)
 		struct client_init_general_data *data = bp->bufs;
 
 		bp->client_id = data->client_id;
+		if (data->reserved0)
+			bp->cid = data->reserved0;
 	}
 
-	LOG_INFO(PFX "%s: func 0x%x, pfid 0x%x, client_id 0x%x",
-		 nic->log_name, bp->func, bp->pfid, bp->client_id);
+	LOG_INFO(PFX "%s: func 0x%x, pfid 0x%x, client_id 0x%x, cid 0x%x",
+		 nic->log_name, bp->func, bp->pfid, bp->client_id, bp->cid);
 
 	if (CHIP_IS_E1(bp))
 		bp->iro = e1_iro;

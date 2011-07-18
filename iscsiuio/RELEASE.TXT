@@ -1,7 +1,7 @@
                               Release Notes
                         Broadcom uIP Linux Driver
-                            Version 0.7.0.7
-                               06/23/2011
+                            Version 0.7.0.8
+                               06/30/2011
 
                           Broadcom Corporation
                          5300 California Avenue,
@@ -9,6 +9,18 @@
 
                Copyright (c) 2004 - 2011 Broadcom Corporation
                            All rights reserved
+
+uIP v0.7.0.8 (Jun 30, 2011)
+=======================================================
+   Fixes
+   -----
+   1. Problem: Cont00056522 - Unable to connect to iSCSI target using
+               netxtreme2 package 7.0.9
+      Cause:   The iSCSI L2 ring's CID has changed from 17 to 49
+      Change:  The code now gets L2 iSCSI ring CID from the l2_buf directly.
+               This will work with any version of the cnic driver because
+               the location is a zero before this change.
+
 
 uIP v0.7.0.7 (Jun 23, 2011)
 =======================================================

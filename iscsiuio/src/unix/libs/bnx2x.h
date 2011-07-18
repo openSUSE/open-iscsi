@@ -389,8 +389,12 @@ struct client_init_general_data {
 	__u8 is_fcoe_flg;
 	__u8 activate_flg;
 	__u8 sp_client_id;
-	__u16 reserved0;
-	__u32 reserved1[2];
+	__u16 mtu;
+	__u8 statistics_zero_flg;
+	__u8 func_id;
+	__u8 cos;
+	__u8 traffic_type;
+	__u32 reserved0;
 };
 
 /******************************************************************************
