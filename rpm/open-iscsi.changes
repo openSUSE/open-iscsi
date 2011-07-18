@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Mon Jul 18 10:02:49 CEST 2011 - hare@suse.de
+
+- Update iscsi_uio to version 0.7.0.8 (bnc#687392)
+- Add uip callbacks (bnc#687392)
+- Fixup spec file to refer to iscsiuio
+
+-------------------------------------------------------------------
 Tue Jun 21 15:09:46 CEST 2011 - hare@suse.de
 
 - Update to version 2.0-872 (FATE#312030)

@@ -114,10 +114,8 @@ git archive --format=tar --prefix=$RPM-$VERSION/ "$VERSION" \
 git diff $VERSION..sles11-sp2-base | bzip2 > $DESTDIR/$RPM-git-update.diff.bz2
 # Merge in SUSE specifi changes
 git diff sles11-sp2-base..sles11-sp2-merge | bzip2 > $DESTDIR/$RPM-git-merge.diff.bz2
-# BRCM iSCSI UIO daemon
-git diff sles11-sp2-merge..sles11-sp2-brcm | bzip2 > $DESTDIR/$RPM-brcm_iscsi_uio.diff.bz2
 # Maintenance patches
-git diff sles11-sp2-brcm..$BRANCH | bzip2 > $DESTDIR/$RPM-$BRANCH.diff.bz2
+git diff sles11-sp2-merge..$BRANCH | bzip2 > $DESTDIR/$RPM-$BRANCH.diff.bz2
 
 git show $BRANCH:rpm/$RPM.spec > $DESTDIR/$RPM.spec
 git show $BRANCH:rpm/$RPM.changes > $DESTDIR/$RPM.changes
