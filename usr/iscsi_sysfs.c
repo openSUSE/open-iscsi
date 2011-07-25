@@ -489,7 +489,7 @@ static int iscsi_sysfs_read_iface(struct iface_rec *iface, int host_no,
 	if (ret) {
 		ret = sysfs_get_str(id, ISCSI_HOST_SUBSYS, "initiatorname",
 				    iface->iname, sizeof(iface->iname));
-		if (ret)
+		if (ret) {
 			/*
 			 * default iname is picked up later from
 			 * initiatorname.iscsi if software/partial-offload.
@@ -499,6 +499,8 @@ static int iscsi_sysfs_read_iface(struct iface_rec *iface, int host_no,
 			 */
 			log_debug(7, "Could not read initiatorname for "
 				  "host%d\n", host_no);
+			ret = 0;
+		}
 	}
 
 	/*
