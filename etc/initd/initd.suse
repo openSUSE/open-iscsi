@@ -374,13 +374,15 @@ iscsi_stop_sessions()
 	m=$(iscsi_check_target $t)
 	s=${session##*/session}
 	if [ -z "$m" ] ; then
-	    iscsiadm -m session -r ${s} -u
-	    i=$(( $i + 1 ))
+	    if ! iscsiadm -m session -r ${s} -u ; then
+		i=$(( $i + 1 ))
+	    fi
 	else
 	    iscsi_check_interface $s
+	    i=$(( $i + 1 ))
 	fi
     done
-    echo $i
+    return $i
 }
 
 iscsi_list_all_nodes()
@@ -415,9 +417,8 @@ case "$1" in
 	fi
 	;;
     stop)
-	n=$(iscsi_stop_sessions)
 	echo -n "Stopping iSCSI initiator service: "
-	if [ "$n" ] && [ "$n" != "0" ] ; then
+	if iscsi_stop_sessions ; then
 	    m=$(iscsiadm -m session 2> /dev/null)
 	    if [ -z "$m" ] ; then
 		killproc -KILL $DAEMON
