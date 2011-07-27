@@ -1,0 +1,205 @@
+#!/bin/bash
+#
+# iscsi_offload
+#
+# Configure iSCSI offload engines for use with open-iscsi
+# Usage:
+#    iscsi_offload [-d | -i <ipaddr> ] <nic>
+#
+# Copyright (c) 2011 Hannes Reinecke, SUSE Labs
+# This script is licensed under the GPL.
+#
+# Currently the script works with Broadcom (bnx2i) and
+# Chelsio T3 (cxgbi) iSCSI offload engines.
+# Should work with Chelsio T4, but has not been tested.
+# ServerEngines (be2iscsi) and QLogic (qla4xxx) can only
+# be configured via BIOS, open-iscsi support is still in
+# development.
+#
+
+#
+# Return codes:
+#    0: Success
+#    1: Invalid command line parameter
+#    2: iSCSI offloading not supported
+#    3: Error during module loading
+#    4: Cannot configure interface via iscsiadm, use BIOS setup
+#    5: internal error running iscsiadm
+#
+
+#
+# Figure out the MAC address of the iSCSI offload engine
+# corresponding to a NIC from a given PCI device.
+# bnx2 is using one PCI device per port for both network and iSCSI offloading
+# cxgb3 is using one PCI device for everything.
+#
+iscsi_macaddress_from_pcidevice()
+{
+    local path=$1
+    local if=$2
+    local h
+    local host
+
+    for h in $path/host* ; do
+	if [ -d "$h" ] ; then
+	    host=${h##*/}
+	    read netdev < /sys/class/iscsi_host/$host/netdev
+	    if [ "$netdev" = "$IFNAME" ] ; then
+		read mac < /sys/class/iscsi_host/$host/hwaddress
+		echo "$mac"
+		break;
+	    fi
+	fi
+    done
+}
+
+#
+# Figure out the MAC address of the iSCSI offload engine
+# corresponding to a NIC from a given PCI function.
+# It is assumed that the MAC address of the iSCSI offload
+# engine is equal of the MAC address of the NIC plus one.
+# Suitable for be2iscsi and qla4xxx
+#
+iscsi_macaddress_from_pcifn()
+{
+    local path=$1
+    local if=$2
+    local h
+    local host
+    local ifmac
+
+    ifmac=$(ip addr show dev $if | sed -n 's/ *link\/ether \(.*\) brd.*/\1/p')
+    m5=${ifmac##*:}
+    m5=$(( $m5 + 1 ))
+    ifmac="${ifmac%:*}:$m5"
+    for host in /sys/class/iscsi_host/host* ; do
+	if [ -L "$host" ] ; then
+	    read mac < $host/hwaddress
+	    if [ "$mac" = "$ifmac" ] ; then
+		echo "$mac"
+		break;
+	    fi
+	fi
+    done
+}
+
+while getopts di: options ; do
+    case $options in
+	d ) mode=dhcp;;
+	i ) mode=static
+	    optaddr=$OPTARG
+	    ;;
+	?)  printf "Usage: %s [-d|-i ipaddr] ifname\n" $0
+	    exit 1;;
+    esac
+done
+shift $(($OPTIND - 1))
+
+IFNAME=$1
+
+if [ ! -L /sys/class/net/$IFNAME ] ; then
+    echo "Interface $IFNAME not found"
+    exit 1
+fi
+
+if [ "$optaddr" ] && ! ip route get $optaddr ; then
+    echo "Invalid IP address $optaddr"
+    exit 1
+fi
+
+ifpath=$(cd -P /sys/class/net/$IFNAME; echo $PWD)
+pcipath=$(cd -P $ifpath/device; echo $PWD)
+
+if [ -d $pcipath ] ; then
+    drvlink=$(readlink $pcipath/driver)
+    driver=${drvlink##*/}
+fi
+
+if [ -z "$driver" ] ; then
+    echo "No driver found for interface $IFNAME"
+    exit 1
+fi
+
+case "$driver" in
+    bnx2*)
+	mod=bnx2i
+	;;
+    cxgb*)
+	mod=cxgb3i
+	;;
+    be2*)
+	mod=be2iscsi
+	;;
+    qla*)
+	mod=qla4xxx
+	;;
+esac
+
+if [ -z "$mod" ] ; then
+    echo "iSCSI offloading not supported on interface $IFNAME"
+    exit 2
+fi
+
+loaded=$(sed -n "/^$mod/p" /proc/modules)
+if [ -z "$loaded" ] ; then
+    modprobe $mod
+fi
+
+loaded=$(sed -n "/^$mod/p" /proc/modules)
+if [ -z "$loaded" ] ; then
+    echo "Loading of $mod.ko failed, please check dmesg"
+    exit 3
+fi
+
+if [ "$mod" = "bnx2i" ] ; then
+    mac=$(iscsi_macaddress_from_pcidevice $pcipath $IFNAME)
+elif [ "$mod" = "cxgb3i" ] ; then
+    mac=$(iscsi_macaddress_from_pcidevice $pcipath $IFNAME)
+elif [ "$mod" = "be2iscsi" ] ; then
+    mac=$(iscsi_macaddress_from_pcifn $pcipath $IFNAME)
+fi
+
+if [ -z "$mac" ] ; then
+    echo "iSCSI offloading not supported on interface $IFNAME"
+    exit 2
+fi
+
+ipaddr=$(iscsiadm -m iface -I $mod.$mac | sed -n "s/iface\.ipaddress = \(.*\)/\1/p")
+if [ -z "$ipaddr" ] ; then
+    echo "Invalid iface configuration for interface $IFNAME"
+    exit 5
+fi
+if [ -z "$mode" ] ; then 
+    if [ "$ipaddr" = "<empty>" ] ; then
+	echo "Interface $IFNAME is not configured"
+    elif [ "$ipaddr" = "0.0.0.0" ] ; then
+	echo "Interface $IFNAME configured with DHCP"
+    else 
+	echo "Interface $IFNAME configured with IP address $ipaddr"
+    fi
+    exit 0
+fi
+
+if [ "$mode" = "dhcp" ] ; then
+    if [ "$ipaddr" = "0.0.0.0" ] ; then
+	echo "Interface $IFNAME already configured with DHCP"
+	exit 0
+    fi
+    optaddr="0.0.0.0"
+fi
+if [ "$mode" = "static" ] && [ "$ipaddr" = "$optaddr" ] ; then
+    echo "Interface $IFNAME already configured with IP address $ipaddr"
+    exit 0
+fi
+
+if [ "$mod" = "qla4xxx" -o "$mod" = "be2iscsi" ] ; then
+    echo "Cannot configure $mod, please use the BIOS setup"
+    exit 4
+fi
+
+iscsiadm -m iface -I $mod.$mac -o update -n iface.ipaddress -v $optaddr
+if [ $? -ne 0 ] ; then
+    echo "Failed to set IP address: $?"
+fi
+exit $?
+
