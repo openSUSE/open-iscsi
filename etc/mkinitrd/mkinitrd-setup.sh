@@ -54,18 +54,25 @@ save_var iscsi_sessions
 
 if [ "${root_iscsi}" ]; then
     for session in $iscsi_sessions; do
-	eval TargetName${session}=$(cat /sys/class/iscsi_session/session${session}/targetname)
-	eval TargetAddress${session}=$(cat /sys/class/iscsi_connection/connection${session}:0/address)
-	eval TargetPort${session}=$(cat /sys/class/iscsi_connection/connection${session}:0/port)
+	read TargetName${session} </sys/class/iscsi_session/session${session}/targetname
+	read TargetAddress${session} </sys/class/iscsi_connection/connection${session}:0/address
+        TargetAddress=$(< /sys/class/iscsi_connection/connection${session}:0/address)
+	read TargetPort${session} </sys/class/iscsi_connection/connection${session}:0/port
 
 	save_var TargetName${session}
 	save_var TargetAddress${session}
 	save_var TargetPort${session}
+
+        cmd=ip
+        case "$TargetAddress" in
+        *:*)
+            cmd="ip -6"
+        esac
+        interface="$interface $($cmd route get "$TargetAddress" | sed -rn 's/.*\<dev ([^ ]*)\>.*/\1/p; T; q')"
+        unset TargetAddress cmd
     done
     # copy the iscsi configuration
     cp -rp /etc/iscsi etc/
-    # Use default interface
-    interface="default"
 
     save_var TargetPort 3260 # in case the port was not defined via command line we assign a default port
 fi
