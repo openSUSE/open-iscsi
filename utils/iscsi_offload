@@ -26,6 +26,14 @@
 #    4: Cannot configure interface via iscsiadm, use BIOS setup
 #    5: internal error running iscsiadm
 #
+# Output:
+#    <mac> [none|dhcp|ip <ipaddr>]
+# where
+#    <mac>: MAC Address of the iSCSI offload engine
+#    none:  No IP configuration set for the iSCSI offload engine
+#    dhcp:  iSCSI offload engine configured for DHCP
+#    ip:    iSCSI offload engine configured with static IP address <ipaddr>
+#
 
 #
 # Figure out the MAC address of the iSCSI offload engine
@@ -171,24 +179,24 @@ if [ -z "$ipaddr" ] ; then
 fi
 if [ -z "$mode" ] ; then 
     if [ "$ipaddr" = "<empty>" ] ; then
-	echo "Interface $IFNAME is not configured"
+	echo "$mac none"
     elif [ "$ipaddr" = "0.0.0.0" ] ; then
-	echo "Interface $IFNAME configured with DHCP"
+	echo "$mac dhcp"
     else 
-	echo "Interface $IFNAME configured with IP address $ipaddr"
+	echo "$mac ip $ipaddr"
     fi
     exit 0
 fi
 
 if [ "$mode" = "dhcp" ] ; then
     if [ "$ipaddr" = "0.0.0.0" ] ; then
-	echo "Interface $IFNAME already configured with DHCP"
+	echo "$mac dhcp"
 	exit 0
     fi
     optaddr="0.0.0.0"
 fi
 if [ "$mode" = "static" ] && [ "$ipaddr" = "$optaddr" ] ; then
-    echo "Interface $IFNAME already configured with IP address $ipaddr"
+    echo "$mac ip $ipaddr"
     exit 0
 fi
 
@@ -200,6 +208,11 @@ fi
 iscsiadm -m iface -I $mod.$mac -o update -n iface.ipaddress -v $optaddr
 if [ $? -ne 0 ] ; then
     echo "Failed to set IP address: $?"
+fi
+if [ "$mode" = "dhcp" ] ; then
+    echo "$mac dhcp"
+else
+    echo "$mac ip $optaddr"
 fi
 exit $?
 
