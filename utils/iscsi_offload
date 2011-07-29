@@ -4,7 +4,7 @@
 #
 # Configure iSCSI offload engines for use with open-iscsi
 # Usage:
-#    iscsi_offload [-d | -i <ipaddr> ] <nic>
+#    iscsi_offload [-d | -r | -i <ipaddr> ] <nic>
 #
 # Copyright (c) 2011 Hannes Reinecke, SUSE Labs
 # This script is licensed under the GPL.
@@ -97,7 +97,8 @@ while getopts di: options ; do
 	i ) mode=static
 	    optaddr=$OPTARG
 	    ;;
-	?)  printf "Usage: %s [-d|-i ipaddr] ifname\n" $0
+	r ) no_rename=1;;
+	?)  printf "Usage: %s [-d|-r|-i ipaddr] ifname\n" $0
 	    exit 1;;
     esac
 done
@@ -172,7 +173,12 @@ if [ -z "$mac" ] ; then
     exit 2
 fi
 
-ipaddr=$(iscsiadm -m iface -I $mod.$mac | sed -n "s/iface\.ipaddress = \(.*\)/\1/p")
+iface="$mod.$mac"
+ipaddr=$(iscsiadm -m iface -I $iface 2> /dev/null| sed -n "s/iface\.ipaddress = \(.*\)/\1/p")
+if [ -z "$ipaddr" ] && [ -z "$no_rename" ] ; then
+    iface="${IFNAME}-${mod}"
+    ipaddr=$(iscsiadm -m iface -I $iface 2> /dev/null| sed -n "s/iface\.ipaddress = \(.*\)/\1/p")
+fi
 if [ -z "$ipaddr" ] ; then
     echo "Invalid iface configuration for interface $IFNAME"
     exit 5
@@ -184,6 +190,18 @@ if [ -z "$mode" ] ; then
 	echo "$mac dhcp"
     else 
 	echo "$mac ip $ipaddr"
+    fi
+    if [ -z "$no_rename" ] ; then
+	for rec in $(find /etc/iscsi/nodes -regex .*$mod.$mac -print) ; do
+	    newrec="${rec%/*}/${IFNAME}-${mod}"
+	    sed "s/$mod.$mac/${IFNAME}-${mod}/g" $rec > $newrec
+	    rm $rec
+	done
+	for link in $(find /etc/iscsi/send_targets -regex .*$mod.$mac -print) ; do
+	    newlink="${link%,*},${IFNAME}-${mod}"
+	    mv $link $newlink
+	done
+
     fi
     exit 0
 fi
@@ -205,7 +223,13 @@ if [ "$mod" = "qla4xxx" -o "$mod" = "be2iscsi" ] ; then
     exit 4
 fi
 
-iscsiadm -m iface -I $mod.$mac -o update -n iface.ipaddress -v $optaddr
+if [ "$no_rename" ] ; then
+    iface="$mod.$mac"
+else
+    iface="${IFNAME}-${mod}"
+fi
+
+iscsiadm -m iface -I $iface -o update -n iface.ipaddress -v $optaddr
 if [ $? -ne 0 ] ; then
     echo "Failed to set IP address: $?"
 fi
