@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Fri Jul 29 14:53:55 CEST 2011 - hare@suse.de
+
+- iscsi fails to start with bnx2i offloading (bnc#708261)
+- /etc/init.d/open-iscsi fails to shutdown daemon on 'stop'
+- Add 'iscsi_offload' script (FATE#311488)
+- Configure all interfaces from iBFT (FATE#311345)
+
+-------------------------------------------------------------------
 Mon Jul 18 10:02:49 CEST 2011 - hare@suse.de
 
 - Update iscsi_uio to version 0.7.0.8 (bnc#687392)
