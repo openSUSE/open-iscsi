@@ -8,6 +8,7 @@ BRANCH="sles11-sp2"
 VERSION="2.0-872"
 DESTDIR=
 TMPDIR=
+BRANCH=home:hreinecke:branches
 OBS=SUSE:SLE-11-SP2:GA
 OSC="osc -A https://api.suse.de"
 uncommitted_changes=0
@@ -99,10 +100,10 @@ fi
 
 if [ -n "$use_osc" ] ; then
     pushd $DESTDIR
-    if [ -z "$update" ] ; then
+    if ! $OSC meta pkg $BRANCH:$OBS $RPM > /dev/null 2>&1 ; then
 	$OSC branch -m "Update with latest fixes" $OBS $RPM
     fi
-    $OSC co --current-dir home:hreinecke:branches:$OBS $RPM
+    $OSC co --current-dir $BRANCH:$OBS $RPM
     TMPDIR=${DESTDIR}
     DESTDIR="${DESTDIR}/$RPM"
     popd
