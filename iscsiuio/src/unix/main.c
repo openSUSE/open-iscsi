@@ -172,10 +172,10 @@ static void main_usage()
 
 	printf("\nUsage: %s [OPTION]\n", APP_NAME);
 	printf("\
-Broadcom uIP daemon.\n\
+iscsiuio daemon.\n\
   -f, --foreground        make the program run in the foreground\n\
   -d, --debug debuglevel  print debugging information\n\
-  -p, --pid=pidfile       use pid file (default  %s ).\n\
+  -p, --pid=pidfile       use pid file (default  %s).\n\
   -h, --help              display this help and exit\n\
   -v, --version           display version and exit\n\
 ", default_pid_filepath);

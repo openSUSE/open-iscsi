@@ -78,7 +78,7 @@
 #define ETHERTYPE_VLAN                  0x8100	/* IEEE 802.1Q VLAN tagging */
 #endif /* ETHERTYPE_VLAN */
 
-#define APP_NAME "uIP"
+#define APP_NAME "iscsiuio"
 /* BUILD_DATE is automatically generated from the Makefile */
 
 #define DEBUG_OFF	0x1
