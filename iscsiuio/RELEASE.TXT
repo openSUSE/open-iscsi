@@ -1,7 +1,7 @@
                               Release Notes
                         Broadcom uIP Linux Driver
-                            Version 0.7.0.8
-                               06/30/2011
+                            Version 0.7.0.14
+                               08/23/2011
 
                           Broadcom Corporation
                          5300 California Avenue,
@@ -9,6 +9,93 @@
 
                Copyright (c) 2004 - 2011 Broadcom Corporation
                            All rights reserved
+
+
+uIP v0.7.0.14 (Aug 23, 2011)
+=======================================================
+   Fixes
+   -----
+   1. Problem: Cont00057840 - RHEL6.2 inbox: Unable to connect to
+               targets with 5709
+      Cause:   For cases when the bnx2/bnx2x driver gets removed, the
+               uio database that was built by cnic would have the device
+               ->net reference removed.  This has caused an unnecessary
+               timeout of 5s for each stale uio entry in the database.
+      Change:  Adjusted the routine which seeks the device->net entry
+               to include more logic instead of hard waiting for 5s.
+
+   Enhancements
+   ------------
+   1. Change:  Added support for RHEL6.2 for out-of-box release
+   2. Change:  Updated the man page with -h and -p info
+   3. Change:  Updated the -h info
+
+
+uIP v0.7.0.13 (Aug 10, 2011)
+=======================================================
+   Fixes
+   -----
+   1. Problem: Cont00057768 - iscsiuio logrotate causes daemon failure
+      Cause:   The logrotate script will send a SIGUSR1 signal to notify
+               the iscsiuio daemon of such action.  However, the daemon
+               wasn't programmed to catch this signal.
+      Change:  Restored the catching of this signal
+
+
+uIP v0.7.0.12 (Aug 04, 2011)
+=======================================================
+   Fixes
+   -----
+   1. Problem: Cont00050634 - brcm_iscsiuio Tainted: running IoZone,
+               Iometer and receiving a UDP flood on 3260
+      Cause:   Upon iscsiuio termination, because of the UDP flood,
+               the nic thread will be busy servicing those UDP packets
+               while the signal handling thread will free up all nic
+               resources.  The two threads were not in sync.
+      Change:  Added a nic_remove_all routine to destroy all nic threads
+               before the nic resources get freed.
+
+   Enhancements
+   ------------
+   1. Change:  Fixed all warnings as reported by RHELS' Coverity testing.
+
+
+uIP v0.7.0.11 (Aug 02, 2011)
+=======================================================
+   Fixes
+   -----
+   1. Problem: Erroneous VLAN tag was being passed by iscsid for connect
+               request
+      Cause:   The iscsid's iface_rec_t ipc message does not contain this
+               vlan field.  This field was added in uIP for future vlan
+               support.  Since the buffer allocated to receive such message
+               in uIP didn't get initialized, therefore, garbled up VLAN
+               tag was getting used.
+      Change:  Added the initialization of this buffer.
+
+
+uIP v0.7.0.10 (Jul 26, 2011)
+=======================================================
+   Fixes
+   -----
+   1. Problem: Can't offload when switching from Static to DHCP then back to
+               Static IPv4 when connecting through a VLAN interface
+      Cause:   The VLAN processing code did not reinstall the IP address
+               from the default nic_iface to the associated VLAN nic_iface.
+               This was only done on the very first time when the VLAN
+               interface was created and not on subsequent instances.
+      Change:  Added code to mirror the default nic_iface IP/netmask/ip_config
+               on the VLAN nic_iface on every new connection request.
+
+
+uIP v0.7.0.9 (Jul 19, 2011)
+=======================================================
+   Fixes
+   -----
+   1. Problem: Can't offload to 57810 NPAR NIC
+      Cause:   The MF/VF variant of the PCI IDs were not supported previously
+      Change:  Added support for the MF/VF variants for 57800/57810/57840
+
 
 uIP v0.7.0.8 (Jun 30, 2011)
 =======================================================
