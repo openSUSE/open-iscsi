@@ -624,15 +624,15 @@ int process_iscsid_broadcast(int s2)
 		switch (rc) {
 		case 0:
 			rsp.command = cmd;
-			rsp.err = ISCISD_UIP_MGMT_IPC_DEVICE_UP;
+			rsp.err = ISCSID_UIP_MGMT_IPC_DEVICE_UP;
 			break;
 		case -EAGAIN:
 			rsp.command = cmd;
-			rsp.err = ISCISD_UIP_MGMT_IPC_DEVICE_INITIALIZING;
+			rsp.err = ISCSID_UIP_MGMT_IPC_DEVICE_INITIALIZING;
 			break;
 		default:
 			rsp.command = cmd;
-			rsp.err = ISCISD_UIP_MGMT_IPC_ERR;
+			rsp.err = ISCSID_UIP_MGMT_IPC_ERR;
 		}
 
 		break;
