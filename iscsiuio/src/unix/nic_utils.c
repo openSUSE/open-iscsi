@@ -473,6 +473,7 @@ static int from_uio_find_associated_eth_device(nic_t * nic,
 	char *search_paths[] = { "/sys/class/uio/uio%i/device/",
 		"/sys/class/uio/uio%i/device/net"
 	};
+	int path_to[] = { 5, 1 };
 	int (*search_filters[]) (const struct dirent *) = {
 	filter_net_name, filter_dot_out,};
 	char *(*extract_name[]) (struct dirent ** files) = {
@@ -492,7 +493,7 @@ static int from_uio_find_associated_eth_device(nic_t * nic,
 		/*  Build the path to determine uio name */
 		rc = sprintf(path, search_paths[path_iterator], uio_minor);
 
-		wait_for_file_node_timed(nic, path, 5);
+		wait_for_file_node_timed(nic, path, path_to[path_iterator]);
 
 		count = scandir(path, &files,
 				search_filters[path_iterator], alphasort);
