@@ -202,6 +202,63 @@ out:
 	return rc;
 }
 
+#if (ISCSID_VERSION == 872)
+static void copy_iface_rec(struct iface_rec *rec, iscsid_uip_broadcast_t *data)
+{
+	struct iface_rec_872 *rec_872;
+	struct iface_rec_872_22 *rec_872_22;
+
+	memset(rec, 0, sizeof(struct iface_rec));
+	/* Check for data->header.version for iface_rec decode */
+	if (data->header.payload_len == sizeof(struct iface_rec_872_22)) {
+		rec_872_22 = (struct iface_rec_872_22 *)
+						&data->u.iface_rec.rec;
+		rec->list = rec_872_22->list;
+		memcpy(&rec->name, &rec_872_22->name, ISCSI_MAX_IFACE_LEN);
+		rec->iface_num = rec_872_22->iface_num;
+		memcpy(&rec->netdev, &rec_872_22->netdev, IFNAMSIZ);
+		memcpy(&rec->ipaddress, &rec_872_22->ipaddress, NI_MAXHOST);
+		memcpy(&rec->subnet_mask, &rec_872_22->subnet_mask, NI_MAXHOST);
+		memcpy(&rec->gateway, &rec_872_22->gateway, NI_MAXHOST);
+		memcpy(&rec->bootproto, &rec_872_22->bootproto, NI_MAXHOST);
+		memcpy(&rec->ipv6_linklocal, &rec_872_22->ipv6_linklocal,
+		       NI_MAXHOST);
+		memcpy(&rec->ipv6_router, &rec_872_22->ipv6_router, NI_MAXHOST);
+		memcpy(&rec->ipv6_autocfg, &rec_872_22->ipv6_autocfg,
+		       NI_MAXHOST);
+		memcpy(&rec->linklocal_autocfg, &rec_872_22->linklocal_autocfg,
+		       NI_MAXHOST);
+		memcpy(&rec->router_autocfg, &rec_872_22->router_autocfg,
+		       NI_MAXHOST);
+		rec->vlan_id = rec_872_22->vlan_id;
+		rec->vlan_priority = rec_872_22->vlan_priority;
+		memcpy(&rec->vlan_state, &rec_872_22->vlan_state,
+		       ISCSI_MAX_STR_LEN);
+		memcpy(&rec->state, &rec_872_22->state, ISCSI_MAX_STR_LEN);
+		rec->mtu = rec_872_22->mtu;
+		rec->port = rec_872_22->port;
+		memcpy(&rec->hwaddress, &rec_872_22->hwaddress,
+		       ISCSI_HWADDRESS_BUF_SIZE);
+		memcpy(&rec->transport_name, &rec_872_22->transport_name,
+		       ISCSI_TRANSPORT_NAME_MAXLEN);
+		memcpy(&rec->alias, &rec_872_22->alias, TARGET_NAME_MAXLEN + 1);
+		memcpy(&rec->iname, &rec_872_22->iname, TARGET_NAME_MAXLEN + 1);
+	} else {
+		rec_872 = (struct iface_rec_872 *)&data->u.iface_rec.rec;
+		rec->list = rec_872->list;
+		memcpy(rec->name, rec_872->name, ISCSI_MAX_IFACE_LEN);
+		memcpy(rec->netdev, rec_872->netdev, IFNAMSIZ);
+		memcpy(rec->ipaddress, rec_872->ipaddress, NI_MAXHOST);
+		memcpy(rec->hwaddress, rec_872->hwaddress,
+		       ISCSI_HWADDRESS_BUF_SIZE);
+		memcpy(rec->transport_name, rec_872->transport_name,
+		       ISCSI_TRANSPORT_NAME_MAXLEN);
+		memcpy(rec->alias, rec_872->alias, TARGET_NAME_MAXLEN + 1);
+		memcpy(rec->iname, rec_872->iname, TARGET_NAME_MAXLEN + 1);
+	}
+}
+#endif
+
 static int parse_iface(void *arg)
 {
 	int rc;
@@ -217,25 +274,34 @@ static int parse_iface(void *arg)
 	struct in_addr netmask;
 	int i, prefix_len = 64;
 	struct ip_addr_mask ipam;
+	struct iface_rec *rec;
+#if (ISCSID_VERSION == 872)
+	struct iface_rec localrec;
+#endif
 
 	data = (iscsid_uip_broadcast_t *) arg;
-
+#if (ISCSID_VERSION == 872)
+	copy_iface_rec(&localrec, data);
+	rec = &localrec;
+#else
+	rec = &data->u.iface_rec.rec;
+#endif
 	LOG_INFO(PFX "Received request for '%s' to set IP address: '%s' "
-		 "VLAN: '%s'",
-		 data->u.iface_rec.rec.netdev,
-		 data->u.iface_rec.rec.ipaddress, data->u.iface_rec.rec.vlan);
+		 "VLAN: %d",
+		 rec->netdev,
+		 rec->ipaddress,
+		 rec->vlan_id);
 
-	vlan = atoi(data->u.iface_rec.rec.vlan);
-	if ((valid_vlan(vlan) == 0) &&
-	    (strcmp(data->u.iface_rec.rec.vlan, "") != 0)) {
-		LOG_ERR(PFX "Invalid VLAN tag: '%s'",
-			data->u.iface_rec.rec.vlan)
+	vlan = rec->vlan_id;
+	if (vlan && valid_vlan(vlan) == 0) { 
+		LOG_ERR(PFX "Invalid VLAN tag: %d",
+			rec->vlan_id)
 		    rc = -EIO;
 		goto early_exit;
 	}
 
 	/*  Detect for CIDR notation and strip off the netmask if present */
-	rc = decode_cidr(data->u.iface_rec.rec.ipaddress, &ipam, &prefix_len);
+	rc = decode_cidr(rec->ipaddress, &ipam, &prefix_len);
 	if (rc && !ipam.ip_type) {
 		LOG_ERR(PFX "decode_cidr: rc=%d, ipam.ip_type=%d",
 			rc, ipam.ip_type)
@@ -265,23 +331,23 @@ static int parse_iface(void *arg)
 
 	/*  Check if we can find the NIC device using the netdev
 	 *  name */
-	rc = from_netdev_name_find_nic(data->u.iface_rec.rec.netdev, &nic);
+	rc = from_netdev_name_find_nic(rec->netdev, &nic);
 
 	if (rc != 0) {
 		LOG_WARN(PFX "Couldn't find NIC: %s, creating an instance",
-			 data->u.iface_rec.rec.netdev);
+			 rec->netdev);
 
 		nic = nic_init();
 		if (nic == NULL) {
 			LOG_ERR(PFX "Couldn't allocate space for NIC %s",
-				data->u.iface_rec.rec.netdev);
+				rec->netdev);
 
 			rc = -ENOMEM;
 			goto done;
 		}
 
 		strncpy(nic->eth_device_name,
-			data->u.iface_rec.rec.netdev,
+			rec->netdev,
 			sizeof(nic->eth_device_name));
 		nic->config_device_name = nic->eth_device_name;
 		nic->log_name = nic->eth_device_name;
@@ -294,8 +360,7 @@ static int parse_iface(void *arg)
 
 		nic_add(nic);
 	} else {
-		LOG_INFO(PFX " %s, using existing NIC",
-			 data->u.iface_rec.rec.netdev);
+		LOG_INFO(PFX " %s, using existing NIC", rec->netdev);
 	}
 
 	if (nic->flags & NIC_GOING_DOWN) {
@@ -342,12 +407,11 @@ static int parse_iface(void *arg)
 							  &transport_name_size);
 
 		if (strncmp(transport_name,
-			    data->u.iface_rec.rec.transport_name,
+			    rec->transport_name,
 			    transport_name_size) != 0) {
 			LOG_ERR(PFX "%s Transport name is not equal "
 				"expected: %s got: %s",
-				nic->log_name,
-				data->u.iface_rec.rec.transport_name,
+				nic->log_name, rec->transport_name,
 				transport_name);
 		}
 	} else {
@@ -555,11 +619,10 @@ enable_nic:
 
 	LOG_INFO(PFX "ISCSID_UIP_IPC_GET_IFACE: command: %x "
 		 "name: %s, netdev: %s ipaddr: %s vlan: %d transport_name:%s",
-		 data->header.command, data->u.iface_rec.rec.name,
-		 data->u.iface_rec.rec.netdev,
-		 (ipam.ip_type ==
-		  AF_INET) ? inet_ntoa(ipam.addr4) : ipv6_buf_str, vlan,
-		 data->u.iface_rec.rec.transport_name);
+		 data->header.command, rec->name, rec->netdev,
+		 (ipam.ip_type == AF_INET) ? inet_ntoa(ipam.addr4) :
+					     ipv6_buf_str,
+		 vlan, rec->transport_name);
 
 done:
 	pthread_mutex_unlock(&nic_list_mutex);

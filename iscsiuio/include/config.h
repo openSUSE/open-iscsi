@@ -30,13 +30,90 @@
 
 /* max len of interface */
 #define ISCSI_MAX_IFACE_LEN	65
+#define ISCSI_TRANSPORT_NAME_MAXLEN 16
 
 #if (ISCSID_VERSION == 872) /* 2.0-872 (RHEL 6.0) */
 
 #define ISCSI_HWADDRESS_BUF_SIZE 18
-#define ISCSI_TRANSPORT_NAME_MAXLEN 16
 
+#define ISCSI_MAX_STR_LEN 80
+
+/* General iface_rec struct of pointers for local mapping */
 typedef struct iface_rec {
+	struct list_head	list;
+	/* iscsi iface record name */
+	char			name[ISCSI_MAX_IFACE_LEN];
+	uint32_t		iface_num;
+	/* network layer iface name (eth0) */
+	char			netdev[IFNAMSIZ];
+	char			ipaddress[NI_MAXHOST];
+	char			subnet_mask[NI_MAXHOST];
+	char			gateway[NI_MAXHOST];
+	char			bootproto[ISCSI_MAX_STR_LEN];
+	char			ipv6_linklocal[NI_MAXHOST];
+	char			ipv6_router[NI_MAXHOST];
+	char			ipv6_autocfg[NI_MAXHOST];
+	char			linklocal_autocfg[NI_MAXHOST];
+	char			router_autocfg[NI_MAXHOST];
+	uint16_t		vlan_id;
+	uint8_t			vlan_priority;
+	char			vlan_state[ISCSI_MAX_STR_LEN];
+	char			state[ISCSI_MAX_STR_LEN]; /* 0 = disable,
+							   * 1 = enable */
+	uint16_t		mtu;
+	uint16_t		port;
+	/*
+	 * TODO: we may have to make this bigger and interconnect
+	 * specific for infinniband 
+	 */
+	char			hwaddress[ISCSI_HWADDRESS_BUF_SIZE];
+	char			transport_name[ISCSI_TRANSPORT_NAME_MAXLEN];
+	/*
+	 * This is only used for boot now, but the iser guys
+	 * can use this for their virtualization idea.
+	 */
+	char			alias[TARGET_NAME_MAXLEN + 1];
+	char			iname[TARGET_NAME_MAXLEN + 1];
+} iface_rec_t;
+
+typedef struct iface_rec_872_22 {
+	struct list_head	list;
+	/* iscsi iface record name */
+	char			name[ISCSI_MAX_IFACE_LEN];
+	uint32_t		iface_num;
+	/* network layer iface name (eth0) */
+	char			netdev[IFNAMSIZ];
+	char			ipaddress[NI_MAXHOST];
+	char			subnet_mask[NI_MAXHOST];
+	char			gateway[NI_MAXHOST];
+	char			bootproto[ISCSI_MAX_STR_LEN];
+	char			ipv6_linklocal[NI_MAXHOST];
+	char			ipv6_router[NI_MAXHOST];
+	char			ipv6_autocfg[NI_MAXHOST];
+	char			linklocal_autocfg[NI_MAXHOST];
+	char			router_autocfg[NI_MAXHOST];
+	uint16_t		vlan_id;
+	uint8_t			vlan_priority;
+	char			vlan_state[ISCSI_MAX_STR_LEN];
+	char			state[ISCSI_MAX_STR_LEN]; /* 0 = disable,
+							   * 1 = enable */
+	uint16_t		mtu;
+	uint16_t		port;
+	/*
+	 * TODO: we may have to make this bigger and interconnect
+	 * specific for infinniband 
+	 */
+	char			hwaddress[ISCSI_HWADDRESS_BUF_SIZE];
+	char			transport_name[ISCSI_TRANSPORT_NAME_MAXLEN];
+	/*
+	 * This is only used for boot now, but the iser guys
+	 * can use this for their virtualization idea.
+	 */
+	char			alias[TARGET_NAME_MAXLEN + 1];
+	char			iname[TARGET_NAME_MAXLEN + 1];
+} iface_rec_872_22_t;
+
+typedef struct iface_rec_872 {
 	struct list_head	list;
 	/* iscsi iface record name */
 	char			name[ISCSI_MAX_IFACE_LEN];
@@ -56,14 +133,13 @@ typedef struct iface_rec {
 	char			alias[TARGET_NAME_MAXLEN + 1];
 	char			iname[TARGET_NAME_MAXLEN + 1];
 
-	char			vlan[ISCSI_MAX_IFACE_LEN];
-} iface_rec_t;
+	uint16_t		vlan_id;
+} iface_rec_872_t;
 
-#else /* 2.0-871 (RHEL 5.5)  */
+#else /* 2.0-871 (RHEL 5.X) */
+
 /* number of possible connections per session */
 #define ISCSI_CONN_MAX		1
-
-#define ISCSI_TRANSPORT_NAME_MAXLEN 16
 
 typedef struct iface_rec {
 	struct list_head	list;
@@ -86,7 +162,7 @@ typedef struct iface_rec {
 	char			alias[TARGET_NAME_MAXLEN + 1];
 	char			iname[TARGET_NAME_MAXLEN + 1];
 
-	char			vlan[ISCSI_MAX_IFACE_LEN];
+	uint16_t		vlan_id;
 } iface_rec_t;
 
 #endif /* ISCSID_VERSION */
