@@ -75,6 +75,7 @@ int add_vlan_interfaces(nic_t * nic);
 
 int nic_verify_uio_sysfs_name(nic_t * nic);
 void nic_close_all();
+void nic_remove_all();
 
 int detemine_initial_uio_events(nic_t * nic, uint32_t * num_of_events);
 

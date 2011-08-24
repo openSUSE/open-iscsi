@@ -1013,8 +1013,27 @@ void nic_close_all()
 	}
 	pthread_mutex_unlock(&nic_list_mutex);
 
-	LOG_INFO(PFX "All CNIC threads have exited");
+	LOG_INFO(PFX "All NICs closed");
 }
+
+void nic_remove_all()
+{
+	nic_t *nic, *nic_next;
+
+	pthread_mutex_lock(&nic_list_mutex);
+
+	/*  Start the shutdown process */
+	nic = nic_list;
+	while (nic != NULL) {
+		nic_next = nic->next;
+		nic_remove(nic);
+		nic = nic_next;
+	}
+	pthread_mutex_unlock(&nic_list_mutex);
+
+	LOG_INFO(PFX "All NICs removed");
+}
+
 
 /******************************************************************************
  *  Routines to read initialized UIO values from sysfs

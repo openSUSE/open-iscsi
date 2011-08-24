@@ -105,7 +105,7 @@ static void cleanup()
 {
 	iscsid_cleanup();
 
-	nic_close_all();
+	nic_remove_all();
 
 	unload_all_nic_libraries();
 
