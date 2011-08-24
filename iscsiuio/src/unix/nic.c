@@ -440,6 +440,7 @@ int nic_remove(nic_t * nic)
 	nic_t *prev, *current;
 	struct stat file_stat;
 	void *res;
+	nic_interface_t *nic_iface, *next_nic_iface;
 
 	pthread_mutex_lock(&nic->nic_mutex);
 
@@ -500,6 +501,14 @@ int nic_remove(nic_t * nic)
 		else
 			prev->next = current->next;
 
+		/* Before freeing the nic, must free all the associated
+		   nic_iface */
+		nic_iface = nic->nic_iface;
+		while (nic_iface != NULL) {
+			next_nic_iface = nic_iface->next;
+			free(nic_iface);
+			nic_iface = next_nic_iface;
+		}
 		free(nic);
 	} else {
 		LOG_ERR(PFX "%s: Couldn't find nic to remove", nic->log_name);
@@ -580,7 +589,7 @@ void nic_close(nic_t * nic, NIC_SHUTDOWN_T graceful, int clean)
 	}
 
 	LOG_ERR(PFX "%s: nic closed", nic->log_name);
-      error:
+error:
 	return;
 }
 
@@ -653,7 +662,7 @@ int nic_add_nic_iface(nic_t * nic, nic_interface_t * nic_iface)
 	LOG_INFO(PFX "%s: Added nic interface for VLAN: %d, protocol: %d",
 		 nic->log_name, nic_iface->vlan_id, nic_iface->protocol);
 
-      error:
+error:
 	pthread_mutex_unlock(&nic->nic_mutex);
 
 	return 0;
@@ -1066,7 +1075,7 @@ int process_packets(nic_t * nic,
 		pthread_mutex_unlock(&nic->nic_mutex);
 	}
 
-      done:
+done:
 	put_packet_in_free_queue(pkt, nic);
 
 	return rc;

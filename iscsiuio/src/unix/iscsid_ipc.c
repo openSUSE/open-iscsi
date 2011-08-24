@@ -206,7 +206,7 @@ static int parse_iface(void *arg)
 {
 	int rc;
 	nic_t *nic = NULL;
-	nic_interface_t *nic_iface;
+	nic_interface_t *nic_iface, *next_nic_iface;
 	char *transport_name;
 	size_t transport_name_size;
 	nic_lib_handle_t *handle;
@@ -505,6 +505,27 @@ diff:
 		LOG_INFO(PFX "%s: Unknown request type: 0x%x",
 			 nic->log_name, request_type);
 
+	}
+
+	/* Configuration changed, do VLAN WA */
+	next_nic_iface = nic_iface->next;
+	while (next_nic_iface) {
+		if (next_nic_iface->vlan_id) {
+			/* TODO: When VLAN support is placed in the iface file
+			* revisit this code */
+			next_nic_iface->ustack.ip_config =
+				nic_iface->ustack.ip_config;
+			memcpy(&next_nic_iface->ustack.hostaddr,
+			       &nic_iface->ustack.hostaddr,
+			       sizeof(nic_iface->ustack.hostaddr));
+			memcpy(&next_nic_iface->ustack.netmask,
+			       &nic_iface->ustack.netmask,
+			       sizeof(nic_iface->ustack.netmask));
+			memcpy(&next_nic_iface->ustack.hostaddr6,
+			       &nic_iface->ustack.hostaddr6,
+			       sizeof(nic_iface->ustack.hostaddr6));
+		}
+		next_nic_iface = next_nic_iface->next;
 	}
 
 enable_nic:

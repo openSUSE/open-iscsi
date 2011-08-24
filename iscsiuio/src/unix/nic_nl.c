@@ -439,9 +439,9 @@ static int ctldev_handle(char *data)
 
 			pthread_mutex_lock(&nic->nic_mutex);
 			nic->flags |= NIC_EXIT_MAIN_LOOP;
+			pthread_mutex_unlock(&nic->nic_mutex);
 
 			pthread_cond_broadcast(&nic->enable_done_cond);
-			pthread_mutex_unlock(&nic->nic_mutex);
 
 			nic_disable(nic, 1);
 
