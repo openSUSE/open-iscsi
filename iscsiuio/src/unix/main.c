@@ -336,6 +336,7 @@ int main(int argc, char *argv[])
 	sigaddset(&set, SIGINT);
 	sigaddset(&set, SIGQUIT);
 	sigaddset(&set, SIGTERM);
+	sigaddset(&set, SIGUSR1);
 	rc = pthread_sigmask(SIG_SETMASK, &set, NULL);
 
 	/*  Spin off the signal handling thread */
