@@ -591,6 +591,7 @@ int process_iscsid_broadcast(int s2)
 		LOG_ERR(PFX "Couldn't allocate memory for iface data");
 		return -ENOMEM;
 	}
+	memset(data, 0, sizeof(*data));
 
 	size = fread(data, sizeof(iscsid_uip_broadcast_header_t), 1, fd);
 	if (size == -1) {
