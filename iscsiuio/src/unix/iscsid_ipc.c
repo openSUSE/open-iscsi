@@ -422,11 +422,11 @@ static int parse_iface(void *arg)
 
 	if (nic_iface->ustack.ip_config == request_type) {
 		if (request_type == IPV4_CONFIG_STATIC) {
-			if (memcmp(&nic_iface->ustack.hostaddr, &ipam.addr4,
+			if (memcmp(nic_iface->ustack.hostaddr, &ipam.addr4,
 				   sizeof(struct in_addr)))
 				goto diff;
 		} else if (request_type == IPV6_CONFIG_STATIC) {
-			if (memcmp(&nic_iface->ustack.hostaddr6, &ipam.addr6,
+			if (memcmp(nic_iface->ustack.hostaddr6, &ipam.addr6,
 				   sizeof(struct in6_addr)))
 				goto diff;
 		}
@@ -453,47 +453,51 @@ diff:
 	 *  an the default netmask will be used */
 	switch (request_type) {
 	case IPV4_CONFIG_DHCP:
-		memset(&nic_iface->ustack.hostaddr, 0, sizeof(struct in_addr));
+		memset(nic_iface->ustack.hostaddr, 0, sizeof(struct in_addr));
 		LOG_INFO(PFX "%s: configuring using DHCP", nic->log_name);
 		nic_iface->ustack.ip_config = IPV4_CONFIG_DHCP;
 
 		break;
 	case IPV4_CONFIG_STATIC:
-		memcpy(&nic_iface->ustack.hostaddr, &ipam.addr4,
+		memcpy(nic_iface->ustack.hostaddr, &ipam.addr4,
 		       sizeof(struct in_addr));
 		LOG_INFO(PFX "%s: configuring using static IP "
 			 "IPv4 address :%s ",
-			 nic->log_name, inet_ntoa(ipam.addr4))
-		    netmask.s_addr = ipam.nm4.s_addr;
+			 nic->log_name, inet_ntoa(ipam.addr4));
+		netmask.s_addr = ipam.nm4.s_addr;
 		if (!netmask.s_addr)
 			netmask.s_addr =
 			    calculate_default_netmask(ipam.addr4.s_addr);
-		memcpy(&nic_iface->ustack.netmask,
+		memcpy(nic_iface->ustack.netmask,
 		       &netmask, sizeof(netmask.s_addr));
 		LOG_INFO(PFX "  netmask :%s", inet_ntoa(netmask));
 
 		nic_iface->ustack.ip_config = IPV4_CONFIG_STATIC;
 		break;
 	case IPV6_CONFIG_DHCP:
-		memset(&nic_iface->ustack.hostaddr6, 0,
+		memset(nic_iface->ustack.hostaddr6, 0,
 		       sizeof(struct in6_addr));
 		nic_iface->ustack.prefix_len = prefix_len;
-		if (ipam.nm6.s6_addr)
-			memcpy(&nic_iface->ustack.netmask6,
+		if (ipam.nm6.s6_addr[0] | ipam.nm6.s6_addr[1] |
+		    ipam.nm6.s6_addr[2] | ipam.nm6.s6_addr[3] |
+		    ipam.nm6.s6_addr[4] | ipam.nm6.s6_addr[5] |
+		    ipam.nm6.s6_addr[6] | ipam.nm6.s6_addr[7])
+			memcpy(nic_iface->ustack.netmask6,
 			       &ipam.nm6, sizeof(struct in6_addr));
-
 		LOG_INFO(PFX "%s: configuring using DHCPv6",
 			 nic->log_name);
 		nic_iface->ustack.ip_config = IPV6_CONFIG_DHCP;
-
 		break;
 	case IPV6_CONFIG_STATIC:
-		memcpy(&nic_iface->ustack.hostaddr6, &ipam.addr6,
+		memcpy(nic_iface->ustack.hostaddr6, &ipam.addr6,
 		       sizeof(struct in6_addr));
 
 		nic_iface->ustack.prefix_len = prefix_len;
-		if (ipam.nm6.s6_addr)
-			memcpy(&nic_iface->ustack.netmask6,
+		if (ipam.nm6.s6_addr[0] | ipam.nm6.s6_addr[1] |
+		    ipam.nm6.s6_addr[2] | ipam.nm6.s6_addr[3] |
+		    ipam.nm6.s6_addr[4] | ipam.nm6.s6_addr[5] |
+		    ipam.nm6.s6_addr[6] | ipam.nm6.s6_addr[7])
+			memcpy(nic_iface->ustack.netmask6,
 			       &ipam.nm6, sizeof(struct in6_addr));
 
 		LOG_INFO(PFX "%s: configuring using static IP "
@@ -515,14 +519,14 @@ diff:
 			* revisit this code */
 			next_nic_iface->ustack.ip_config =
 				nic_iface->ustack.ip_config;
-			memcpy(&next_nic_iface->ustack.hostaddr,
-			       &nic_iface->ustack.hostaddr,
+			memcpy(next_nic_iface->ustack.hostaddr,
+			       nic_iface->ustack.hostaddr,
 			       sizeof(nic_iface->ustack.hostaddr));
-			memcpy(&next_nic_iface->ustack.netmask,
-			       &nic_iface->ustack.netmask,
+			memcpy(next_nic_iface->ustack.netmask,
+			       nic_iface->ustack.netmask,
 			       sizeof(nic_iface->ustack.netmask));
-			memcpy(&next_nic_iface->ustack.hostaddr6,
-			       &nic_iface->ustack.hostaddr6,
+			memcpy(next_nic_iface->ustack.hostaddr6,
+			       nic_iface->ustack.hostaddr6,
 			       sizeof(nic_iface->ustack.hostaddr6));
 		}
 		next_nic_iface = next_nic_iface->next;

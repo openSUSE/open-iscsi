@@ -241,7 +241,7 @@ static int cnic_nl_neigh_rsp(nic_t * nic, int fd,
 	path_rsp->handle = path_req->handle;
 	if (type == AF_INET) {
 		path_rsp->ip_addr_len = 4;
-		memcpy(&path_rsp->src.v4_addr, &nic_iface->ustack.hostaddr,
+		memcpy(&path_rsp->src.v4_addr, nic_iface->ustack.hostaddr,
 		       sizeof(nic_iface->ustack.hostaddr));
 
 		inet_ntop(AF_INET, &path_rsp->src.v4_addr,
@@ -353,10 +353,10 @@ int cnic_handle_ipv4_iscsi_path_req(nic_t * nic, int fd,
 #define MAX_ARP_RETRY 4
 
 	memcpy(&dst_addr, &path->dst.v4_addr, sizeof(dst_addr));
-	memcpy(&src_addr, &nic_iface->ustack.hostaddr, sizeof(src_addr));
+	memcpy(&src_addr, nic_iface->ustack.hostaddr, sizeof(src_addr));
 
-	if (nic_iface->ustack.netmask)
-		memcpy(&netmask.s_addr, &nic_iface->ustack.netmask,
+	if (nic_iface->ustack.netmask[0] | nic_iface->ustack.netmask[1])
+		memcpy(&netmask.s_addr, nic_iface->ustack.netmask,
 		       sizeof(src_addr));
 	else
 		netmask.s_addr = calculate_default_netmask(dst_addr.s_addr);
@@ -541,8 +541,11 @@ int cnic_handle_ipv6_iscsi_path_req(nic_t * nic, int fd,
 	/* Got the best matched src IP address */
 	memcpy(&src_addr, addr, sizeof(struct in6_addr));
 
-	if (nic_iface->ustack.netmask6)
-		memcpy(&netmask.s6_addr, &nic_iface->ustack.netmask6,
+	if (nic_iface->ustack.netmask6[0] | nic_iface->ustack.netmask6[1] |
+	    nic_iface->ustack.netmask6[2] | nic_iface->ustack.netmask6[3] |
+	    nic_iface->ustack.netmask6[4] | nic_iface->ustack.netmask6[5] |
+	    nic_iface->ustack.netmask6[6] | nic_iface->ustack.netmask6[7])
+		memcpy(&netmask.s6_addr, nic_iface->ustack.netmask6,
 		       sizeof(struct in6_addr));
 	else
 		memcpy(&netmask.s6_addr, all_zeroes_addr6,

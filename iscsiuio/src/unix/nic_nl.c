@@ -373,14 +373,14 @@ static int ctldev_handle(char *data)
 			 * revisit this code */
 			nic_iface->ustack.ip_config =
 			    default_iface->ustack.ip_config;
-			memcpy(&nic_iface->ustack.hostaddr,
-			       &default_iface->ustack.hostaddr,
+			memcpy(nic_iface->ustack.hostaddr,
+			       default_iface->ustack.hostaddr,
 			       sizeof(nic_iface->ustack.hostaddr));
-			memcpy(&nic_iface->ustack.netmask,
-			       &default_iface->ustack.netmask,
+			memcpy(nic_iface->ustack.netmask,
+			       default_iface->ustack.netmask,
 			       sizeof(nic_iface->ustack.netmask));
-			memcpy(&nic_iface->ustack.hostaddr6,
-			       &default_iface->ustack.hostaddr6,
+			memcpy(nic_iface->ustack.hostaddr6,
+			       default_iface->ustack.hostaddr6,
 			       sizeof(nic_iface->ustack.hostaddr6));
 
 			persist_all_nic_iface(nic);
