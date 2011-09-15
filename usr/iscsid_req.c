@@ -52,6 +52,23 @@ static void iscsid_startup(void)
 	system(startup_cmd);
 }
 
+static void iscsiuio_startup(void)
+{
+	char *startup_cmd;
+
+	startup_cmd = cfg_get_string_param(CONFIG_FILE, "iscsiuio.startup");
+	if (!startup_cmd) {
+		log_error("iscsiuio is not running. Could not start it up "
+			  "automatically using the startup command in the "
+			  "/etc/iscsi/iscsid.conf iscsiuio.startup setting. "
+			  "Please check that the file exists or that your "
+			  "init scripts have started iscsid.");
+		return;
+	}
+
+	system(startup_cmd);
+}
+
 #define MAXSLEEP 128
 
 static int ipc_connect(int *fd, char *unix_sock_name)
@@ -61,7 +78,7 @@ static int ipc_connect(int *fd, char *unix_sock_name)
 
 	*fd = socket(AF_LOCAL, SOCK_STREAM, 0);
 	if (*fd < 0) {
-		log_error("can not create IPC socket (%d)!", errno);
+		log_error("can not create IPC socket (%d) for iSCSI uio!", errno);
 		return ISCSI_ERR_ISCSID_NOTCONN;
 	}
 
@@ -77,18 +94,21 @@ static int ipc_connect(int *fd, char *unix_sock_name)
 			/* Connection established */
 			return ISCSI_SUCCESS;
 
-		/* If iscsid isn't there, there's no sense
+		/* If iscsiuio isn't there, there's no sense
 		 * in retrying. */
-		if (errno == ECONNREFUSED)
-			break;
-
+		if (errno == ECONNREFUSED) {
+			if (nsec == 1)
+				iscsiuio_startup();
+			else
+				break;
+		}
 		/*
 		 * Delay before trying again
 		 */
 		if (nsec <= MAXSLEEP/2)
 			sleep(nsec);
 	}
-	log_error("can not connect to iSCSI daemon (%d)!", errno);
+	log_error("can not connect to iSCSI uio daemon (%d)!", errno);
 	return ISCSI_ERR_ISCSID_NOTCONN;
 }
 
