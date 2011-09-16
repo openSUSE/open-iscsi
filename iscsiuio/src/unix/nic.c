@@ -1211,10 +1211,19 @@ static int process_dhcp_loop(nic_t * nic,
 	struct timeval total_time;
 
 	/* 10s loop time to wait for DHCP */
-	if (nic_iface->ustack.ip_config == IPV4_CONFIG_DHCP)
+	switch (nic_iface->ustack.ip_config) {
+	case IPV4_CONFIG_DHCP:
 		wait_time.tv_sec = 10;
-	else
+		break;
+	case IPV6_CONFIG_DHCP:
 		wait_time.tv_sec = 15;
+		break;
+	case IPV6_CONFIG_STATIC:
+		wait_time.tv_sec = 4;
+		break;
+	default:
+		wait_time.tv_sec = 2;
+	}
 	wait_time.tv_usec = 0;
 
 	s = nic_iface->ustack.dhcpc;
