@@ -1,7 +1,7 @@
                               Release Notes
                         Broadcom uIP Linux Driver
                             Version 0.7.0.14
-                               08/23/2011
+                               09/16/2011
 
                           Broadcom Corporation
                          5300 California Avenue,
@@ -11,7 +11,7 @@
                            All rights reserved
 
 
-uIP v0.7.0.14 (Aug 23, 2011)
+uIP v0.7.0.14 (Sep 16, 2011)
 =======================================================
    Fixes
    -----
@@ -23,6 +23,23 @@ uIP v0.7.0.14 (Aug 23, 2011)
                timeout of 5s for each stale uio entry in the database.
       Change:  Adjusted the routine which seeks the device->net entry
                to include more logic instead of hard waiting for 5s.
+
+   2. Problem: Cont00058256 - Sessions fail after loginstress to via
+               simultaneous ipv4 and ipv6 dhcp
+      Cause:   Switching between DHCPv4/v6 coupled with VLAN exposed
+               a drawback in our nic_iface architecture design where
+               VLAN is not specified by iscsid.
+      Change:  The code was optimized and improved the performance when
+               switching between DHCPv4/v6+VLAN.  However, the ultimate
+               fix is to make use of the net config parameters introduced
+               in the newer open-iscsi util which will identify the
+               specific VLAN nic_iface to use.
+
+   3. Problem: Cont00058602 - Can't iboot using IPv6 offload path
+      Cause:   The bug was exposed by a fix in 0.7.0.14c where the
+               IPv6 router solicitation timeout exceeded the nic
+               enable thread timeout.
+      Change:  The IPv6 router solicitation timeout has been adjusted
 
    Enhancements
    ------------
