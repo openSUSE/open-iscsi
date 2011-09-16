@@ -329,7 +329,7 @@ static int ctldev_handle(char *data)
 
 	if (ev->type == ISCSI_KEVENT_PATH_REQ) {
 		struct timespec sleep_rem;
-		nic_interface_t *nic_iface;
+		nic_interface_t *nic_iface, *vlan_iface;
 		uint16_t ip_type;
 
 		if (path->ip_addr_len == 4)
@@ -339,52 +339,56 @@ static int ctldev_handle(char *data)
 		else
 			ip_type = 0;
 
-		nic_iface = nic_find_nic_iface_protocol(nic, path->vlan_id,
-							ip_type);
+		/* Find the parent nic_iface */
+		nic_iface = nic_find_nic_iface_protocol(nic, 0,	ip_type);
 		if (nic_iface == NULL) {
-			nic_interface_t *default_iface;
-			default_iface = nic_find_nic_iface_protocol(nic,
-								    0, ip_type);
-			if (default_iface == NULL) {
-				LOG_ERR(PFX "%s: Couldn't find default iface "
-					"vlan: %d ip_type: %d "
-					"ip_addr_len: %d to clone",
-					nic->log_name, path->vlan_id, ip_type,
-					path->ip_addr_len);
-				goto error;
+			LOG_ERR(PFX "%s: Couldn't find nic iface "
+				"vlan: %d ip_type: %d "
+				"ip_addr_len: %d to clone",
+				nic->log_name, path->vlan_id, ip_type,
+				path->ip_addr_len);
+			goto error;
+		}
+		if (path->vlan_id) {
+			vlan_iface = nic_find_vlan_iface_protocol(nic,
+					nic_iface, path->vlan_id,ip_type);
+			if (vlan_iface == NULL) {
+				/* Create a vlan_iface */
+				vlan_iface = nic_iface_init();
+				if (vlan_iface == NULL) {
+					LOG_ERR(PFX "%s: Couldn't allocate "
+						"space for vlan: %d ip_type: "
+						"%d ip_addr_len: %d",
+						nic->log_name, path->vlan_id,
+						ip_type, path->ip_addr_len);
+					goto error;
+				}
+
+				vlan_iface->protocol = ip_type;
+				vlan_iface->vlan_id = path->vlan_id;
+				nic_add_vlan_iface(nic, nic_iface, vlan_iface);
+
+				/* TODO: When VLAN support is placed in */
+				/* the iface file revisit this code */
+				vlan_iface->ustack.ip_config =
+					nic_iface->ustack.ip_config;
+				memcpy(vlan_iface->ustack.hostaddr,
+				       nic_iface->ustack.hostaddr,
+				       sizeof(nic_iface->ustack.hostaddr));
+				memcpy(vlan_iface->ustack.netmask,
+				       nic_iface->ustack.netmask,
+				       sizeof(nic_iface->ustack.netmask));
+				memcpy(vlan_iface->ustack.netmask6,
+				       nic_iface->ustack.netmask6,
+				       sizeof(nic_iface->ustack.netmask6));
+				memcpy(vlan_iface->ustack.hostaddr6,
+				       nic_iface->ustack.hostaddr6,
+				       sizeof(nic_iface->ustack.hostaddr6));
+
+				persist_all_nic_iface(nic);
+				nic_disable(nic, 0);
+				nic_iface = vlan_iface;
 			}
-
-			nic_iface = nic_iface_init();
-			if (nic_iface == NULL) {
-				LOG_ERR(PFX "%s: Couldn't allocate space for "
-					"vlan: %d ip_type: %d "
-					"ip_addr_len: %d",
-					nic->log_name, path->vlan_id, ip_type,
-					path->ip_addr_len);
-
-				goto error;
-			}
-
-			nic_iface->protocol = ip_type;
-			nic_iface->vlan_id = path->vlan_id;
-			nic_add_nic_iface(nic, nic_iface);
-
-			/* TODO: When VLAN support is placed in the iface file
-			 * revisit this code */
-			nic_iface->ustack.ip_config =
-			    default_iface->ustack.ip_config;
-			memcpy(nic_iface->ustack.hostaddr,
-			       default_iface->ustack.hostaddr,
-			       sizeof(nic_iface->ustack.hostaddr));
-			memcpy(nic_iface->ustack.netmask,
-			       default_iface->ustack.netmask,
-			       sizeof(nic_iface->ustack.netmask));
-			memcpy(nic_iface->ustack.hostaddr6,
-			       default_iface->ustack.hostaddr6,
-			       sizeof(nic_iface->ustack.hostaddr6));
-
-			persist_all_nic_iface(nic);
-			nic_disable(nic, 0);
 		}
 
 		/*  Force enable the NIC */

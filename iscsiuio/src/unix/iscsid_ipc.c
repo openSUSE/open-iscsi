@@ -111,8 +111,8 @@ static void *enable_nic_thread(void *data)
 	LOG_INFO(PFX "%s: started NIC enable thread state: 0x%x",
 		 nic->log_name, nic->state)
 
-	    /*  Enable the NIC */
-	    nic_enable(nic);
+	/*  Enable the NIC */
+	nic_enable(nic);
 
 	pthread_exit(NULL);
 }
@@ -263,7 +263,7 @@ static int parse_iface(void *arg)
 {
 	int rc;
 	nic_t *nic = NULL;
-	nic_interface_t *nic_iface, *next_nic_iface;
+	nic_interface_t *nic_iface, *vlan_iface, *base_nic_iface;
 	char *transport_name;
 	size_t transport_name_size;
 	nic_lib_handle_t *handle;
@@ -423,24 +423,22 @@ static int parse_iface(void *arg)
 	LOG_INFO(PFX "%s library set using transport_name %s",
 		 nic->log_name, transport_name);
 
-	/*  Create the network interface if it doesn't exist */
-	nic_iface = nic_find_nic_iface_protocol(nic, vlan, ipam.ip_type);
+	/*  Create the base network interface if it doesn't exist */
+	nic_iface = nic_find_nic_iface_protocol(nic, 0, ipam.ip_type);
 	if (nic_iface == NULL) {
-		LOG_INFO(PFX "%s couldn't find VLAN %d interface with "
+		LOG_INFO(PFX "%s couldn't find interface with "
 			 "ip_type: 0x%x creating it",
-			 nic->log_name, vlan, ipam.ip_type);
+			 nic->log_name, ipam.ip_type);
 
-		/*  Create the vlan interface */
+		/*  Create the nic interface */
 		nic_iface = nic_iface_init();
 
 		if (nic_iface == NULL) {
-			LOG_ERR(PFX "Couldn't allocate nic_iface for VLAN: %d",
-				nic_iface, vlan);
+			LOG_ERR(PFX "Couldn't allocate nic_iface", nic_iface);
 			goto done;
 		}
 
 		nic_iface->protocol = ipam.ip_type;
-		nic_iface->vlan_id = vlan;
 		nic_add_nic_iface(nic, nic_iface);
 
 		persist_all_nic_iface(nic);
@@ -449,6 +447,37 @@ static int parse_iface(void *arg)
 	} else {
 		LOG_INFO(PFX "%s: using existing network interface",
 			 nic->log_name);
+	}
+
+	set_nic_iface(nic, nic_iface);
+
+	/* Find the vlan nic_interface */
+	if (vlan) {
+		vlan_iface = nic_find_vlan_iface_protocol(nic, nic_iface, vlan,
+							  ipam.ip_type);
+		if (vlan_iface == NULL) {
+			LOG_INFO(PFX "%s couldn't find interface with VLAN = %d"
+				 "ip_type: 0x%x creating it",
+				 nic->log_name, vlan, ipam.ip_type);
+
+			/*  Create the nic interface */
+			vlan_iface = nic_iface_init();
+
+			if (vlan_iface == NULL) {
+				LOG_ERR(PFX "Couldn't allocate nic_iface for VLAN: %d",
+					vlan_iface, vlan);
+				goto done;
+			}
+
+			vlan_iface->protocol = ipam.ip_type;
+			vlan_iface->vlan_id = vlan;
+			nic_add_vlan_iface(nic, nic_iface, vlan_iface);
+		} else {
+			LOG_INFO(PFX "%s: using existing vlan interface",
+				 nic->log_name);
+		}
+		base_nic_iface = nic_iface;
+		nic_iface = vlan_iface;
 	}
 
 	/*  Determine how to configure the IP address */
@@ -576,24 +605,27 @@ diff:
 	}
 
 	/* Configuration changed, do VLAN WA */
-	next_nic_iface = nic_iface->next;
-	while (next_nic_iface) {
-		if (next_nic_iface->vlan_id) {
-			/* TODO: When VLAN support is placed in the iface file
-			* revisit this code */
-			next_nic_iface->ustack.ip_config =
+	vlan_iface = nic_iface->vlan_next;
+	while (vlan_iface) {
+		/* TODO: When VLAN support is placed in the iface file
+		* revisit this code */
+		if (vlan_iface->ustack.ip_config) {
+			vlan_iface->ustack.ip_config =
 				nic_iface->ustack.ip_config;
-			memcpy(next_nic_iface->ustack.hostaddr,
+			memcpy(vlan_iface->ustack.hostaddr,
 			       nic_iface->ustack.hostaddr,
 			       sizeof(nic_iface->ustack.hostaddr));
-			memcpy(next_nic_iface->ustack.netmask,
+			memcpy(vlan_iface->ustack.netmask,
 			       nic_iface->ustack.netmask,
 			       sizeof(nic_iface->ustack.netmask));
-			memcpy(next_nic_iface->ustack.hostaddr6,
+			memcpy(vlan_iface->ustack.hostaddr6,
 			       nic_iface->ustack.hostaddr6,
 			       sizeof(nic_iface->ustack.hostaddr6));
+			memcpy(vlan_iface->ustack.netmask6,
+			       nic_iface->ustack.netmask6,
+			       sizeof(nic_iface->ustack.netmask6));
 		}
-		next_nic_iface = next_nic_iface->next;
+		vlan_iface = vlan_iface->vlan_next;
 	}
 
 enable_nic:

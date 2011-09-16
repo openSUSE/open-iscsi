@@ -440,7 +440,7 @@ int nic_remove(nic_t * nic)
 	nic_t *prev, *current;
 	struct stat file_stat;
 	void *res;
-	nic_interface_t *nic_iface, *next_nic_iface;
+	nic_interface_t *nic_iface, *next_nic_iface, *vlan_iface;
 
 	pthread_mutex_lock(&nic->nic_mutex);
 
@@ -505,6 +505,12 @@ int nic_remove(nic_t * nic)
 		   nic_iface */
 		nic_iface = nic->nic_iface;
 		while (nic_iface != NULL) {
+			vlan_iface = nic_iface->vlan_next;
+			while (vlan_iface != NULL) {
+				next_nic_iface = vlan_iface->vlan_next;
+				free(vlan_iface);
+				vlan_iface = next_nic_iface;
+			}
 			next_nic_iface = nic_iface->next;
 			free(nic_iface);
 			nic_iface = next_nic_iface;
@@ -532,7 +538,7 @@ int nic_remove(nic_t * nic)
 void nic_close(nic_t * nic, NIC_SHUTDOWN_T graceful, int clean)
 {
 	int rc;
-	nic_interface_t *nic_iface;
+	nic_interface_t *nic_iface, *vlan_iface;
 	struct stat file_stat;
 
 	/*  The NIC could be configured by the uIP config file
@@ -559,8 +565,14 @@ void nic_close(nic_t * nic, NIC_SHUTDOWN_T graceful, int clean)
 	nic_iface = nic->nic_iface;
 	while (nic_iface != NULL) {
 		if (!((nic_iface->flags & NIC_IFACE_PERSIST) ==
-		      NIC_IFACE_PERSIST))
+		      NIC_IFACE_PERSIST)) {
 			uip_reset(&nic_iface->ustack);
+			vlan_iface = nic_iface->vlan_next;
+			while (vlan_iface != NULL) {
+				uip_reset(&vlan_iface->ustack);
+				vlan_iface = vlan_iface->vlan_next;
+			}
+		}
 		nic_iface = nic_iface->next;
 	}
 
@@ -608,12 +620,13 @@ nic_interface_t *nic_iface_init()
 
 	memset(nic_iface, 0, sizeof(*nic_iface));
 	nic_iface->next = NULL;
+	nic_iface->vlan_next = NULL;
 
 	return nic_iface;
 }
 
 /**
- *  nic_add_net_iface() - This function is used to add an interface to the 
+ *  nic_add_nic_iface() - This function is used to add an interface to the 
  *                        nic structure
  *  @param nic - struct nic device to add the interface to
  *  @param nic_iface - network interface used to add to the nic
@@ -632,7 +645,7 @@ int nic_add_nic_iface(nic_t * nic, nic_interface_t * nic_iface)
 
 		/*  Check to see if this interface already exists via 2
 		 *  conditions: 1) VLAN 2) protocol */
-		while (current->next != NULL) {
+		while (current != NULL) {
 			if ((current->protocol == nic_iface->protocol) &&
 			    (current->vlan_id == nic_iface->vlan_id)) {
 				LOG_WARN(PFX "%s: nic interface alread exists"
@@ -641,7 +654,6 @@ int nic_add_nic_iface(nic_t * nic, nic_interface_t * nic_iface)
 					 current->protocol);
 				goto error;
 			}
-
 			current = current->next;
 		}
 
@@ -668,6 +680,61 @@ error:
 	return 0;
 }
 
+/**
+ *  nic_add_vlan_iface() - This function is used to add a vlan interface to the
+ *                         nic structure
+ *  @param nic - struct nic device to add the interface to
+ *  @param nic_iface - network interface to be added to
+ *  @param vlan_iface - vlan interface used to add to the nic_iface
+ *  @return 0 on success, <0 on failure
+ */
+int nic_add_vlan_iface(nic_t * nic, nic_interface_t * nic_iface,
+		       nic_interface_t * vlan_iface)
+{
+	pthread_mutex_lock(&nic->nic_mutex);
+
+	/*  Add the nic_interface */
+	if (nic_iface == NULL)
+		goto error;
+	else {
+		nic_interface_t *current = nic_iface->vlan_next;
+
+		/*  Check to see if this interface already exists via 2
+		 *  conditions: 1) VLAN 2) protocol */
+		while (current != NULL) {
+			if ((current->protocol == vlan_iface->protocol) &&
+			    (current->vlan_id == vlan_iface->vlan_id)) {
+				LOG_WARN(PFX "%s: vlan interface already exists"
+					 "for VLAN: %d, protocol: %d",
+					 nic->log_name, current->vlan_id,
+					 current->protocol);
+				goto error;
+			}
+			current = current->vlan_next;
+		}
+
+		/*   This interface doesn't exists, we can safely add
+		 *   this nic interface */
+		current = nic_iface;
+		while (current->vlan_next != NULL) {
+			current = current->vlan_next;
+		}
+
+		current->vlan_next = vlan_iface;
+	}
+
+	/* Set nic_interface common fields */
+	vlan_iface->parent = nic;
+	nic->num_of_nic_iface++;
+
+	LOG_INFO(PFX "%s: Added vlan interface for VLAN: %d, protocol: %d",
+		 nic->log_name, vlan_iface->vlan_id, vlan_iface->protocol);
+
+error:
+	pthread_mutex_unlock(&nic->nic_mutex);
+
+	return 0;
+}
 /******************************************************************************
  * Routine to process interrupts from the NIC device
  ******************************************************************************/
@@ -944,6 +1011,7 @@ int process_packets(nic_t * nic,
 		uint16_t type = 0;
 		int af_type = 0;
 		struct uip_stack *ustack;
+		nic_interface_t *vlan_iface;
 
 		if ((pkt->vlan_tag == 0) ||
 		    (NIC_VLAN_STRIP_ENABLED & nic->flags)) {
@@ -970,8 +1038,7 @@ int process_packets(nic_t * nic,
 
 		/*  check if we have the given VLAN interface */
 		if (nic_iface == NULL) {
-			nic_iface = nic_find_nic_iface_protocol(nic,
-								pkt->vlan_tag,
+			nic_iface = nic_find_nic_iface_protocol(nic, 0,
 								af_type);
 			if (nic_iface == NULL) {
 				LOG_INFO(PFX "%s: Couldn't find interface for "
@@ -993,10 +1060,59 @@ int process_packets(nic_t * nic,
 				}
 
 				nic_iface->protocol = af_type;
-				nic_iface->vlan_id = pkt->vlan_tag;
+				nic_iface->vlan_id = 0;
 				nic_add_nic_iface(nic, nic_iface);
 
 				persist_all_nic_iface(nic);
+			}
+			if (pkt->vlan_tag) {
+				vlan_iface = nic_find_vlan_iface_protocol(nic,
+						nic_iface, pkt->vlan_tag,
+						af_type);
+				if (vlan_iface == NULL) {
+					LOG_INFO(PFX "%s couldn't find "
+						 "interface with VLAN ="
+						 " %d ip_type: 0x%x "
+						 "creating it",
+						 nic->log_name, pkt->vlan_tag,
+						 af_type);
+
+					/*  Create the nic interface */
+					vlan_iface = nic_iface_init();
+
+					if (vlan_iface == NULL) {
+						LOG_ERR(PFX "Couldn't allocate "
+							"nic_iface for VLAN: %d",
+							vlan_iface,
+							pkt->vlan_tag);
+						rc = 0;
+						goto done;
+					}
+					vlan_iface->protocol = af_type;
+					vlan_iface->vlan_id = pkt->vlan_tag;
+					nic_add_vlan_iface(nic, nic_iface,
+							   vlan_iface);
+					/* TODO: When VLAN support is placed */
+					/* in the iface file revisit this */
+					/* code */
+					//vlan_iface->ustack.ip_config =
+					//	nic_iface->ustack.ip_config;
+					memcpy(vlan_iface->ustack.hostaddr,
+					       nic_iface->ustack.hostaddr,
+					    sizeof(nic_iface->ustack.hostaddr));
+					memcpy(vlan_iface->ustack.netmask,
+					       nic_iface->ustack.netmask,
+					     sizeof(nic_iface->ustack.netmask));
+					memcpy(vlan_iface->ustack.netmask6,
+					       nic_iface->ustack.netmask6,
+					    sizeof(nic_iface->ustack.netmask6));
+					memcpy(vlan_iface->ustack.hostaddr6,
+					       nic_iface->ustack.hostaddr6,
+					   sizeof(nic_iface->ustack.hostaddr6));
+
+					persist_all_nic_iface(nic);
+				}
+				nic_iface = vlan_iface;
 			}
 		}
 
@@ -1165,6 +1281,7 @@ void *nic_loop(void *arg)
 	struct timer periodic_timer, arp_timer;
 	sigset_t set;
 	void *res;
+	
 
 	sigfillset(&set);
 	rc = pthread_sigmask(SIG_BLOCK, &set, NULL);
@@ -1177,7 +1294,6 @@ void *nic_loop(void *arg)
 	/*  Signal the device to enable itself */
 	pthread_mutex_lock(&nic->nic_mutex);
 	pthread_cond_signal(&nic->nic_loop_started_cond);
-	pthread_mutex_unlock(&nic->nic_mutex);
 
 	while ((event_loop_stop == 0) &&
 	       !(nic->flags & NIC_EXIT_MAIN_LOOP) &&
@@ -1189,16 +1305,17 @@ void *nic_loop(void *arg)
 				  nic->log_name);
 
 			/*  Wait for the device to be enabled */
-			pthread_mutex_lock(&nic->nic_mutex);
+			/* nic_mutex is already locked */
 			pthread_cond_wait(&nic->enable_wait_cond,
 					  &nic->nic_mutex);
-			pthread_mutex_unlock(&nic->nic_mutex);
 
-			if (nic->state == NIC_EXIT)
+			if (nic->state == NIC_EXIT) {
+				pthread_mutex_unlock(&nic->nic_mutex);
 				pthread_exit(NULL);
-
+			}
 			LOG_DEBUG(PFX "%s: is now enabled", nic->log_name);
 		}
+		pthread_mutex_unlock(&nic->nic_mutex);
 
 		/*  initialize the device to send/rec data */
 		rc = (*nic->ops->open) (nic);
@@ -1407,7 +1524,7 @@ skip:
 				 nic->log_name,
 				 nic_iface->vlan_id, nic_iface->protocol);
 
-			nic_iface = nic_iface->next;
+			nic_iface = nic_iface->vlan_next;
 		}
 
 		if (nic->flags & NIC_DISABLED) {
@@ -1464,11 +1581,20 @@ dev_close:
 
 			if (nic->flags & NIC_RESET_UIP) {
 				nic_interface_t *nic_iface = nic->nic_iface;
+				nic_interface_t *vlan_iface; 
 				while (nic_iface != NULL) {
 					LOG_INFO(PFX "%s: resetting uIP stack",
 						 nic->log_name);
 					uip_reset(&nic_iface->ustack);
-
+					vlan_iface = nic_iface->vlan_next;
+					while (vlan_iface != NULL) {
+						LOG_INFO(PFX "%s: resetting "
+							 "vlan uIP stack",
+							 nic->log_name);
+						uip_reset(&vlan_iface->ustack);
+						vlan_iface =
+							vlan_iface->vlan_next;
+					}
 					nic_iface = nic_iface->next;
 				}
 
@@ -1486,8 +1612,8 @@ dev_close:
 			/*  Signal we are done closing CNIC/UIO device */
 			pthread_cond_broadcast(&nic->disable_wait_cond);
 		}
-		pthread_mutex_unlock(&nic->nic_mutex);
 	}
+	pthread_mutex_unlock(&nic->nic_mutex);
 
 	LOG_INFO(PFX "%s: nic loop thread exited", nic->log_name);
 

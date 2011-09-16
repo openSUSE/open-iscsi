@@ -68,6 +68,7 @@ void nic_fill_ethernet_header(nic_interface_t * nic_iface,
 			      uint16_t ether_type);
 
 nic_interface_t *nic_find_nic_iface(nic_t * nic, uint16_t vlan_id);
+void set_nic_iface(nic_t *nic, nic_interface_t *nic_iface);
 
 void persist_all_nic_iface(nic_t * nic);
 

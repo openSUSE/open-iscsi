@@ -130,6 +130,7 @@ typedef struct nic_interface {
 	time_t start_time;
 
 	struct uip_stack ustack;
+	struct nic_interface *vlan_next;
 } nic_interface_t;
 
 /******************************************************************************
@@ -306,6 +307,8 @@ void nic_add(nic_t * nic);
 int nic_remove(nic_t * nic);
 
 int nic_add_nic_iface(nic_t * nic, nic_interface_t * nic_iface);
+int nic_add_vlan_iface(nic_t * nic, nic_interface_t * nic_iface,
+		       nic_interface_t *vlan_iface);
 int nic_process_intr(nic_t * nic, int discard_check);
 
 nic_interface_t *nic_iface_init();
@@ -340,6 +343,10 @@ struct nic_interface *nic_find_nic_iface(nic_t * nic, uint16_t vlan_id);
 struct nic_interface *nic_find_nic_iface_protocol(nic_t * nic,
 						  uint16_t vlan_id,
 						  uint16_t protocol);
+struct nic_interface *nic_find_vlan_iface_protocol(nic_t *nic,
+						   nic_interface_t *nic_iface,
+						   uint16_t vlan_id,
+						   uint16_t protocol);
 int find_nic_lib_using_pci_id(uint32_t vendor, uint32_t device,
 			      uint32_t subvendor, uint32_t subdevice,
 			      nic_lib_handle_t ** handle,

@@ -325,7 +325,7 @@ int cnic_handle_ipv4_iscsi_path_req(nic_t * nic, int fd,
 				    struct iscsi_uevent *ev,
 				    struct iscsi_path *path)
 {
-	nic_interface_t *nic_iface;
+	nic_interface_t *nic_iface, *vlan_iface;
 	struct in_addr src_addr, dst_addr,
 	    src_matching_addr, dst_matching_addr, netmask;
 	__u8 mac_addr[6];
@@ -338,18 +338,50 @@ int cnic_handle_ipv4_iscsi_path_req(nic_t * nic, int fd,
 	pthread_mutex_lock(&nic_list_mutex);
 
 	/*  Find the proper interface via VLAN id */
-	nic_iface = nic_find_nic_iface_protocol(nic, path->vlan_id, AF_INET);
+	nic_iface = nic_find_nic_iface_protocol(nic, 0, AF_INET);
 	if (nic_iface == NULL) {
-		nic_iface = nic_find_nic_iface_protocol(nic, 0, AF_INET);
-		if (nic_iface == NULL) {
-			pthread_mutex_unlock(&nic_list_mutex);
-			LOG_ERR(PFX "%s: Couldn't find net_iface vlan_id: %d",
-				nic->log_name, path->vlan_id);
-			return -EINVAL;
-		}
-
-		nic_iface->vlan_id = path->vlan_id;
+		pthread_mutex_unlock(&nic_list_mutex);
+		LOG_ERR(PFX "%s: Couldn't find net_iface vlan_id: %d",
+			nic->log_name, path->vlan_id);
+		return -EINVAL;
 	}
+	if (path->vlan_id) {
+		vlan_iface = nic_find_vlan_iface_protocol(nic, nic_iface,
+							  path->vlan_id,
+							  AF_INET);
+		if (vlan_iface == NULL) {
+			LOG_INFO(PFX "%s couldn't find interface with VLAN = %d"
+				 "ip_type: 0x%x creating it",
+				 nic->log_name, path->vlan_id, AF_INET);
+
+			/*  Create the nic interface */
+			vlan_iface = nic_iface_init();
+
+			if (vlan_iface == NULL) {
+				LOG_ERR(PFX "Couldn't allocate nic_iface for "
+					"VLAN: %d", vlan_iface,
+					path->vlan_id);
+				return -EINVAL;
+			}
+
+			vlan_iface->protocol = nic_iface->protocol;
+			vlan_iface->vlan_id = path->vlan_id;
+			vlan_iface->ustack.ip_config =
+						nic_iface->ustack.ip_config;
+			memcpy(vlan_iface->ustack.hostaddr,
+			       nic_iface->ustack.hostaddr,
+			       sizeof(nic_iface->ustack.hostaddr));
+			memcpy(vlan_iface->ustack.netmask,
+			       nic_iface->ustack.netmask,
+			       sizeof(nic_iface->ustack.netmask));
+			nic_add_vlan_iface(nic, nic_iface, vlan_iface);
+		} else {
+			LOG_INFO(PFX "%s: using existing vlan interface",
+				 nic->log_name);
+		}
+		nic_iface = vlan_iface;
+	}
+
 #define MAX_ARP_RETRY 4
 
 	memcpy(&dst_addr, &path->dst.v4_addr, sizeof(dst_addr));
@@ -364,6 +396,9 @@ int cnic_handle_ipv4_iscsi_path_req(nic_t * nic, int fd,
 	src_matching_addr.s_addr = src_addr.s_addr & netmask.s_addr;
 	dst_matching_addr.s_addr = dst_addr.s_addr & netmask.s_addr;
 
+	LOG_DEBUG(PFX "%s: src=%s", nic->log_name, inet_ntoa(src_addr));
+	LOG_DEBUG(PFX "%s: dst=%s", nic->log_name, inet_ntoa(dst_addr));
+	LOG_DEBUG(PFX "%s: nm=%s", nic->log_name, inet_ntoa(netmask));
 	if (src_matching_addr.s_addr != dst_matching_addr.s_addr) {
 		/*  If there is an assigned gateway address then use it
 		 *  if the source address doesn't match */
@@ -374,6 +409,7 @@ int cnic_handle_ipv4_iscsi_path_req(nic_t * nic, int fd,
 			       sizeof(dst_addr));
 		} else {
 			arp_retry = MAX_ARP_RETRY;
+			LOG_DEBUG(PFX "%s: no default", nic->log_name);
 			goto done;
 		}
 	}
@@ -473,7 +509,7 @@ int cnic_handle_ipv6_iscsi_path_req(nic_t * nic, int fd,
 				    struct iscsi_uevent *ev,
 				    struct iscsi_path *path)
 {
-	nic_interface_t *nic_iface;
+	nic_interface_t *nic_iface, *vlan_iface;
 	__u8 mac_addr[6];
 	int rc, i;
 	uint16_t neighbor_retry;
@@ -492,18 +528,49 @@ int cnic_handle_ipv6_iscsi_path_req(nic_t * nic, int fd,
 	pthread_mutex_lock(&nic_list_mutex);
 
 	/*  Find the proper interface via VLAN id */
-	nic_iface = nic_find_nic_iface_protocol(nic, path->vlan_id, AF_INET6);
+	nic_iface = nic_find_nic_iface_protocol(nic, 0, AF_INET6);
 	if (nic_iface == NULL) {
-		nic_iface = nic_find_nic_iface_protocol(nic, 0, AF_INET6);
-		if (nic_iface == NULL) {
-			pthread_mutex_unlock(&nic_list_mutex);
-			LOG_ERR(PFX "%s: Couldn't find net_iface vlan_id: %d",
-				nic->log_name, path->vlan_id);
-			return -EINVAL;
-		}
-
-		nic_iface->vlan_id = path->vlan_id;
+		pthread_mutex_unlock(&nic_list_mutex);
+		LOG_ERR(PFX "%s: Couldn't find net_iface vlan_id: %d",
+			nic->log_name, path->vlan_id);
+		return -EINVAL;
 	}
+	if (path->vlan_id) {
+		vlan_iface = nic_find_vlan_iface_protocol(nic, nic_iface,
+							  path->vlan_id,
+							  AF_INET);
+		if (vlan_iface == NULL) {
+			LOG_INFO(PFX "%s couldn't find interface with VLAN = %d"
+				 "ip_type: 0x%x creating it",
+				 nic->log_name, path->vlan_id, AF_INET6);
+
+			/*  Create the nic interface */
+			vlan_iface = nic_iface_init();
+
+			if (vlan_iface == NULL) {
+				LOG_ERR(PFX "Couldn't allocate nic_iface for "
+					"VLAN: %d", vlan_iface,
+					path->vlan_id);
+				return -EINVAL;
+			}
+			vlan_iface->protocol = nic_iface->protocol;
+			vlan_iface->vlan_id = path->vlan_id;
+			vlan_iface->ustack.ip_config =
+						nic_iface->ustack.ip_config;
+			memcpy(vlan_iface->ustack.hostaddr6,
+			       nic_iface->ustack.hostaddr6,
+			       sizeof(nic_iface->ustack.hostaddr6));
+			memcpy(vlan_iface->ustack.netmask6,
+			       nic_iface->ustack.netmask6,
+			       sizeof(nic_iface->ustack.netmask6));
+			nic_add_vlan_iface(nic, nic_iface, vlan_iface);
+		} else {
+			LOG_INFO(PFX "%s: using existing vlan interface",
+				 nic->log_name);
+		}
+		nic_iface = vlan_iface;
+	}
+
 	/*  Depending on the IPv6 address of the target we will need to
 	 *  determine whether we use the assigned IPv6 address or the
 	 *  link local IPv6 address */
