@@ -3,6 +3,7 @@ Mon Sep 19 11:52:52 CEST 2011 - hare@suse.de
 
 - Update iscsiuio to 0.7.0.14d (bnc#687392)
 - Fixup README (bnc#711953)
+- Start iscsiuio from iscsid (bnc#718014)
 
 -------------------------------------------------------------------
 Fri Sep 16 16:30:05 CEST 2011 - hare@suse.de
