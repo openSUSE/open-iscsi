@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Thu Oct  6 19:07:04 CEST 2011 - hare@suse.de
+
+- Merge with mainline:
+  * Include qla4xxx support (bnc#722268)
+  * Multiple sessions from single iface (bnc#713975)
+- Fix memory leak when parsing config file
+
+-------------------------------------------------------------------
 Mon Sep 19 11:52:52 CEST 2011 - hare@suse.de
 
 - Update iscsiuio to 0.7.0.14d (bnc#687392)
