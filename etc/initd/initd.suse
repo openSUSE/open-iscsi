@@ -13,7 +13,7 @@
 # Short-Description: iSCSI initiator daemon
 # Description:       The iSCSI initator is used to create and
 #                    manage iSCSI connections to a iSCSI Target.
-#                    
+#
 ### END INIT INFO
 
 CONFIG_FILE=/etc/iscsi/iscsid.conf

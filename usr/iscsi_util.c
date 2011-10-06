@@ -33,6 +33,7 @@
 #include "iscsi_settings.h"
 #include "iface.h"
 #include "session_info.h"
+#include "iscsi_util.h"
 
 void daemon_init(void)
 {
@@ -47,7 +48,8 @@ void daemon_init(void)
 	dup2(fd, 1);
 	dup2(fd, 2);
 	setsid();
-	chdir("/");
+	if (chdir("/") < 0)
+		log_debug(1, "Could not chdir to /: %s", strerror(errno));
 }
 
 #define ISCSI_OOM_PATH_LEN 48
@@ -58,7 +60,9 @@ int oom_adjust(void)
 	char path[ISCSI_OOM_PATH_LEN];
 	struct stat statb;
 
-	nice(-10);
+	if (nice(-10) < 0)
+		log_debug(1, "Could not increase process priority: %s",
+			  strerror(errno));
 
 	snprintf(path, ISCSI_OOM_PATH_LEN, "/proc/%d/oom_score_adj", getpid());
 	if (stat(path, &statb)) {
@@ -69,8 +73,12 @@ int oom_adjust(void)
 	fd = open(path, O_WRONLY);
 	if (fd < 0)
 		return -1;
-	write(fd, "-16", 3); /* for 2.6.11 */
-	write(fd, "-17", 3); /* for Andrea's patch */
+	if (write(fd, "-16", 3) < 0) /* for 2.6.11 */
+		log_debug(1, "Could not set oom score to -16: %s",
+			  strerror(errno));
+	if (write(fd, "-17", 3) < 0) /* for Andrea's patch */
+		log_debug(1, "Could not set oom score to -17: %s",
+			  strerror(errno));
 	close(fd);
 	return 0;
 }
@@ -285,24 +293,28 @@ free_res1:
 }
 
 int __iscsi_match_session(node_rec_t *rec, char *targetname,
-			  char *address, int port, struct iface_rec *iface)
+			  char *address, int port, struct iface_rec *iface,
+			  unsigned sid)
 {
 	if (!rec) {
 		log_debug(6, "no rec info to match\n");
 		return 1;
 	}
 
-	log_debug(6, "match session [%s,%s,%d][%s %s,%s,%s]",
+	log_debug(6, "match session [%s,%s,%d][%s %s,%s,%s]:%u",
 		  rec->name, rec->conn[0].address, rec->conn[0].port,
 		  rec->iface.name, rec->iface.transport_name,
-		  rec->iface.hwaddress, rec->iface.ipaddress);
+		  rec->iface.hwaddress, rec->iface.ipaddress,
+		  rec->session.sid);
 
 	if (iface)
-		log_debug(6, "to [%s,%s,%d][%s %s,%s,%s]",
+		log_debug(6, "to [%s,%s,%d][%s %s,%s,%s]:%u",
 			  targetname, address, port, iface->name,
 			  iface->transport_name, iface->hwaddress,
-			  iface->ipaddress);
+			  iface->ipaddress, sid);
 
+	if (rec->session.sid && sid && rec->session.sid != sid)
+		return 0;
 
 	if (strlen(rec->name) && strcmp(rec->name, targetname))
 		return 0;
@@ -323,5 +335,27 @@ int iscsi_match_session(void *data, struct session_info *info)
 {
 	return __iscsi_match_session(data, info->targetname,
 				     info->persistent_address,
-				     info->persistent_port, &info->iface);
+				     info->persistent_port, &info->iface,
+				     info->sid);
+}
+
+int iscsi_match_session_count(void *data, struct session_info *info)
+{
+	/*
+	 * iscsi_sysfs_for_each_session expects:
+	 *   0==match -1==nomatch >0==error
+	 * but iscsi_match_session returns:
+	 *   1==match 0==nomatch
+	 */
+	if (iscsi_match_session(data, info))
+		return 0;
+	return -1;
+}
+
+int iscsi_match_target(void *data, struct session_info *info)
+{
+	return __iscsi_match_session(data, info->targetname,
+				     info->persistent_address,
+				     info->persistent_port, NULL,
+				     MATCH_ANY_SID);
 }

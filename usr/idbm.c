@@ -72,6 +72,28 @@ static struct idbm *db;
 	_n++; \
 } while(0)
 
+#define __recinfo_uint8(_key, _info, _rec, _name, _show, _n, _mod) do { \
+	_info[_n].type = TYPE_UINT8; \
+	strlcpy(_info[_n].name, _key, NAME_MAXVAL); \
+	snprintf(_info[_n].value, VALUE_MAXVAL, "%d", _rec->_name); \
+	_info[_n].data = &_rec->_name; \
+	_info[_n].data_len = sizeof(_rec->_name); \
+	_info[_n].visible = _show; \
+	_info[_n].can_modify = _mod; \
+	_n++; \
+} while (0)
+
+#define __recinfo_uint16(_key, _info, _rec, _name, _show, _n, _mod) do { \
+	_info[_n].type = TYPE_UINT16; \
+	strlcpy(_info[_n].name, _key, NAME_MAXVAL); \
+	snprintf(_info[_n].value, VALUE_MAXVAL, "%d", _rec->_name); \
+	_info[_n].data = &_rec->_name; \
+	_info[_n].data_len = sizeof(_rec->_name); \
+	_info[_n].visible = _show; \
+	_info[_n].can_modify = _mod; \
+	_n++; \
+} while (0)
+
 #define __recinfo_int_o2(_key,_info,_rec,_name,_show,_op0,_op1,_n, _mod) do { \
 	_info[_n].type = TYPE_INT_O; \
 	strlcpy(_info[_n].name, _key, NAME_MAXVAL); \
@@ -209,6 +231,8 @@ idbm_recinfo_node(node_rec_t *r, recinfo_t *ri)
 	__recinfo_int(NODE_TPGT, ri, r, tpgt, IDBM_SHOW, num, 0);
 	__recinfo_int_o3(NODE_STARTUP, ri, r, startup,
 			IDBM_SHOW, "manual", "automatic", "onboot", num, 1);
+	__recinfo_int_o2(NODE_LEADING_LOGIN, ri, r, leading_login, IDBM_SHOW,
+			 "No", "Yes", num, 1);
 	/*
 	 * Note: because we do not add the iface.iscsi_ifacename to
 	 * sysfs iscsiadm does some weird matching. We can change the iface
@@ -248,6 +272,8 @@ idbm_recinfo_node(node_rec_t *r, recinfo_t *ri)
 		      session.cmds_max, IDBM_SHOW, num, 1);
 	__recinfo_int(SESSION_QDEPTH, ri, r,
 		       session.queue_depth, IDBM_SHOW, num, 1);
+	__recinfo_int(SESSION_NR_SESSIONS, ri, r,
+		       session.nr_sessions, IDBM_SHOW, num, 1);
 	__recinfo_int_o2(SESSION_AUTH_METHOD, ri, r, session.auth.authmethod,
 			 IDBM_SHOW, "None", "CHAP", num, 1);
 	__recinfo_str(SESSION_USERNAME, ri, r,
@@ -370,6 +396,27 @@ void idbm_recinfo_iface(iface_rec_t *r, recinfo_t *ri)
 	__recinfo_str(IFACE_TRANSPORTNAME, ri, r, transport_name,
 		      IDBM_SHOW, num, 1);
 	__recinfo_str(IFACE_INAME, ri, r, iname, IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_BOOT_PROTO, ri, r, bootproto, IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_SUBNET_MASK, ri, r, subnet_mask,
+		      IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_GATEWAY, ri, r, gateway, IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_IPV6_AUTOCFG, ri, r, ipv6_autocfg,
+		      IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_LINKLOCAL_AUTOCFG, ri, r, linklocal_autocfg,
+		      IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_ROUTER_AUTOCFG, ri, r, router_autocfg,
+		      IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_LINKLOCAL, ri, r, ipv6_linklocal,
+		      IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_ROUTER, ri, r, ipv6_router, IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_STATE, ri, r, state, IDBM_SHOW, num, 1);
+	__recinfo_uint16(IFACE_VLAN_ID, ri, r, vlan_id, IDBM_SHOW, num, 1);
+	__recinfo_uint8(IFACE_VLAN_PRIORITY, ri, r, vlan_priority,
+		      IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_VLAN_STATE, ri, r, vlan_state, IDBM_SHOW, num, 1);
+	__recinfo_int(IFACE_NUM, ri, r, iface_num, IDBM_SHOW, num, 1);
+	__recinfo_uint16(IFACE_MTU, ri, r, mtu, IDBM_SHOW, num, 1);
+	__recinfo_uint16(IFACE_PORT, ri, r, port, IDBM_SHOW, num, 1);
 }
 
 recinfo_t *idbm_recinfo_alloc(int max_keys)
@@ -512,6 +559,20 @@ setup_passwd_len:
 					continue;
 
 				*(int*)info[i].data =
+					strtoul(value, NULL, 10);
+				goto updated;
+			} else if (info[i].type == TYPE_UINT8) {
+				if (!info[i].data)
+					continue;
+
+				*(uint8_t *)info[i].data =
+					strtoul(value, NULL, 10);
+				goto updated;
+			} else if (info[i].type == TYPE_UINT16) {
+				if (!info[i].data)
+					continue;
+
+				*(uint16_t *)info[i].data =
 					strtoul(value, NULL, 10);
 				goto updated;
 			} else if (info[i].type == TYPE_STR) {
@@ -1127,7 +1188,6 @@ int idbm_for_each_isns_drec(void *data, idbm_drec_op_fn *fn)
 static int __idbm_print_all_by_drec(void *data, struct discovery_rec *drec)
 {
 	int info_level = *(int *)data;
-	int rc;
 
 	if (info_level >= 1) {
 		printf("DiscoveryAddress: %s,%d\n",
@@ -1898,6 +1958,20 @@ static int idbm_bind_iface_to_nodes(idbm_disc_nodes_fn *disc_node_fn,
 	return 0;
 }
 
+static int
+discovery_error_fatal(int err)
+{
+	switch (err) {
+	/* No error */
+	case ISCSI_SUCCESS:
+	/* Transport errors or timeouts are not fatal */
+	case ISCSI_ERR_TRANS:
+	case ISCSI_ERR_TRANS_TIMEOUT:
+		return 0;
+	}
+	return 1;
+}
+
 int idbm_bind_ifaces_to_nodes(idbm_disc_nodes_fn *disc_node_fn,
 			      void *data, struct list_head *ifaces,
 			      struct list_head *bound_recs)
@@ -1929,7 +2003,7 @@ int idbm_bind_ifaces_to_nodes(idbm_disc_nodes_fn *disc_node_fn,
 			rc = idbm_bind_iface_to_nodes(disc_node_fn, data, iface,
 						      bound_recs);
 			free(iface);
-			if (rc)
+			if (discovery_error_fatal(rc))
 				goto fail;
 			found = 1;
 		}
@@ -1956,7 +2030,7 @@ int idbm_bind_ifaces_to_nodes(idbm_disc_nodes_fn *disc_node_fn,
 
 			rc = idbm_bind_iface_to_nodes(disc_node_fn, data, iface,
 						      bound_recs);
-			if (rc)
+			if (discovery_error_fatal(rc))
 				goto fail;
 		}
 	}
@@ -2421,10 +2495,12 @@ void idbm_node_setup_defaults(node_rec_t *rec)
 
 	rec->tpgt = PORTAL_GROUP_TAG_UNKNOWN;
 	rec->disc_type = DISCOVERY_TYPE_STATIC;
+	rec->leading_login = 0;
 	rec->session.cmds_max = CMDS_MAX;
 	rec->session.xmit_thread_priority = XMIT_THREAD_PRIORITY;
 	rec->session.initial_cmdsn = 0;
 	rec->session.queue_depth = QUEUE_DEPTH;
+	rec->session.nr_sessions = 1;
 	rec->session.initial_login_retry_max = DEF_INITIAL_LOGIN_RETRIES_MAX;
 	rec->session.reopen_max = 32;
 	rec->session.auth.authmethod = 0;
@@ -2435,6 +2511,9 @@ void idbm_node_setup_defaults(node_rec_t *rec)
 	rec->session.err_timeo.tgt_reset_timeout = DEF_TGT_RESET_TIMEO;
 	rec->session.err_timeo.host_reset_timeout = DEF_HOST_RESET_TIMEO;
 	rec->session.timeo.replacement_timeout = DEF_REPLACEMENT_TIMEO;
+	rec->session.info = NULL;
+	rec->session.sid = 0;
+	rec->session.multiple = 0;
 	idbm_setup_session_defaults(&rec->session.iscsi);
 
 	for (i=0; i<ISCSI_CONN_MAX; i++) {
@@ -2462,7 +2541,8 @@ idbm_find_rec_in_list(struct list_head *rec_list, char *targetname, char *addr,
 	struct node_rec *rec;
 
 	list_for_each_entry(rec, rec_list, list) {
-		if (__iscsi_match_session(rec, targetname, addr, port, iface))
+		if (__iscsi_match_session(rec, targetname, addr, port, iface,
+					  MATCH_ANY_SID))
 			return rec;
 	}
 

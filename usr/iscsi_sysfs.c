@@ -50,6 +50,7 @@
 #define ISCSI_CONN_SUBSYS		"iscsi_connection"
 #define ISCSI_HOST_SUBSYS		"iscsi_host"
 #define ISCSI_TRANSPORT_SUBSYS		"iscsi_transport"
+#define ISCSI_IFACE_SUBSYS		"iscsi_iface"
 #define SCSI_HOST_SUBSYS		"scsi_host"
 #define SCSI_SUBSYS			"scsi"
 
@@ -148,7 +149,6 @@ static int read_transports(void)
 		 */
 		if (!strcmp(t->name, "qla4xxx")) {
 			t->caps |= CAP_DATA_PATH_OFFLOAD;
-			t->caps |= CAP_FW_DB;
 		}
 
 		if (list_empty(&t->list))
@@ -325,7 +325,7 @@ static int __get_host_no_from_hwaddress(void *data, struct host_info *info)
 {
 	struct host_info *ret_info = data;
 
-	if (!strcmp(ret_info->iface.hwaddress, info->iface.hwaddress)) {
+	if (!strcasecmp(ret_info->iface.hwaddress, info->iface.hwaddress)) {
 		ret_info->host_no = info->host_no;
 		return 1;
 	}
@@ -423,11 +423,12 @@ uint32_t iscsi_sysfs_get_host_no_from_hwinfo(struct iface_rec *iface, int *rc)
  * qla4xxx.
  */
 static int iscsi_sysfs_read_iface(struct iface_rec *iface, int host_no,
-				  char *session)
+				  char *session, char *iface_kern_id)
 {
-	char id[NAME_SIZE];
+	uint32_t tmp_host_no, iface_num;
+	char host_id[NAME_SIZE];
 	struct iscsi_transport *t;
-	int ret;
+	int ret, iface_type;
 
 	t = iscsi_sysfs_get_transport_by_hba(host_no);
 	if (!t)
@@ -436,26 +437,31 @@ static int iscsi_sysfs_read_iface(struct iface_rec *iface, int host_no,
 	else
 		strcpy(iface->transport_name, t->name);
 
-	snprintf(id, sizeof(id), ISCSI_HOST_ID, host_no);
+	snprintf(host_id, sizeof(host_id), ISCSI_HOST_ID, host_no);
 	/*
 	 * backward compat
 	 * If we cannot get the address we assume we are doing the old
 	 * style and use default.
 	 */
-	ret = sysfs_get_str(id, ISCSI_HOST_SUBSYS, "hwaddress",
+	ret = sysfs_get_str(host_id, ISCSI_HOST_SUBSYS, "hwaddress",
 			    iface->hwaddress, sizeof(iface->hwaddress));
 	if (ret)
 		log_debug(7, "could not read hwaddress for host%d\n", host_no);
 
-	/* if not found just print out default */
-	ret = sysfs_get_str(id, ISCSI_HOST_SUBSYS, "ipaddress",
-			    iface->ipaddress, sizeof(iface->ipaddress));
+	if (iface_kern_id)
+		ret = sysfs_get_str(iface_kern_id, ISCSI_IFACE_SUBSYS,
+				    "ipaddress",
+				    iface->ipaddress, sizeof(iface->ipaddress));
+	else
+		/* if not found just print out default */
+		ret = sysfs_get_str(host_id, ISCSI_HOST_SUBSYS, "ipaddress",
+				    iface->ipaddress, sizeof(iface->ipaddress));
 	if (ret)
 		log_debug(7, "could not read local address for host%d\n",
 			  host_no);
 
 	/* if not found just print out default */
-	ret = sysfs_get_str(id, ISCSI_HOST_SUBSYS, "netdev",
+	ret = sysfs_get_str(host_id, ISCSI_HOST_SUBSYS, "netdev",
 			    iface->netdev, sizeof(iface->netdev));
 	if (ret)
 		log_debug(7, "could not read netdev for host%d\n", host_no);
@@ -487,7 +493,7 @@ static int iscsi_sysfs_read_iface(struct iface_rec *iface, int host_no,
 	}
 
 	if (ret) {
-		ret = sysfs_get_str(id, ISCSI_HOST_SUBSYS, "initiatorname",
+		ret = sysfs_get_str(host_id, ISCSI_HOST_SUBSYS, "initiatorname",
 				    iface->iname, sizeof(iface->iname));
 		if (ret) {
 			/*
@@ -531,6 +537,56 @@ static int iscsi_sysfs_read_iface(struct iface_rec *iface, int host_no,
 					  iface_str(iface));
 		}
 	}
+
+	if (!iface_kern_id)
+		goto done;
+
+	strlcpy(iface->name, iface_kern_id, sizeof(iface->name));
+
+	if (!strncmp(iface_kern_id, "ipv4", 4)) {
+		sysfs_get_str(iface_kern_id, ISCSI_IFACE_SUBSYS, "bootproto",
+			      iface->bootproto, sizeof(iface->bootproto));
+
+		sysfs_get_str(iface_kern_id, ISCSI_IFACE_SUBSYS, "gateway",
+			      iface->gateway, sizeof(iface->gateway));
+
+		sysfs_get_str(iface_kern_id, ISCSI_IFACE_SUBSYS, "subnet",
+			      iface->subnet_mask, sizeof(iface->subnet_mask));
+	} else {
+		sysfs_get_str(iface_kern_id, ISCSI_IFACE_SUBSYS,
+			      "ipaddr_autocfg",
+			      iface->ipv6_autocfg, sizeof(iface->ipv6_autocfg));
+
+		sysfs_get_str(iface_kern_id, ISCSI_IFACE_SUBSYS,
+			      "link_local_addr", iface->ipv6_linklocal,
+			      sizeof(iface->ipv6_linklocal));
+
+		sysfs_get_str(iface_kern_id, ISCSI_IFACE_SUBSYS,
+			      "link_local_autocfg", iface->linklocal_autocfg,
+			      sizeof(iface->linklocal_autocfg));
+
+		sysfs_get_str(iface_kern_id, ISCSI_IFACE_SUBSYS, "router_addr",
+			      iface->ipv6_router,
+			      sizeof(iface->ipv6_router));
+	}
+
+	if (sysfs_get_uint16(iface_kern_id, ISCSI_IFACE_SUBSYS, "port",
+			     &iface->port))
+		iface->port = 0;
+	if (sysfs_get_uint16(iface_kern_id, ISCSI_IFACE_SUBSYS, "mtu",
+			     &iface->mtu))
+		iface->mtu = 0;
+	if (sysfs_get_uint16(iface_kern_id, ISCSI_IFACE_SUBSYS, "vlan_id",
+			     &iface->vlan_id))
+		iface->vlan_id = 0;
+	if (sysfs_get_uint8(iface_kern_id, ISCSI_IFACE_SUBSYS, "vlan_priority",
+			    &iface->vlan_priority))
+		iface->vlan_priority = 0;
+
+	if (sscanf(iface_kern_id, "ipv%d-iface-%u-%u", &iface_type,
+		   &tmp_host_no, &iface_num) == 3)
+		iface->iface_num = iface_num;
+done:
 	if (ret)
 		return ISCSI_ERR_SYSFS_LOOKUP;
 	else
@@ -539,7 +595,8 @@ static int iscsi_sysfs_read_iface(struct iface_rec *iface, int host_no,
 
 int iscsi_sysfs_get_hostinfo_by_host_no(struct host_info *hinfo)
 {
-	return iscsi_sysfs_read_iface(&hinfo->iface, hinfo->host_no, NULL);
+	return iscsi_sysfs_read_iface(&hinfo->iface, hinfo->host_no, NULL,
+				      NULL);
 }
 
 int iscsi_sysfs_for_each_host(void *data, int *nr_found,
@@ -580,6 +637,50 @@ int iscsi_sysfs_for_each_host(void *data, int *nr_found,
 
 free_info:
 	free(info);
+	return rc;
+}
+
+int iscsi_sysfs_for_each_iface_on_host(void *data, uint32_t host_no,
+				       int *nr_found,
+				       iscsi_sysfs_iface_op_fn *fn)
+{
+	struct dirent **namelist;
+	int rc = 0, i, n;
+	struct iface_rec iface;
+        char devpath[PATH_SIZE];
+        char sysfs_path[PATH_SIZE];
+        char id[NAME_SIZE];
+
+        snprintf(id, sizeof(id), "host%u", host_no);
+        if (!sysfs_lookup_devpath_by_subsys_id(devpath, sizeof(devpath),
+                                               SCSI_SUBSYS, id)) {
+                log_error("Could not look up host's ifaces via scsi bus.");
+                return ISCSI_ERR_SYSFS_LOOKUP;
+        }
+
+	sprintf(sysfs_path, "/sys");
+	strlcat(sysfs_path, devpath, sizeof(sysfs_path));
+	strlcat(sysfs_path, "/iscsi_iface", sizeof(sysfs_path));
+
+	n = scandir(sysfs_path, &namelist, trans_filter, alphasort);
+	if (n <= 0)
+		/* older kernels or some drivers will not have ifaces */
+		return 0;
+
+	for (i = 0; i < n; i++) {
+		memset(&iface, 0, sizeof(iface));
+
+		iscsi_sysfs_read_iface(&iface, host_no, NULL,
+				       namelist[i]->d_name);
+		rc = fn(data, &iface);
+		if (rc != 0)
+			break;
+		(*nr_found)++;
+	}
+
+	for (i = 0; i < n; i++)
+		free(namelist[i]);
+	free(namelist);
 	return rc;
 }
 
@@ -677,6 +778,50 @@ int iscsi_sysfs_get_sessioninfo_by_id(struct session_info *info, char *session)
 		return ISCSI_ERR_SYSFS_LOOKUP;
 	}
 
+	ret = sysfs_get_str(session, ISCSI_SESSION_SUBSYS, "username",
+				(info->chap).username,
+				sizeof((info->chap).username));
+	if (ret)
+		log_debug(5, "could not read username: %d", ret);
+
+	ret = sysfs_get_str(session, ISCSI_SESSION_SUBSYS, "password",
+				(info->chap).password,
+				sizeof((info->chap).password));
+	if (ret)
+		log_debug(5, "could not read password: %d", ret);
+
+	ret = sysfs_get_str(session, ISCSI_SESSION_SUBSYS, "username_in",
+				(info->chap).username_in,
+				sizeof((info->chap).username_in));
+	if (ret)
+		log_debug(5, "could not read username in: %d", ret);
+
+	ret = sysfs_get_str(session, ISCSI_SESSION_SUBSYS, "password_in",
+				(info->chap).password_in,
+				sizeof((info->chap).password_in));
+	if (ret)
+		log_debug(5, "could not read password in: %d", ret);
+
+	ret = sysfs_get_int(session, ISCSI_SESSION_SUBSYS, "recovery_tmo",
+				&((info->tmo).recovery_tmo));
+	if (ret)
+		(info->tmo).recovery_tmo = -1;
+
+	ret = sysfs_get_int(session, ISCSI_SESSION_SUBSYS, "lu_reset_tmo",
+				&((info->tmo).lu_reset_tmo));
+	if (ret)
+		(info->tmo).lu_reset_tmo = -1;
+
+	ret = sysfs_get_int(session, ISCSI_SESSION_SUBSYS, "tgt_reset_tmo",
+				&((info->tmo).tgt_reset_tmo));
+	if (ret)
+		(info->tmo).lu_reset_tmo = -1;
+
+	sysfs_get_int(session, ISCSI_SESSION_SUBSYS, "abort_tmo",
+				&((info->tmo).abort_tmo));
+	if (ret)
+		(info->tmo).abort_tmo = -1;
+
 	ret = sysfs_get_int(session, ISCSI_SESSION_SUBSYS, "tpgt",
 			    &info->tpgt);
 	if (ret) {
@@ -742,8 +887,8 @@ int iscsi_sysfs_get_sessioninfo_by_id(struct session_info *info, char *session)
 		return ret;
 	}
 
-	iscsi_sysfs_read_iface(&info->iface, host_no, session);
- 
+	iscsi_sysfs_read_iface(&info->iface, host_no, session, NULL);
+
 	log_debug(7, "found targetname %s address %s pers address %s port %d "
 		 "pers port %d driver %s iface name %s ipaddress %s "
 		 "netdev %s hwaddress %s iname %s",
@@ -755,7 +900,7 @@ int iscsi_sysfs_get_sessioninfo_by_id(struct session_info *info, char *session)
 		  info->iface.iname);
 	return 0;
 }
- 
+
 int iscsi_sysfs_for_each_session(void *data, int *nr_found,
 				 iscsi_sysfs_session_op_fn *fn)
 {
@@ -842,7 +987,6 @@ char *iscsi_sysfs_get_blockdev_from_lun(int host_no, int target, int lun)
 {
 	char devpath[PATH_SIZE];
 	char path_full[PATH_SIZE];
-	char *path;
 	char id[NAME_SIZE];
 	DIR *dirfd;
 	struct dirent *dent;
@@ -859,9 +1003,8 @@ char *iscsi_sysfs_get_blockdev_from_lun(int host_no, int target, int lun)
 	}
 
 	sysfs_len = strlcpy(path_full, sysfs_path, sizeof(path_full));
-	if(sysfs_len >= sizeof(path_full))
+	if (sysfs_len >= sizeof(path_full))
 		sysfs_len = sizeof(path_full) - 1;
-	path = &path_full[sysfs_len];
 	strlcat(path_full, devpath, sizeof(path_full));
 
 	dirfd = opendir(path_full);
@@ -926,7 +1069,6 @@ static uint32_t get_target_no_from_sid(uint32_t sid, int *err)
 {
 	char devpath[PATH_SIZE];
 	char path_full[PATH_SIZE];
-	char *path;
 	char id[NAME_SIZE];
 	DIR *dirfd;
 	struct dirent *dent;
@@ -949,9 +1091,8 @@ static uint32_t get_target_no_from_sid(uint32_t sid, int *err)
 	 * /class/iscsi_session/sessionX/device.
 	 */
 	sysfs_len = strlcpy(path_full, sysfs_path, sizeof(path_full));
-	if(sysfs_len >= sizeof(path_full))
+	if (sysfs_len >= sizeof(path_full))
 		sysfs_len = sizeof(path_full) - 1;
-	path = &path_full[sysfs_len];
 	strlcat(path_full, devpath, sizeof(path_full));
 	strlcat(path_full, "/device", sizeof(devpath));
 
@@ -1056,6 +1197,19 @@ int iscsi_sysfs_get_exp_statsn(int sid)
 		exp_statsn = 0;
 	}
 	return exp_statsn;
+}
+
+int iscsi_sysfs_session_supports_nop(int sid)
+{
+	char id[NAME_SIZE];
+	uint32_t ping_tmo = 0;
+
+	snprintf(id, sizeof(id), ISCSI_CONN_ID, sid);
+	if (sysfs_get_uint(id, ISCSI_CONN_SUBSYS, "ping_tmo",
+			   &ping_tmo)) {
+		return 0;
+	}
+	return 1;
 }
 
 int iscsi_sysfs_for_each_device(void *data, int host_no, uint32_t sid,

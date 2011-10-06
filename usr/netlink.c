@@ -38,6 +38,7 @@
 #include "initiator.h"
 #include "iscsi_sysfs.h"
 #include "transport.h"
+#include "iscsi_netlink.h"
 
 static int ctrl_fd;
 static struct sockaddr_nl src_addr, dest_addr;
@@ -62,6 +63,19 @@ static int ctldev_handle(void);
 					sizeof(struct iscsi_hdr))
 
 #define NLM_SETPARAM_DEFAULT_MAX (NI_MAXHOST + 1 + sizeof(struct iscsi_uevent))
+
+struct nlattr *iscsi_nla_alloc(uint16_t type, uint16_t len)
+{
+	struct nlattr *attr;
+
+	attr = calloc(1, ISCSI_NLA_TOTAL_LEN(len));
+	if (!attr)
+		return NULL; 
+
+	attr->nla_len = ISCSI_NLA_LEN(len);
+	attr->nla_type = type;
+	return attr;
+}
 
 static int
 kread(char *data, int count)
@@ -161,7 +175,6 @@ kwritev(enum iscsi_uevent_e type, struct iovec *iovp, int count)
 	int i, rc;
 	struct nlmsghdr *nlh;
 	struct msghdr msg;
-	struct iovec iov;
 	int datalen = 0;
 
 	log_debug(7, "in %s", __FUNCTION__);
@@ -180,27 +193,25 @@ kwritev(enum iscsi_uevent_e type, struct iovec *iovp, int count)
 	}
 
 	nlh = nlm_sendbuf;
-	memset(nlh, 0, NLMSG_SPACE(datalen));
+	memset(nlh, 0, NLMSG_SPACE(0));
 
-	nlh->nlmsg_len = NLMSG_SPACE(datalen);
+	datalen = 0;
+	for (i = 1; i < count; i++)
+		datalen += iovp[i].iov_len;
+
+	nlh->nlmsg_len = datalen + sizeof(*nlh);
 	nlh->nlmsg_pid = getpid();
 	nlh->nlmsg_flags = 0;
 	nlh->nlmsg_type = type;
 
-	datalen = 0;
-	for (i = 0; i < count; i++) {
-		memcpy(NLMSG_DATA(nlh) + datalen, iovp[i].iov_base,
-		       iovp[i].iov_len);
-		datalen += iovp[i].iov_len;
-	}
-	iov.iov_base = (void*)nlh;
-	iov.iov_len = nlh->nlmsg_len;
+	iovp[0].iov_base = (void *)nlh;
+	iovp[0].iov_len = sizeof(*nlh);
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_name= (void*)&dest_addr;
 	msg.msg_namelen = sizeof(dest_addr);
-	msg.msg_iov = &iov;
-	msg.msg_iovlen = 1;
+	msg.msg_iov = iovp;
+	msg.msg_iovlen = count;
 
 	do {
 		/*
@@ -261,19 +272,15 @@ kwritev(enum iscsi_uevent_e type, struct iovec *iovp, int count)
  *        cleanup. (Dima)
  */
 static int
-__kipc_call(void *iov_base, int iov_len)
+__kipc_call(struct iovec *iovp, int count)
 {
 	int rc, iferr;
-	struct iovec iov;
-	struct iscsi_uevent *ev = iov_base;
+	struct iscsi_uevent *ev = iovp[1].iov_base;
 	enum iscsi_uevent_e type = ev->type;
 
 	log_debug(7, "in %s", __FUNCTION__);
 
-	iov.iov_base = iov_base;
-	iov.iov_len = iov_len;
-
-	rc = kwritev(type, &iov, 1);
+	rc = kwritev(type, iovp, count);
 
 	do {
 		if ((rc = nlpayload_read(ctrl_fd, (void*)ev,
@@ -333,6 +340,7 @@ ksendtargets(uint64_t transport_handle, uint32_t host_no, struct sockaddr *addr)
 {
 	int rc, addrlen;
 	struct iscsi_uevent *ev;
+	struct iovec iov[2];
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -354,7 +362,9 @@ ksendtargets(uint64_t transport_handle, uint32_t host_no, struct sockaddr *addr)
 	}
 	memcpy(setparam_buf + sizeof(*ev), addr, addrlen);
 
-	rc = __kipc_call(ev, sizeof(*ev) + addrlen);
+	iov[1].iov_base = ev;
+	iov[1].iov_len = sizeof(*ev) + addrlen;
+	rc = __kipc_call(iov, 2);
 	if (rc < 0) {
 		log_error("sendtargets failed rc%d\n", rc);
 		return rc;
@@ -369,6 +379,7 @@ kcreate_session(uint64_t transport_handle, uint64_t ep_handle,
 {
 	int rc;
 	struct iscsi_uevent ev;
+	struct iovec iov[2];
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -389,9 +400,11 @@ kcreate_session(uint64_t transport_handle, uint64_t ep_handle,
 		ev.u.c_bound_session.ep_handle = ep_handle;
 	}
 
-	if ((rc = __kipc_call(&ev, sizeof(ev))) < 0) {
+	iov[1].iov_base = &ev;
+	iov[1].iov_len = sizeof(ev);
+	rc = __kipc_call(iov, 2);
+	if (rc < 0)
 		return rc;
-	}
 
 	*hostno = ev.r.c_session_ret.host_no;
 	*out_sid = ev.r.c_session_ret.sid;
@@ -404,6 +417,7 @@ kdestroy_session(uint64_t transport_handle, uint32_t sid)
 {
 	int rc;
 	struct iscsi_uevent ev;
+	struct iovec iov[2];
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -413,9 +427,11 @@ kdestroy_session(uint64_t transport_handle, uint32_t sid)
 	ev.transport_handle = transport_handle;
 	ev.u.d_session.sid = sid;
 
-	if ((rc = __kipc_call(&ev, sizeof(ev))) < 0) {
+	iov[1].iov_base = &ev;
+	iov[1].iov_len = sizeof(ev);
+	rc = __kipc_call(iov, 2);
+	if (rc < 0)
 		return rc;
-	}
 
 	return 0;
 }
@@ -425,6 +441,7 @@ kunbind_session(uint64_t transport_handle, uint32_t sid)
 {
 	int rc;
 	struct iscsi_uevent ev;
+	struct iovec iov[2];
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -434,9 +451,11 @@ kunbind_session(uint64_t transport_handle, uint32_t sid)
 	ev.transport_handle = transport_handle;
 	ev.u.d_session.sid = sid;
 
-	if ((rc = __kipc_call(&ev, sizeof(ev))) < 0) {
+	iov[1].iov_base = &ev;
+	iov[1].iov_len = sizeof(ev);
+	rc = __kipc_call(iov, 2);
+	if (rc < 0)
 		return rc;
-	}
 
 	return 0;
 }
@@ -447,6 +466,7 @@ kcreate_conn(uint64_t transport_handle, uint32_t sid,
 {
 	int rc;
 	struct iscsi_uevent ev;
+	struct iovec iov[2];
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -457,7 +477,10 @@ kcreate_conn(uint64_t transport_handle, uint32_t sid,
 	ev.u.c_conn.cid = cid;
 	ev.u.c_conn.sid = sid;
 
-	if ((rc = __kipc_call(&ev, sizeof(ev))) < 0) {
+	iov[1].iov_base = &ev;
+	iov[1].iov_len = sizeof(ev);
+	rc = __kipc_call(iov, 2);
+	if (rc < 0) {
 		log_debug(7, "returned %d", rc);
 		return rc;
 	}
@@ -474,6 +497,7 @@ kdestroy_conn(uint64_t transport_handle, uint32_t sid, uint32_t cid)
 {
 	int rc;
 	struct iscsi_uevent ev;
+	struct iovec iov[2];
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -484,9 +508,11 @@ kdestroy_conn(uint64_t transport_handle, uint32_t sid, uint32_t cid)
 	ev.u.d_conn.sid = sid;
 	ev.u.d_conn.cid = cid;
 
-	if ((rc = __kipc_call(&ev, sizeof(ev))) < 0) {
+	iov[1].iov_base = &ev;
+	iov[1].iov_len = sizeof(ev);
+	rc = __kipc_call(iov, 2);
+	if (rc < 0)
 		return rc;
-	}
 
 	return 0;
 }
@@ -497,6 +523,7 @@ kbind_conn(uint64_t transport_handle, uint32_t sid, uint32_t cid,
 {
 	int rc;
 	struct iscsi_uevent ev;
+	struct iovec iov[2];
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -509,9 +536,11 @@ kbind_conn(uint64_t transport_handle, uint32_t sid, uint32_t cid,
 	ev.u.b_conn.transport_eph = transport_eph;
 	ev.u.b_conn.is_leading = is_leading;
 
-	if ((rc = __kipc_call(&ev, sizeof(ev))) < 0) {
+	iov[1].iov_base = &ev;
+	iov[1].iov_len = sizeof(ev);
+	rc = __kipc_call(iov, 2);
+	if (rc < 0)
 		return rc;
-	}
 
 	*retcode = ev.r.retcode;
 
@@ -559,7 +588,7 @@ ksend_pdu_end(uint64_t transport_handle, uint32_t sid, uint32_t cid,
 {
 	int rc;
 	struct iscsi_uevent *ev;
-	struct iovec iov;
+	struct iovec iov[2];
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -573,10 +602,11 @@ ksend_pdu_end(uint64_t transport_handle, uint32_t sid, uint32_t cid,
 		exit(-EIO);
 	}
 
-	iov.iov_base = xmitbuf;
-	iov.iov_len = xmitlen;
+	iov[1].iov_base = xmitbuf;
+	iov[1].iov_len = xmitlen;
 
-	if ((rc = __kipc_call(xmitbuf, xmitlen)) < 0)
+	rc = __kipc_call(iov, 2);
+	if (rc < 0)
 		goto err;
 	if (ev->r.retcode) {
 		*retcode = ev->r.retcode;
@@ -606,6 +636,7 @@ kset_host_param(uint64_t transport_handle, uint32_t host_no,
 	struct iscsi_uevent *ev;
 	char *param_str;
 	int rc, len;
+	struct iovec iov[2];
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -632,9 +663,11 @@ kset_host_param(uint64_t transport_handle, uint32_t host_no,
 	}
 	ev->u.set_host_param.len = len = strlen(param_str) + 1;
 
-	if ((rc = __kipc_call(ev, sizeof(*ev) + len)) < 0) {
+	iov[1].iov_base = ev;
+	iov[1].iov_len = sizeof(*ev) + len;
+	rc = __kipc_call(iov, 2);
+	if (rc < 0)
 		return rc;
-	}
 
 	return 0;
 }
@@ -646,6 +679,7 @@ kset_param(uint64_t transport_handle, uint32_t sid, uint32_t cid,
 	struct iscsi_uevent *ev;
 	char *param_str;
 	int rc, len;
+	struct iovec iov[2];
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -673,9 +707,11 @@ kset_param(uint64_t transport_handle, uint32_t sid, uint32_t cid,
 	}
 	ev->u.set_param.len = len = strlen(param_str) + 1;
 
-	if ((rc = __kipc_call(ev, sizeof(*ev) + len)) < 0) {
+	iov[1].iov_base = ev;
+	iov[1].iov_len = sizeof(*ev) + len;
+	rc = __kipc_call(iov, 2);
+	if (rc < 0)
 		return rc;
-	}
 
 	return 0;
 }
@@ -685,6 +721,7 @@ kstop_conn(uint64_t transport_handle, uint32_t sid, uint32_t cid, int flag)
 {
 	int rc;
 	struct iscsi_uevent ev;
+	struct iovec iov[2];
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -696,9 +733,11 @@ kstop_conn(uint64_t transport_handle, uint32_t sid, uint32_t cid, int flag)
 	ev.u.stop_conn.cid = cid;
 	ev.u.stop_conn.flag = flag;
 
-	if ((rc = __kipc_call(&ev, sizeof(ev))) < 0) {
+	iov[1].iov_base = &ev;
+	iov[1].iov_len = sizeof(ev);
+	rc = __kipc_call(iov, 2);
+	if (rc < 0)
 		return rc;
-	}
 
 	return 0;
 }
@@ -709,6 +748,7 @@ kstart_conn(uint64_t transport_handle, uint32_t sid, uint32_t cid,
 {
 	int rc;
 	struct iscsi_uevent ev;
+	struct iovec iov[2];
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -719,9 +759,11 @@ kstart_conn(uint64_t transport_handle, uint32_t sid, uint32_t cid,
 	ev.u.start_conn.sid = sid;
 	ev.u.start_conn.cid = cid;
 
-	if ((rc = __kipc_call(&ev, sizeof(ev))) < 0) {
+	iov[1].iov_base = &ev;
+	iov[1].iov_len = sizeof(ev);
+	rc = __kipc_call(iov, 2);
+	if (rc < 0)
 		return rc;
-	}
 
 	*retcode = ev.r.retcode;
 	return 0;
@@ -786,6 +828,7 @@ ktransport_ep_connect(iscsi_conn_t *conn, int non_blocking)
 	int rc, addrlen;
 	struct iscsi_uevent *ev;
 	struct sockaddr *dst_addr = (struct sockaddr *)&conn->saddr;
+	struct iovec iov[2];
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -813,7 +856,10 @@ ktransport_ep_connect(iscsi_conn_t *conn, int non_blocking)
 	}
 	memcpy(setparam_buf + sizeof(*ev), dst_addr, addrlen);
 
-	if ((rc = __kipc_call(ev, sizeof(*ev) + addrlen)) < 0)
+	iov[1].iov_base = ev;
+	iov[1].iov_len = sizeof(*ev) + addrlen;
+	rc = __kipc_call(iov, 2);
+	if (rc < 0)
 		return rc;
 
 	if (!ev->r.ep_connect_ret.handle)
@@ -831,6 +877,7 @@ ktransport_ep_poll(iscsi_conn_t *conn, int timeout_ms)
 {
 	int rc;
 	struct iscsi_uevent ev;
+	struct iovec iov[2];
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -841,7 +888,10 @@ ktransport_ep_poll(iscsi_conn_t *conn, int timeout_ms)
 	ev.u.ep_poll.ep_handle  = conn->transport_ep_handle;
 	ev.u.ep_poll.timeout_ms = timeout_ms;
 
-	if ((rc = __kipc_call(&ev, sizeof(ev))) < 0)
+	iov[1].iov_base = &ev;
+	iov[1].iov_len = sizeof(ev);
+	rc = __kipc_call(iov, 2);
+	if (rc < 0)
 		return rc;
 
 	return ev.r.retcode;
@@ -852,6 +902,7 @@ ktransport_ep_disconnect(iscsi_conn_t *conn)
 {
 	int rc;
 	struct iscsi_uevent ev;
+	struct iovec iov[2];
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -864,7 +915,10 @@ ktransport_ep_disconnect(iscsi_conn_t *conn)
 	ev.transport_handle = conn->session->t->handle;
 	ev.u.ep_disconnect.ep_handle = conn->transport_ep_handle;
 
-	if ((rc = __kipc_call(&ev, sizeof(ev))) < 0) {
+	iov[1].iov_base = &ev;
+	iov[1].iov_len = sizeof(ev);
+	rc = __kipc_call(iov, 2);
+	if (rc < 0) {
 		log_error("connnection %d:%d transport disconnect failed for "
 			  "ep %" PRIu64 " with error %d.", conn->session->id,
 			  conn->id, conn->transport_ep_handle, rc);
@@ -881,6 +935,7 @@ kget_stats(uint64_t transport_handle, uint32_t sid, uint32_t cid,
 	struct iscsi_uevent ev;
 	char nlm_ev[NLMSG_SPACE(sizeof(struct iscsi_uevent))];
 	struct nlmsghdr *nlh;
+	struct iovec iov[2];
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -891,9 +946,11 @@ kget_stats(uint64_t transport_handle, uint32_t sid, uint32_t cid,
 	ev.u.get_stats.sid = sid;
 	ev.u.get_stats.cid = cid;
 
-	if ((rc = __kipc_call(&ev, sizeof(ev))) < 0) {
+	iov[1].iov_base = &ev;
+	iov[1].iov_len = sizeof(ev);
+	rc = __kipc_call(iov, 2);
+	if (rc < 0)
 		return rc;
-	}
 
 	if ((rc = nl_read(ctrl_fd, nlm_ev,
 		NLMSG_SPACE(sizeof(struct iscsi_uevent)), MSG_PEEK)) < 0) {
@@ -919,6 +976,54 @@ kget_stats(uint64_t transport_handle, uint32_t sid, uint32_t cid,
 	return 0;
 }
 
+static int
+kset_net_config(uint64_t transport_handle, uint32_t host_no,
+		struct iovec *iovs, uint32_t param_count)
+{
+	struct iscsi_uevent ev;
+	int rc, ev_len;
+	struct iovec *iov = iovs + 1;
+
+	log_debug(8, "in %s", __FUNCTION__);
+
+	ev_len = sizeof(ev);
+	ev.type = ISCSI_UEVENT_SET_IFACE_PARAMS;
+	ev.transport_handle = transport_handle;
+	ev.u.set_iface_params.host_no = host_no;
+	/* first two iovs for nlmsg hdr and ev */
+	ev.u.set_iface_params.count = param_count - 2;
+
+	iov->iov_base = &ev;
+	iov->iov_len = ev_len;
+	rc = __kipc_call(iovs, param_count);
+	if (rc < 0)
+		return rc;
+
+	return 0;
+}
+
+static int krecv_conn_state(struct iscsi_conn *conn, int *state)
+{
+	int rc;
+
+	rc = ipc->ctldev_handle();
+	if (rc == -ENXIO) {
+		/* event for some other conn */
+		rc = -EAGAIN;
+		goto exit;
+	} else if (rc < 0)
+		/* fatal handling error or conn error */
+		goto exit;
+
+	*state = *(enum iscsi_conn_state *)conn->recv_context->data;
+
+	ipc_ev_clbk->put_ev_context(conn->recv_context);
+	conn->recv_context = NULL;
+
+exit:
+	return rc;
+}
+
 static void drop_data(struct nlmsghdr *nlh)
 {
 	int ev_size;
@@ -936,7 +1041,7 @@ static int ctldev_handle(void)
 	char nlm_ev[NLMSG_SPACE(sizeof(struct iscsi_uevent))];
 	struct nlmsghdr *nlh;
 	struct iscsi_ev_context *ev_context;
-	uint32_t sid = 0, cid = 0;
+	uint32_t sid = 0, cid = 0, state = 0;
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -972,6 +1077,11 @@ static int ctldev_handle(void)
 	case ISCSI_KEVENT_CONN_ERROR:
 		sid = ev->r.connerror.sid;
 		cid = ev->r.connerror.cid;
+		break;
+	case ISCSI_KEVENT_CONN_LOGIN_STATE:
+		sid = ev->r.conn_login.sid;
+		cid = ev->r.conn_login.cid;
+		state = ev->r.conn_login.state;
 		break;
 	case ISCSI_KEVENT_UNBIND_SESSION:
 		sid = ev->r.unbind_session.sid;
@@ -1043,6 +1153,12 @@ static int ctldev_handle(void)
 			sizeof(ev->r.connerror.error));
 		rc = ipc_ev_clbk->sched_ev_context(ev_context, conn, 0,
 						   EV_CONN_ERROR);
+		break;
+	case ISCSI_KEVENT_CONN_LOGIN_STATE:
+		memcpy(ev_context->data, &ev->r.conn_login.state,
+			sizeof(ev->r.conn_login.state));
+		rc = ipc_ev_clbk->sched_ev_context(ev_context, conn, 0,
+						   EV_CONN_LOGIN);
 		break;
 	case ISCSI_KEVENT_UNBIND_SESSION:
 		rc = ipc_ev_clbk->sched_ev_context(ev_context, conn, 0,
@@ -1163,6 +1279,8 @@ struct iscsi_ipc nl_ipc = {
 	.read			= kread,
 	.recv_pdu_begin         = krecv_pdu_begin,
 	.recv_pdu_end           = krecv_pdu_end,
+	.set_net_config         = kset_net_config,
+	.recv_conn_state        = krecv_conn_state,
 };
 struct iscsi_ipc *ipc = &nl_ipc;
 

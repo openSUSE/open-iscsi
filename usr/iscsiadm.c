@@ -4,6 +4,7 @@
  * Copyright (C) 2004 Dmitry Yusupov, Alex Aizman
  * Copyright (C) 2006 Mike Christie
  * Copyright (C) 2006 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2011 Dell Inc.
  * maintained by open-iscsi@googlegroups.com
  *
  * This program is free software; you can redistribute it and/or modify
@@ -49,6 +50,7 @@
 #include "iscsid_req.h"
 #include "isns-proto.h"
 #include "iscsi_err.h"
+#include "iscsi_ipc.h"
 
 static char program_name[] = "iscsiadm";
 static char config_file[TARGET_NAME_MAXLEN];
@@ -70,7 +72,9 @@ enum iscsiadm_op {
 	OP_DELETE		= 0x2,
 	OP_UPDATE		= 0x4,
 	OP_SHOW			= 0x8,
-	OP_NONPERSISTENT	= 0x10
+	OP_NONPERSISTENT	= 0x10,
+	OP_APPLY		= 0x20,
+	OP_APPLY_ALL		= 0x40
 };
 
 static struct option const long_options[] =
@@ -115,9 +119,9 @@ iscsiadm -m discovery [ -hV ] [ -d debug_level ] [-P printlevel] [ -t type -p ip
 iiscsiadm -m node [ -hV ] [ -d debug_level ] [ -P printlevel ] [ -L all,manual,automatic ] [ -U all,manual,automatic ] [ -S ] [ [ -T targetname -p ip:port -I ifaceN ] [ -l | -u | -R | -s] ] \
 [ [ -o  operation  ] [ -n name ] [ -v value ] ]\n\
 iscsiadm -m session [ -hV ] [ -d debug_level ] [ -P  printlevel] [ -r sessionid | sysfsdir [ -R | -u | -s ] [ -o operation ] [ -n name ] [ -v value ] ]\n\
-iscsiadm -m iface [ -hV ] [ -d debug_level ] [ -P printlevel ] [ -I ifacename ] [ [ -o  operation  ] [ -n name ] [ -v value ] ]\n\
+iscsiadm -m iface [ -hV ] [ -d debug_level ] [ -P printlevel ] [ -I ifacename | -H hostno|MAC ] [ [ -o  operation  ] [ -n name ] [ -v value ] ]\n\
 iscsiadm -m fw [ -l ]\n\
-iscsiadm -m host [ -P printlevel ] [ -H hostno ]\n\
+iscsiadm -m host [ -P printlevel ] [ -H hostno|MAC ]\n\
 iscsiadm -k priority\n");
 	}
 	exit(status);
@@ -138,6 +142,10 @@ str_to_op(char *str)
 		op = OP_SHOW;
 	else if (!strcmp("nonpersistent", str))
 		op = OP_NONPERSISTENT;
+	else if (!strcmp("apply", str))
+		op = OP_APPLY;
+	else if (!strcmp("applyall", str))
+		op = OP_APPLY_ALL;
 	else
 		op = OP_NOOP;
 
@@ -292,7 +300,12 @@ for_each_session(struct node_rec *rec, iscsi_sysfs_session_op_fn *fn)
 {
 	int err, num_found = 0;
 
-	err = iscsi_sysfs_for_each_session(rec, &num_found, fn);
+	if (rec && rec->session.info) {
+		num_found = 1;
+		err = fn(rec, rec->session.info);
+	} else {
+		err = iscsi_sysfs_for_each_session(rec, &num_found, fn);
+	}
 	if (err)
 		log_error("Could not execute operation on all sessions: %s",
 			  iscsi_err_to_str(err));
@@ -374,18 +387,54 @@ logout_by_startup(char *mode)
 	return rc; 
 }
 
-/*
- * TODO: merged this and logout into the common for_each_matched_rec by making
- * the matching more generic
- */
-static int
-__login_by_startup(void *data, struct list_head *list, struct node_rec *rec)
-{
-	char *mode = data;
+struct startup_data {
+	char *mode;
+	struct list_head all_logins;
+	struct list_head leading_logins;
+};
 
-	if (match_startup_mode(rec, mode))
+static int link_startup_recs(void *data, struct node_rec *rec)
+{
+	struct startup_data *startup = data;
+	struct node_rec *rec_copy;
+
+	if (match_startup_mode(rec, startup->mode))
 		return -1;
 
+	rec_copy = calloc(1, sizeof(*rec_copy));
+	if (!rec_copy)
+		return ISCSI_ERR_NOMEM;
+	memcpy(rec_copy, rec, sizeof(*rec_copy));
+	INIT_LIST_HEAD(&rec_copy->list);
+
+	if (rec_copy->leading_login)
+		list_add_tail(&rec_copy->list, &startup->leading_logins);
+	else
+		list_add_tail(&rec_copy->list, &startup->all_logins);
+	return 0;
+}
+
+static int
+__do_leading_login(void *data, struct list_head *list, struct node_rec *rec)
+{
+	struct iface_rec *pattern_iface = data;
+	int nr_found;
+
+	/* Skip any records that do not match the pattern iface */
+	if (!iface_match(pattern_iface, &rec->iface))
+		return -1;
+
+	/*
+	 * If there is an existing session that matcthes the target,
+	 * the leading login is complete.
+	 */
+	if (iscsi_sysfs_for_each_session(rec, &nr_found, iscsi_match_target)) {
+		log_debug(1, "Skipping %s: Already a session for that target",
+			  rec->name);
+		return -1;
+	}
+
+	/* No existing session: Attempt a login. */
 	return iscsi_login_portal(NULL, list, rec);
 }
 
@@ -393,7 +442,7 @@ static int
 login_by_startup(char *mode)
 {
 	int nr_found = 0, err, rc;
-	struct list_head rec_list;
+	struct startup_data startup;
 
 	if (!mode || !(!strcmp(mode, "automatic") || !strcmp(mode, "all") ||
 		       !strcmp(mode,"manual") || !strcmp(mode, "onboot"))) {
@@ -402,29 +451,99 @@ login_by_startup(char *mode)
 		return ISCSI_ERR_INVAL;
 	}
 
-	INIT_LIST_HEAD(&rec_list);
-	err = idbm_for_each_rec(&nr_found, &rec_list, link_recs);
-	if (err && !list_empty(&rec_list))
+	/*
+	 * Filter all node records that match the given 'mode' into 2 lists:
+	 * Those with leading_login enabled, and those without.
+	 */
+	startup.mode = mode;
+	INIT_LIST_HEAD(&startup.all_logins);
+	INIT_LIST_HEAD(&startup.leading_logins);
+	err = idbm_for_each_rec(&nr_found, &startup, link_startup_recs);
+	if (err && (!list_empty(&startup.all_logins) ||
+		    !list_empty(&startup.leading_logins)))
 		/* log msg and try to log into what we found */
 		log_error("Could not read all records: %s",
 			  iscsi_err_to_str(err));
-	else if (err && list_empty(&rec_list)) {
-		log_error("Could not read node DB: %s.",
-			  iscsi_err_to_str(err));
+	else if (list_empty(&startup.all_logins) &&
+		 list_empty(&startup.leading_logins)) {
+		if (err) {
+			log_error("Could not read node DB: %s.",
+				  iscsi_err_to_str(err));
+		} else {
+			log_error("No records found");
+			err = ISCSI_ERR_NO_OBJS_FOUND;
+		}
 		return err;
-	} else if (list_empty(&rec_list)) {
-		log_error("No records found");
-		return ISCSI_ERR_NO_OBJS_FOUND;
 	}
 	rc = err;
 
-	err = iscsi_login_portals(mode, &nr_found, 1, &rec_list,
-				  __login_by_startup);
-	if (err)
-		log_error("Could not log into all portals");
+	if (!list_empty(&startup.all_logins)) {
+		log_debug(1, "Logging into normal (non-leading-login) portals");
+		/* Login all regular (non-leading-login) portals first */
+		err = iscsi_login_portals(NULL, &nr_found, 1,
+				&startup.all_logins, iscsi_login_portal);
+		if (err)
+			log_error("Could not log into all portals");
+		if (err && !rc)
+			rc = err;
+	}
 
-	if (err && !rc)
-		rc = err;
+	if (!list_empty(&startup.leading_logins)) {
+		/*
+		 * For each iface in turn, try to login all portals on that
+		 * iface that do not already have a session present.
+		 */
+		struct iface_rec *pattern_iface, *tmp_iface;
+		struct node_rec *rec, *tmp_rec;
+		struct list_head iface_list;
+		int missed_leading_login = 0;
+		log_debug(1, "Logging into leading-login portals");
+		INIT_LIST_HEAD(&iface_list);
+		iface_link_ifaces(&iface_list);
+		list_for_each_entry_safe(pattern_iface, tmp_iface, &iface_list,
+					 list) {
+			log_debug(1, "Establishing leading-logins via iface %s",
+				  pattern_iface->name);
+			err = iscsi_login_portals_safe(pattern_iface, &nr_found,
+						       1,
+						       &startup.leading_logins,
+						       __do_leading_login);
+			if (err)
+				log_error("Could not log into all portals on "
+					  "%s, trying next interface",
+					  pattern_iface->name);
+
+			/*
+			 * Note: We always try all iface records in case there
+			 * are targets that are associated with only a subset
+			 * of iface records.  __do_leading_login already
+			 * prevents duplicate sessions if an iface has succeded
+			 * for a particular target.
+			 */
+		}
+		/*
+		 * Double-check that all leading-login portals have at least
+		 * one session
+		 */
+		list_for_each_entry_safe(rec, tmp_rec, &startup.leading_logins,
+					 list) {
+			if (!iscsi_sysfs_for_each_session(rec, &nr_found,
+							  iscsi_match_target))
+				missed_leading_login++;
+			/*
+			 * Cleanup the list, since 'iscsi_login_portals_safe'
+			 * does not
+			 */
+			list_del(&rec->list);
+			free(rec);
+		}
+		if (missed_leading_login) {
+			log_error("Could not login all leading-login portals");
+			if (!rc)
+				rc = ISCSI_ERR_FATAL_LOGIN;
+		}
+	}
+
 	return rc;
 }
 
@@ -447,15 +566,6 @@ static int iscsi_logout_matched_portal(void *data, struct list_head *list,
 	if (!iscsi_match_session(pattern_rec, info))
 		return -1;
 
-	/* we do not support this yet */
-	if (t->caps & CAP_FW_DB) {
-		log_error("Could not logout session of [sid: %d, "
-			  "target: %s, portal: %s,%d].", info->sid,
-			  info->targetname, info->persistent_address,
-			  info->port);
-		log_error("Logout not supported for driver: %s.", t->name);
-		return -1;
-	}
 	return iscsi_logout_portal(info, list);
 }
 
@@ -465,7 +575,7 @@ static int rec_match_fn(void *data, node_rec_t *rec)
 
 	if (!__iscsi_match_session(op_data->match_rec, rec->name,
 				   rec->conn[0].address, rec->conn[0].port,
-				   &rec->iface))
+				   &rec->iface, rec->session.sid))
 		return -1;
 	return op_data->fn(op_data->data, rec);
 }
@@ -517,7 +627,7 @@ static int login_portals(struct node_rec *pattern_rec)
 	rc = err;
 	/* if there is an err but some recs then try to login to what we have */
 
-	err = iscsi_login_portals(NULL, &nr_found, 1, &rec_list,
+	err = iscsi_login_portals(pattern_rec, &nr_found, 1, &rec_list,
 				  iscsi_login_portal);
 	if (err)
 		log_error("Could not log into all portals");
@@ -850,7 +960,8 @@ static int delete_stale_rec(void *data, struct node_rec *rec)
 					  new_rec->name,
 					  new_rec->conn[0].address,
 					  new_rec->conn[0].port,
-					  &new_rec->iface))
+					  &new_rec->iface,
+					  new_rec->session.sid))
 			return -1;
 	}
 	/* if there is a error we can continue on */
@@ -982,7 +1093,6 @@ do_sendtargets(discovery_rec_t *drec, struct list_head *ifaces,
 			free(iface);
 			continue;
 		}
-
 		host_no = iscsi_sysfs_get_host_no_from_hwinfo(iface, &rc);
 		if (rc || host_no == -1) {
 			log_debug(1, "Could not match iface" iface_fmt " to "
@@ -1082,10 +1192,97 @@ static void catch_sigint( int signo ) {
 	exit(1);
 }
 
+static int iface_apply_net_config(struct iface_rec *iface, int op)
+{
+	int rc = ISCSI_ERR;
+	uint32_t host_no;
+	int param_count;
+	int param_used;
+	int iface_all = 0;
+	int i;
+	struct iovec *iovs = NULL;
+	struct iovec *iov = NULL;
+	struct iscsi_transport *t = NULL;
+	int fd;
+
+	log_debug(8, "Calling iscsid, to apply net config for"
+		  "iface.name = %s\n", iface->name);
+
+	if (op == OP_APPLY_ALL)
+		iface_all = 1;
+
+	param_count = iface_get_param_count(iface, iface_all);
+	if (!param_count) {
+		log_error("Nothing to configure.");
+		return ISCSI_SUCCESS;
+	}
+
+	/*
+	 * TODO: create a nicer interface where the caller does not have
+	 * know the packet/hdr details
+	 */
+
+	/* +2 for event and nlmsghdr */
+	param_count += 2;
+	iovs = calloc((param_count * sizeof(struct iovec)),
+		       sizeof(char));
+	if (!iovs) {
+		log_error("Out of Memory.");
+		return ISCSI_ERR_NOMEM;
+	}
+
+	/* param_used gives actual number of iovecs used for netconfig */
+	param_used = iface_build_net_config(iface, iface_all, iovs);
+	if (!param_used) {
+		log_error("Build netconfig failed.");
+		goto free_buf;
+	}
+
+	t = iscsi_sysfs_get_transport_by_name(iface->transport_name);
+	if (!t) {
+		log_error("Can't find transport.");
+		goto free_buf;
+	}
+
+	host_no = iscsi_sysfs_get_host_no_from_hwinfo(iface, &rc);
+	if (host_no == -1) {
+		log_error("Can't find host_no.");
+		goto free_buf;
+	}
+	rc = ISCSI_ERR;
+
+	fd = ipc->ctldev_open();
+	if (fd < 0) {
+		log_error("Netlink open failed.");
+		goto free_buf;
+	}
+
+	rc = ipc->set_net_config(t->handle, host_no, iovs, param_count);
+	if (rc < 0)
+		log_error("Set net_config failed. errno=%d", errno);
+
+	ipc->ctldev_close();
+
+free_buf:
+	/* start at 2, because 0 is for nlmsghdr and 1 for event */
+	iov = iovs + 2;
+	for (i = 0; i < param_used; i++, iov++) {
+		if (iov->iov_base)
+			free(iov->iov_base);
+	}
+
+	free(iovs);
+	if (rc)
+		return ISCSI_ERR;
+	return ISCSI_SUCCESS;
+}
+
 /* TODO: merge iter helpers and clean them up, so we can use them here */
 static int exec_iface_op(int op, int do_show, int info_level,
-			 struct iface_rec *iface, char *name, char *value)
+			 struct iface_rec *iface, uint32_t host_no,
+			 char *name, char *value)
 {
+	struct host_info hinfo;
 	struct db_set_param set_param;
 	struct node_rec *rec = NULL;
 	int rc = 0;
@@ -1208,6 +1405,55 @@ update_fail:
 		log_error("Could not update iface %s: %s",
 			  iface->name, iscsi_err_to_str(rc));
 		break;
+	case OP_APPLY:
+		if (!iface) {
+			log_error("Apply requires iface.");
+			rc = ISCSI_ERR_INVAL;
+			break;
+		}
+		rc = iface_conf_read(iface);
+		if (rc) {
+			log_error("Could not read iface %s (%d).",
+				  iface->name, rc);
+			break;
+		}
+
+		rc = iface_apply_net_config(iface, op);
+		if (rc) {
+			log_error("Could not apply net configuration: %s",
+				  iscsi_err_to_str(rc));
+			break;
+		}
+		printf("%s applied.\n", iface->name);
+		break;
+	case OP_APPLY_ALL:
+		if (host_no == -1) {
+			log_error("Applyall requires a host number or MAC "
+				  "passed in with the --host argument.");
+			rc = ISCSI_ERR_INVAL;
+			break;
+		}
+
+		/*
+		 * Need to get other iface info like transport.
+		 */
+		memset(&hinfo, 0, sizeof(struct host_info));
+		hinfo.host_no = host_no;
+		if (iscsi_sysfs_get_hostinfo_by_host_no(&hinfo)) {
+			log_error("Could not match host%u to ifaces.", host_no);
+			rc = ISCSI_ERR_INVAL;
+			break;
+		}
+		rc = iface_apply_net_config(&hinfo.iface, op);
+		if (rc) {
+			log_error("Could not apply net configuration: %s",
+				  iscsi_err_to_str(rc));
+			break;
+		}
+
+		printf("Applied settings to ifaces attached to host%u.\n",
+		       host_no);
+		break;
 	default:
 		if (!iface || (iface && info_level > 0)) {
 			if (op == OP_NOOP || op == OP_SHOW)
@@ -1239,9 +1485,10 @@ static int exec_node_op(int op, int do_login, int do_logout,
 	struct db_set_param set_param;
 
 	if (rec)
-		log_debug(2, "%s: %s:%s node [%s,%s,%d]", __FUNCTION__,
+		log_debug(2, "%s: %s:%s node [%s,%s,%d] sid %u", __FUNCTION__,
 			  rec->iface.transport_name, rec->iface.name,
-			  rec->name, rec->conn[0].address, rec->conn[0].port);
+			  rec->name, rec->conn[0].address, rec->conn[0].port,
+			  rec->session.sid);
 
 	if (op == OP_NEW) {
 		rc = add_static_recs(rec);
@@ -1811,6 +2058,30 @@ done:
 	return rc;
 }
 
+static uint32_t parse_host_info(char *optarg, int *rc)
+{
+	int err = 0;
+	uint32_t host_no = -1;
+
+	*rc = 0;
+	if (strstr(optarg, ":")) {
+		host_no = iscsi_sysfs_get_host_no_from_hwaddress(optarg,
+								 &err);
+		if (err) {
+			log_error("Could not match MAC to host.");
+			*rc = ISCSI_ERR_INVAL;
+		}
+	} else {
+		host_no = strtoul(optarg, NULL, 10);
+		if (errno) {
+			log_error("Invalid host no %s. %s.",
+				  optarg, strerror(errno));
+			*rc = ISCSI_ERR_INVAL;
+		}
+	}
+	return host_no;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -1877,14 +2148,9 @@ main(int argc, char **argv)
 			value = optarg;
 			break;
 		case 'H':
-			errno = 0;
-			host_no = strtoul(optarg, NULL, 10);
-			if (errno) {
-				log_error("invalid host no %s. %s.",
-					  optarg, strerror(errno));
-				rc = ISCSI_ERR_INVAL;
+			host_no = parse_host_info(optarg, &rc);
+			if (rc)
 				goto free_ifaces;
-			}
 			break;
 		case 'r':
 			sid = iscsi_sysfs_get_sid_from_path(optarg);
@@ -2008,7 +2274,7 @@ main(int argc, char **argv)
 	case MODE_IFACE:
 		iface_setup_host_bindings();
 
-		if ((rc = verify_mode_params(argc, argv, "IdnvmPo", 0))) {
+		if ((rc = verify_mode_params(argc, argv, "HIdnvmPo", 0))) {
 			log_error("iface mode: option '-%c' is not "
 				  "allowed/supported", rc);
 			rc = ISCSI_ERR_INVAL;
@@ -2023,7 +2289,7 @@ main(int argc, char **argv)
 					  "interface. Using the first one "
 					  "%s.", iface->name);
 		}
-		rc = exec_iface_op(op, do_show, info_level, iface,
+		rc = exec_iface_op(op, do_show, info_level, iface, host_no,
 				   name, value);
 		break;
 	case MODE_DISCOVERYDB:
@@ -2131,7 +2397,8 @@ main(int argc, char **argv)
 
 			if (!do_logout && !do_rescan && !do_stats &&
 			    op == OP_NOOP && info_level > 0) {
-				rc = session_info_print(info_level, info);
+				rc = session_info_print(info_level, info,
+							do_show);
 				goto free_info;
 			}
 
@@ -2144,6 +2411,18 @@ main(int argc, char **argv)
 				rc = ISCSI_ERR_NOMEM;
 				goto free_info;
 			}
+			rec->session.info = info;
+			rec->session.sid = sid;
+
+			/*
+			 * A "new" session means to login a multiple of the
+			 * currently-detected session.
+			 */
+			if (op == OP_NEW) {
+				op = OP_NOOP;
+				do_login = 1;
+				rec->session.multiple = 1;
+			}
 
 			/* drop down to node ops */
 			rc = exec_node_op(op, do_login, do_logout, do_show,
@@ -2153,6 +2432,12 @@ free_info:
 			free(info);
 			goto out;
 		} else {
+			if (op == OP_NEW) {
+				log_error("session mode: Operation 'new' only "
+					  "allowed with specific session IDs");
+				rc = ISCSI_ERR_INVAL;
+				goto out;
+			}
 			if (do_logout || do_rescan || do_stats) {
 				rc = exec_node_op(op, do_login, do_logout,
 						 do_show, do_rescan, do_stats,
@@ -2160,7 +2445,7 @@ free_info:
 				goto out;
 			}
 
-			rc = session_info_print(info_level, NULL);
+			rc = session_info_print(info_level, NULL, do_show);
 		}
 		break;
 	default:

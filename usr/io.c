@@ -152,7 +152,7 @@ static void set_dcb_priority(struct iscsi_conn *conn, const char *devname)
 {
 	int pri_mask = 0;
 
-	pri_mask = get_dcb_app_pri_by_port(devname, ISCSI_DEFAULT_PORT);
+	pri_mask = get_dcb_app_pri_by_stream_port(devname, ISCSI_DEFAULT_PORT);
 	if (pri_mask < 0)
 		log_debug(2, "Getting priority for %s returned %d",
 				devname, pri_mask);
@@ -303,14 +303,16 @@ static int bind_conn_to_iface(iscsi_conn_t *conn, struct iface_rec *iface)
 		return 0;
 
 	memset(session->netdev, 0, IFNAMSIZ);
-	if (iface_is_bound_by_hwaddr(iface) &&
-	    net_get_netdev_from_hwaddress(iface->hwaddress, session->netdev)) {
-		log_error("Cannot match %s to net/scsi interface.",
-			  iface->hwaddress);
-                return -1;
-	} else if (iface_is_bound_by_netdev(iface))
+	if (iface_is_bound_by_hwaddr(iface)) {
+		if (net_get_netdev_from_hwaddress(iface->hwaddress,
+						  session->netdev)) {
+			log_error("Cannot match %s to net/scsi interface.",
+				  iface->hwaddress);
+			return -1;
+		}
+	} else if (iface_is_bound_by_netdev(iface)) {
 		strcpy(session->netdev, iface->netdev);
-	else if (iface_is_bound_by_ipaddr(iface)) {
+	} else if (iface_is_bound_by_ipaddr(iface)) {
 		/*
 		 * we never supported this but now with offload having to
 		 * set the ip address in the iface, useris may forget to
@@ -361,10 +363,8 @@ iscsi_io_tcp_connect(iscsi_conn_t *conn, int non_blocking)
 		return -1;
 	}
 
-	if (conn->session) {
-		if (bind_conn_to_iface(conn, &conn->session->nrec.iface))
-			return -1;
-	}
+	if (bind_conn_to_iface(conn, &conn->session->nrec.iface))
+		return -1;
 
 	onearg = 1;
 	rc = setsockopt(conn->socket_fd, IPPROTO_TCP, TCP_NODELAY, &onearg,

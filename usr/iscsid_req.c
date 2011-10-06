@@ -49,7 +49,9 @@ static void iscsid_startup(void)
 		return;
 	}
 
-	system(startup_cmd);
+	if (system(startup_cmd) < 0)
+		log_error("Could not execute '%s' (err %d)",
+			  startup_cmd, errno);
 }
 
 static void iscsiuio_startup(void)
