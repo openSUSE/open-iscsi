@@ -732,12 +732,15 @@ void idbm_recinfo_config(recinfo_t *info, FILE *f)
 	 * Keep node.startup and node.conn[0].startup in sync even
 	 * if only one of those has been specified in the config file.
 	 */
-	if (node_startup_value && !conn_startup_value) {
+	if (node_startup_value && conn_startup_value) {
+		/* Both have been specified, that's okay */
+		free(node_startup_value);
+		free(conn_startup_value);
+	} else if (node_startup_value) {
 		(void)idbm_rec_update_param(info, "node.conn[0].startup",
 					    node_startup_value, -1);
 		free(node_startup_value);
-	}
-	if (conn_startup_value && !node_startup_value) {
+	} else {
 		(void)idbm_rec_update_param(info, "node.startup",
 					    conn_startup_value, -1);
 		free(conn_startup_value);
