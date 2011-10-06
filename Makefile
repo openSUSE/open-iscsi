@@ -29,8 +29,8 @@ OPTFLAGS ?= -O2 -g
 
 all: user
 
-user: ;
-	cd utils/open-isns; ./configure CFLAGS="$(OPTFLAGS)" --with-security=no; $(MAKE)
+user: utils/open-isns/Makefile
+	$(MAKE) -C utils/open-isns
 	$(MAKE) -C utils/sysdeps
 	$(MAKE) -C utils/fwparam_ibft
 	$(MAKE) -C usr
@@ -43,6 +43,9 @@ user: ;
 	@echo "Built boot tool:                     usr/iscsistart"
 	@echo
 	@echo "Read README file for detailed information."
+
+utils/open-isns/Makefile: utils/open-isns/configure utils/open-isns/Makefile.in
+	cd utils/open-isns; ./configure CFLAGS="$(OPTFLAGS)" --with-security=no
 
 kernel: force
 	$(MAKE) -C kernel
