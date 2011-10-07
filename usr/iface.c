@@ -830,13 +830,15 @@ int iface_setup_from_boot_context(struct iface_rec *iface,
 {
 	struct iscsi_transport *t;
 	uint32_t hostno;
+	int rc;
 
 	if (strlen(context->initiatorname))
 		strlcpy(iface->iname, context->initiatorname,
 			sizeof(iface->iname));
 
 	if (strlen(context->scsi_host_name)) {
-		if (sscanf(context->scsi_host_name, "iscsi_boot%u", &hostno) != 		    1) {
+		if (sscanf(context->scsi_host_name,
+			   "iscsi_boot%u", &hostno) != 1) {
 			log_error("Could not parse %s's host no.",
 				  context->scsi_host_name);
 			return 0;
