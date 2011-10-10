@@ -54,7 +54,9 @@ iscsi_macaddress_from_pcidevice()
 	    read netdev < /sys/class/iscsi_host/$host/netdev
 	    if [ "$netdev" = "$IFNAME" ] ; then
 		read mac < /sys/class/iscsi_host/$host/hwaddress
-		echo "$mac"
+		if [ "$mac" != "00:00:00:00:00:00" ] ; then
+		    echo "$mac"
+		fi
 		break;
 	    fi
 	fi
@@ -105,6 +107,11 @@ done
 shift $(($OPTIND - 1))
 
 IFNAME=$1
+
+if [ -z "$IFNAME" ] ; then
+    echo "No interface specified"
+    exit 1
+fi
 
 if [ ! -L /sys/class/net/$IFNAME ] ; then
     echo "Interface $IFNAME not found"
