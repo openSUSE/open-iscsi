@@ -9,6 +9,13 @@
 # Copyright (c) 2011 Hannes Reinecke, SUSE Labs
 # This script is licensed under the GPL.
 #
+# The script creates an open-iscsi interface definition
+# in the style <nic>-<module>, where <nic> matches the
+# network interface passed on the commandline.
+# If '-t' (test mode) is passed as an option, the script
+# will not create nor modify any setting but just print
+# the currently active ones.
+#
 # Currently the script works with Broadcom (bnx2i) and
 # Chelsio T3 (cxgbi) iSCSI offload engines.
 # Should work with Chelsio T4, but has not been tested.
@@ -93,14 +100,14 @@ iscsi_macaddress_from_pcifn()
     done
 }
 
-while getopts di: options ; do
+while getopts di:t options ; do
     case $options in
 	d ) mode=dhcp;;
 	i ) mode=static
 	    optaddr=$OPTARG
 	    ;;
-	r ) no_rename=1;;
-	?)  printf "Usage: %s [-d|-r|-i ipaddr] ifname\n" $0
+	t ) no_rename=1;;
+	?)  printf "Usage: %s [-d|-t|-i ipaddr] ifname\n" $0
 	    exit 1;;
     esac
 done
@@ -122,6 +129,10 @@ if [ "$optaddr" ] && ! ip route get $optaddr ; then
     echo "Invalid IP address $optaddr"
     exit 1
 fi
+if [ "$no_rename" ] ; then
+    mode=
+fi
+
 
 ifpath=$(cd -P /sys/class/net/$IFNAME; echo $PWD)
 pcipath=$(cd -P $ifpath/device; echo $PWD)
@@ -180,17 +191,44 @@ if [ -z "$mac" ] ; then
     exit 2
 fi
 
-iface="$mod.$mac"
-ipaddr=$(iscsiadm -m iface -I $iface 2> /dev/null| sed -n "s/iface\.ipaddress = \(.*\)/\1/p")
-if [ -z "$ipaddr" ] && [ -z "$no_rename" ] ; then
-    iface="${IFNAME}-${mod}"
-    ipaddr=$(iscsiadm -m iface -I $iface 2> /dev/null| sed -n "s/iface\.ipaddress = \(.*\)/\1/p")
+gen_iface="$mod.$mac"
+ioe_iface="${IFNAME}-${mod}"
+
+if iscsiadm -m iface -I $ioe_iface > /dev/null 2>&1 ; then
+    ioe_mac=$(iscsiadm -m iface -I $ioe_iface 2> /dev/null| sed -n "s/iface\.hwaddress = \(.*\)/\1/p")
+    ioe_mod=$(iscsiadm -m iface -I $ioe_iface 2> /dev/null| sed -n "s/iface\.transport_name = \(.*\)/\1/p")
+    ipaddr=$(iscsiadm -m iface -I $ioe_iface 2> /dev/null| sed -n "s/iface\.ipaddress = \(.*\)/\1/p")
+    if [ "$ipaddr" == "<empty>" ] ; then
+	ipaddr=
+    fi
+else
+    iscsiadm -m iface -I $ioe_iface --op=new
+    ioe_mac=
+    ioe_mod=
+    ipaddr=
 fi
-if [ -z "$ipaddr" ] ; then
-    echo "Invalid iface configuration for interface $IFNAME"
-    exit 5
+
+if [ -z "$no_rename" ] ; then
+    if [ "$ioe_mac" != "$mac" ] ; then
+	if [ -n "$ioe_mac" ] ; then
+	    echo "Warning: Updating MAC address on iface $ioe_iface"
+	fi
+	iscsiadm -m iface -I $ioe_iface -o update -n iface.hwaddress -v $mac
+    fi
+
+    if [ "$ioe_mod" != "$mod" ] ; then
+	if [ -n "$ioe_mod" ] ; then
+	    echo "Warning: Update transport on iface $ioe_iface"
+	fi
+	iscsiadm -m iface -I $ioe_iface -o update -n iface.transport_name -v $mod
+    fi
+elif [ -z "$ipaddr" ] ; then
+    ipaddr=$(iscsiadm -m iface -I $gen_iface 2> /dev/null| sed -n "s/iface\.ipaddress = \(.*\)/\1/p")
+elif [ "$ioe_mod" != "$mod" ] ; then
+    echo "Warning: Transport mismatch on iface $ioe_iface: $ioe_mod should be $mod"
 fi
-if [ -z "$mode" ] ; then 
+
+if [ -z "$mode" ] ; then
     if [ "$ipaddr" = "<empty>" ] ; then
 	echo "$mac none"
     elif [ "$ipaddr" = "0.0.0.0" ] ; then
@@ -198,29 +236,17 @@ if [ -z "$mode" ] ; then
     else 
 	echo "$mac ip $ipaddr"
     fi
-    if [ -z "$no_rename" ] ; then
-	for rec in $(find /etc/iscsi/nodes -regex .*$mod.$mac -print) ; do
-	    newrec="${rec%/*}/${IFNAME}-${mod}"
-	    sed "s/$mod.$mac/${IFNAME}-${mod}/g" $rec > $newrec
-	    rm $rec
-	done
-	for link in $(find /etc/iscsi/send_targets -regex .*$mod.$mac -print) ; do
-	    newlink="${link%,*},${IFNAME}-${mod}"
-	    mv $link $newlink
-	done
-
+    if [ -z "$no_rename" ] && [ -n "$ipaddr" ] ; then
+	iscsiadm -m iface -I $ioe_iface --op=update --name=iface.ipaddress --value=$ipaddr
     fi
     exit 0
-fi
-
-if [ "$mode" = "dhcp" ] ; then
+elif [ "$mode" = "dhcp" ] ; then
     if [ "$ipaddr" = "0.0.0.0" ] ; then
 	echo "$mac dhcp"
 	exit 0
     fi
     optaddr="0.0.0.0"
-fi
-if [ "$mode" = "static" ] && [ "$ipaddr" = "$optaddr" ] ; then
+elif [ "$mode" = "static" ] && [ "$ipaddr" = "$optaddr" ] ; then
     echo "$mac ip $ipaddr"
     exit 0
 fi
@@ -230,20 +256,9 @@ if [ "$mod" = "qla4xxx" -o "$mod" = "be2iscsi" ] ; then
     exit 4
 fi
 
-if [ "$no_rename" ] ; then
-    iface="$mod.$mac"
-else
-    iface="${IFNAME}-${mod}"
-fi
-
-iscsiadm -m iface -I $iface -o update -n iface.ipaddress -v $optaddr
-if [ $? -ne 0 ] ; then
+if ! iscsiadm -m iface -I $ioe_iface -o update -n iface.ipaddress -v $optaddr ; then
     echo "Failed to set IP address: $?"
+    exit 1
 fi
-if [ "$mode" = "dhcp" ] ; then
-    echo "$mac dhcp"
-else
-    echo "$mac ip $optaddr"
-fi
-exit $?
+exit 0
 
