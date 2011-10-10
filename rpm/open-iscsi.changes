@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Mon Oct 10 13:46:21 CEST 2011 - hare@suse.de
+
+- Update iscsi_offload script (bnc#718014)
+- Fixup mac address calculation
+- Fixup iscsi_offload script to work on qla4xxx (bnc#722268)
+
+-------------------------------------------------------------------
 Fri Oct  7 16:17:58 CEST 2011 - hare@suse.de
 
 - Fix build error.

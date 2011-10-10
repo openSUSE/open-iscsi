@@ -86,9 +86,9 @@ iscsi_macaddress_from_pcifn()
     local ifmac
 
     ifmac=$(ip addr show dev $if | sed -n 's/ *link\/ether \(.*\) brd.*/\1/p')
-    m5=${ifmac##*:}
+    m5=$(( 0x${ifmac##*:} ))
     m5=$(( $m5 + 1 ))
-    ifmac="${ifmac%:*}:$m5"
+    ifmac=$(printf "%s:%02x" ${ifmac%:*} $m5)
     for host in /sys/class/iscsi_host/host* ; do
 	if [ -L "$host" ] ; then
 	    read mac < $host/hwaddress
@@ -184,6 +184,8 @@ elif [ "$mod" = "cxgb3i" ] ; then
     mac=$(iscsi_macaddress_from_pcidevice $pcipath $IFNAME)
 elif [ "$mod" = "be2iscsi" ] ; then
     mac=$(iscsi_macaddress_from_pcifn $pcipath $IFNAME)
+elif [ "$mod" = "qla4xxx" ] ; then
+    mac=$(iscsi_macaddress_from_pcifn $pcipath $IFNAME)
 fi
 
 if [ -z "$mac" ] ; then
@@ -251,7 +253,7 @@ elif [ "$mode" = "static" ] && [ "$ipaddr" = "$optaddr" ] ; then
     exit 0
 fi
 
-if [ "$mod" = "qla4xxx" -o "$mod" = "be2iscsi" ] ; then
+if [ "$mod" = "be2iscsi" ] ; then
     echo "Cannot configure $mod, please use the BIOS setup"
     exit 4
 fi
@@ -260,5 +262,9 @@ if ! iscsiadm -m iface -I $ioe_iface -o update -n iface.ipaddress -v $optaddr ; 
     echo "Failed to set IP address: $?"
     exit 1
 fi
+if [ "$mod" = "qla4xxx" ] ; then
+    iscsiadm -m iface -H $mac -o applyall
+fi
+
 exit 0
 
