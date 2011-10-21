@@ -538,7 +538,7 @@ int cnic_handle_ipv6_iscsi_path_req(nic_t * nic, int fd,
 	if (path->vlan_id) {
 		vlan_iface = nic_find_vlan_iface_protocol(nic, nic_iface,
 							  path->vlan_id,
-							  AF_INET);
+							  AF_INET6);
 		if (vlan_iface == NULL) {
 			LOG_INFO(PFX "%s couldn't find interface with VLAN = %d"
 				 "ip_type: 0x%x creating it",
