@@ -574,7 +574,8 @@ typedef struct bnx2x {
 	void *reg;		/* Pointer to the BAR1 mapped registers */
 	void *reg2;		/* Pointer to the BAR2 mapped registers */
 
-	int mem_fd;
+	int bar0_fd;
+	int bar2_fd;
 
 	__u32 chip_id;
 	__u32 shmem_base;

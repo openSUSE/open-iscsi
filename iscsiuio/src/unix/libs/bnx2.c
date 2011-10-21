@@ -396,6 +396,7 @@ static bnx2_t *bnx2_alloc(nic_t * nic)
 	/*  Clear out the bnx2 contents */
 	memset(bp, 0, sizeof(*bp));
 
+	bp->bar0_fd = INVALID_FD;
 	bp->flags = BNX2_UIO_TX_HAS_SENT;
 
 	bp->parent = nic;
@@ -417,6 +418,7 @@ static int bnx2_open(nic_t * nic)
 	__u32 val;
 	uint32_t tx_cid;
 	__u32 msix_vector = 0;
+	char sysfs_resc_path[80];
 
 	/*  Sanity Check: validate the parameters */
 	if (nic == NULL) {
@@ -465,6 +467,14 @@ static int bnx2_open(nic_t * nic)
 	}
 	nic->uio_minor = minor(uio_stat.st_rdev);
 
+	cnic_get_sysfs_pci_resource_path(nic, 0, sysfs_resc_path, 80);
+	bp->bar0_fd = open(sysfs_resc_path, O_RDWR | O_SYNC);
+	if (bp->bar0_fd < 0) {
+		LOG_ERR(PFX "%s: Could not open %s", nic->log_name,
+			sysfs_resc_path);
+		return -ENODEV;
+	}
+
 	/*  TODO: hardcoded with the cnic driver */
 	bp->rx_ring_size = 3;
 	bp->rx_buffer_size = 0x400;
@@ -498,7 +508,7 @@ static int bnx2_open(nic_t * nic)
 	mlock(bp->rx_pkt_ring, sizeof(void *) * bp->rx_ring_size);
 
 	bp->reg = mmap(NULL, 0x12800, PROT_READ | PROT_WRITE, MAP_SHARED,
-		       nic->fd, (off_t) 0);
+		       bp->bar0_fd, (off_t) 0);
 	if (bp->reg == MAP_FAILED) {
 		LOG_INFO(PFX "%s: Couldn't mmap registers: %s",
 			 nic->log_name, strerror(errno));
@@ -756,6 +766,11 @@ static int bnx2_uio_close_resources(nic_t * nic, NIC_SHUTDOWN_T graceful)
 		if (rc != 0)
 			LOG_WARN(PFX "%s: Couldn't unmap regs", nic->log_name);
 		bp->reg = NULL;
+	}
+
+	if (bp->bar0_fd != INVALID_FD) {
+		close(bp->bar0_fd);
+		bp->bar0_fd = INVALID_FD;
 	}
 
 	if (nic->fd != INVALID_FD) {

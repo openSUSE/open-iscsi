@@ -75,6 +75,8 @@ void persist_all_nic_iface(nic_t * nic);
 int add_vlan_interfaces(nic_t * nic);
 
 int nic_verify_uio_sysfs_name(nic_t * nic);
+void cnic_get_sysfs_pci_resource_path(nic_t *nic, int resc_no,
+				      char *sys_path, size_t size);
 void nic_close_all();
 void nic_remove_all();
 

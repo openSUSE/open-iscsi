@@ -250,6 +250,7 @@ typedef struct bnx2 {
 #define BNX2_UIO_TX_HAS_SENT		0x0002
 #define BNX2_OPENED			0x0004
 
+	int bar0_fd;
 	void *reg;		/* Pointer to the mapped registers      */
 
 	__u32 tx_bidx_io;

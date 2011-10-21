@@ -77,9 +77,6 @@ static const char library_uio_name[] = "bnx2x_cnic";
 static const char cnic_uio_sysfs_name_tempate[] = "/sys/class/uio/uio%i/name";
 static const char bnx2x_uio_sysfs_name[] = "bnx2x_cnic";
 
-static const char cnic_uio_sysfs_resc_tempate[] =
-    "/sys/class/uio/uio%i/device/resource";
-
 /*******************************************************************************
  * String constants used to display human readable adapter name
  ******************************************************************************/
@@ -506,42 +503,8 @@ static int bnx2x_uio_verify(nic_t * nic)
 
 	LOG_INFO(PFX "%s: Verified is a cnic_uio device", nic->log_name);
 
-      error:
+error:
 	return rc;
-}
-
-static unsigned long cnic_get_bar2(nic_t * nic)
-{
-	char *raw = NULL, *raw_tmp;
-	uint32_t raw_size = 0;
-	char temp_path[sizeof(cnic_uio_sysfs_resc_tempate) + 8];
-	int rc = 0, i, new_line;
-	unsigned long bar = 0;
-
-	/*  Build the path to determine uio name */
-	snprintf(temp_path, sizeof(temp_path),
-		 cnic_uio_sysfs_resc_tempate, nic->uio_minor);
-
-	rc = capture_file(&raw, &raw_size, temp_path);
-	if (rc != 0)
-		return 0;
-
-	/* Skip 2 lines to get to BAR2 */
-	raw_tmp = raw;
-	i = 0;
-	new_line = 0;
-	while (i++ < raw_size && new_line < 2) {
-		if (*raw_tmp == '\n')
-			new_line++;
-		raw_tmp++;
-	}
-
-	if (new_line == 2)
-		sscanf(raw_tmp, "%lx ", &bar);
-
-	free(raw);
-
-	return bar;
 }
 
 /*******************************************************************************
@@ -635,7 +598,8 @@ static bnx2x_t *bnx2x_alloc(nic_t * nic)
 	/*  Clear out the CNIC contents */
 	memset(bp, 0, sizeof(*bp));
 
-	bp->mem_fd = INVALID_FD;
+	bp->bar0_fd = INVALID_FD;
+	bp->bar2_fd = INVALID_FD;
 
 	bp->parent = nic;
 	nic->priv = (void *)bp;
@@ -657,9 +621,8 @@ static int bnx2x_open(nic_t * nic)
 	struct stat uio_stat;
 	int i, rc;
 	__u32 val;
-	unsigned long bar2;
 	int count;
-
+	char sysfs_resc_path[80];
 	uint32_t bus;
 	uint32_t slot;
 	uint32_t func;
@@ -722,20 +685,37 @@ static int bnx2x_open(nic_t * nic)
 	}
 	nic->uio_minor = minor(uio_stat.st_rdev);
 
-	bar2 = cnic_get_bar2(nic);
-	if (bar2 == 0) {
-		LOG_ERR(PFX "%s: Could not read BAR2", nic->log_name);
+	cnic_get_sysfs_pci_resource_path(nic, 0, sysfs_resc_path, 80);
+	bp->bar0_fd = open(sysfs_resc_path, O_RDWR | O_SYNC);
+	if (bp->bar0_fd < 0) {
+		LOG_ERR(PFX "%s: Could not open %s", nic->log_name,
+			sysfs_resc_path);
 		return -ENODEV;
 	}
 
-	bp->mem_fd = open("/dev/mem", O_RDWR | O_SYNC);
-	if (bp->mem_fd < 0) {
-		LOG_ERR(PFX "%s: Could not open /dev/mem", nic->log_name);
+	bp->reg = mmap(NULL, BNX2X_BAR_SIZE, PROT_READ | PROT_WRITE,
+			MAP_SHARED, bp->bar0_fd, (off_t) 0);
+
+	if (bp->reg == MAP_FAILED) {
+		LOG_INFO(PFX "%s: Couldn't mmap BAR registers: %s",
+			 nic->log_name, strerror(errno));
+		bp->reg = NULL;
+		rc = errno;
+		goto open_error;
+	}
+
+	msync(bp->reg, BNX2X_BAR_SIZE, MS_SYNC);
+
+	cnic_get_sysfs_pci_resource_path(nic, 2, sysfs_resc_path, 80);
+	bp->bar2_fd = open(sysfs_resc_path, O_RDWR | O_SYNC);
+	if (bp->bar2_fd < 0) {
+		LOG_ERR(PFX "%s: Could not open %s", nic->log_name,
+			sysfs_resc_path);
 		return -ENODEV;
 	}
 
 	bp->reg2 = mmap(NULL, BNX2X_BAR2_SIZE, PROT_READ | PROT_WRITE,
-			MAP_SHARED, bp->mem_fd, (off_t) bar2);
+			MAP_SHARED, bp->bar2_fd, (off_t) 0);
 
 	if (bp->reg2 == MAP_FAILED) {
 		LOG_INFO(PFX "%s: Couldn't mmap BAR2 registers: %s",
@@ -767,18 +747,6 @@ static int bnx2x_open(nic_t * nic)
 		rc = errno;
 		goto open_error;
 	}
-
-	bp->reg = mmap(NULL, BNX2X_BAR_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED,
-		       nic->fd, (off_t) 0);
-	if (bp->reg == MAP_FAILED) {
-		LOG_INFO(PFX "%s: Couldn't mmap registers: %s",
-			 nic->log_name, strerror(errno));
-		bp->reg = NULL;
-		rc = errno;
-		goto open_error;
-	}
-
-	msync(bp->reg, BNX2X_BAR_SIZE, MS_SYNC);
 
 	if (bnx2x_is_ver60_plus(bp))
 		bp->status_blk_size = sizeof(struct host_sp_status_block);
@@ -1036,9 +1004,14 @@ open_error:
 		bp->rx_pkt_ring = NULL;
 	}
 
-	if (bp->mem_fd != INVALID_FD) {
-		close(bp->mem_fd);
-		bp->mem_fd = INVALID_FD;
+	if (bp->bar2_fd != INVALID_FD) {
+		close(bp->bar2_fd);
+		bp->bar2_fd = INVALID_FD;
+	}
+
+	if (bp->bar0_fd != INVALID_FD) {
+		close(bp->bar0_fd);
+		bp->bar0_fd = INVALID_FD;
 	}
 
 	return rc;
@@ -1108,9 +1081,14 @@ static int bnx2x_uio_close_resources(nic_t * nic, NIC_SHUTDOWN_T graceful)
 		bp->reg2 = NULL;
 	}
 
-	if (bp->mem_fd != INVALID_FD) {
-		close(bp->mem_fd);
-		bp->mem_fd = INVALID_FD;
+	if (bp->bar2_fd != INVALID_FD) {
+		close(bp->bar2_fd);
+		bp->bar2_fd = INVALID_FD;
+	}
+
+	if (bp->bar0_fd != INVALID_FD) {
+		close(bp->bar0_fd);
+		bp->bar0_fd = INVALID_FD;
 	}
 
 	if (nic->fd != INVALID_FD) {

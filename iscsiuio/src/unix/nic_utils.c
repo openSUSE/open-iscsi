@@ -78,6 +78,8 @@ static const char host_template[] = "host%d";
 static const char iscsi_host_path_template[] = "/sys/class/iscsi_host/host%d";
 static const char iscsi_host_path_netdev_template[] =
     "/sys/class/iscsi_host/host%d/netdev";
+static const char cnic_uio_sysfs_resc_template[] =
+    "/sys/class/uio/uio%i/device/resource%i";
 
 /**
  *  manually_trigger_uio_event() - If the uio file node doesn't exist then
@@ -822,6 +824,15 @@ int nic_fill_name(nic_t * nic)
 	}
 
 	return 0;
+}
+
+void cnic_get_sysfs_pci_resource_path(nic_t *nic, int resc_no,
+				      char *sys_path, size_t size)
+{
+	/*  Build the path to sysfs pci resource */
+	snprintf(sys_path, size,
+		 cnic_uio_sysfs_resc_template, nic->uio_minor, resc_no);
+
 }
 
 void prepare_library(nic_t * nic)
