@@ -1300,7 +1300,7 @@ void uip_process(struct uip_stack *ustack, u8_t flag)
 		u16_t len = ntohs(ipv6_hdr->ip6_plen);
 		if (len <= ustack->uip_len) {
 		} else {
-			LOG_WARN(PFX
+			LOG_DEBUG(PFX
 				 "ip: packet shorter than reported in IP header"
 				 ":IPv6_BUF(ustack)->len: %d ustack->uip_len: "
 				 "%d", len, ustack->uip_len);
@@ -1312,7 +1312,7 @@ void uip_process(struct uip_stack *ustack, u8_t flag)
 			ustack->uip_len = (tcp_ipv4_hdr->len[0] << 8) +
 			    tcp_ipv4_hdr->len[1];
 		} else {
-			LOG_WARN(PFX
+			LOG_DEBUG(PFX
 				 "ip: packet shorter than reported in IP header"
 				 ":tcp_ipv4_hdr->len: %d ustack->uip_len:%d.",
 				 (tcp_ipv4_hdr->len[0] << 8) +
@@ -1505,7 +1505,7 @@ icmp_input:
 	if (UDPBUF(ustack)->udpchksum != 0 && uip_udpchksum(ustack) != 0xffff) {
 		++ustack->stats.udp.drop;
 		++ustack->stats.udp.chkerr;
-		LOG_WARN(PFX "udp: bad checksum.");
+		LOG_DEBUG(PFX "udp: bad checksum.");
 		goto drop;
 	}
 #else /* UIP_UDP_CHECKSUMS */
