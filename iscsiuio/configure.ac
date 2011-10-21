@@ -62,7 +62,7 @@ AC_ARG_ENABLE(debug,
     fi])
 AM_CONDITIONAL([DEBUG], [test x$debug = xtrue])
 
-ISCSID_VERSION_DEFAULT="871"
+ISCSID_VERSION_DEFAULT="872"
 ISCSID_VERSION=$ISCSID_VERSION_DEFAULT
 which iscsid 2>&1 > /dev/null
 if [ test $? -eq 0 ]; then
