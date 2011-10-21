@@ -1,7 +1,7 @@
                               Release Notes
                         Broadcom uIP Linux Driver
                             Version 0.7.0.14
-                               09/16/2011
+                               10/21/2011
 
                           Broadcom Corporation
                          5300 California Avenue,
@@ -11,7 +11,7 @@
                            All rights reserved
 
 
-uIP v0.7.0.14 (Sep 16, 2011)
+uIP v0.7.0.14 (Oct 21, 2011)
 =======================================================
    Fixes
    -----
@@ -41,11 +41,28 @@ uIP v0.7.0.14 (Sep 16, 2011)
                enable thread timeout.
       Change:  The IPv6 router solicitation timeout has been adjusted
 
+   4. Problem: Cont00058994 - DOS vulnerability in uip during UDP flood
+      Cause:   The warning messages from the UDP handler was logging
+               at a rate faster than the log file logrotate rate
+               Therefore, the system's OOM eventually got kicked in to
+               start terminating running processes which includes iscsiuio
+      Change:  Moved several UDP warning messages from the default log
+               level to the debug log level
+      Impact:  All (minor)
+
+   5. Problem: Cont00059288 - Show segfault w/ SLES11 SP1 Xen kernel
+      Cause:   The bnx2x chip_id was not read correctly from the PCIe BAR1
+               under the Xen kernel.  The error was in the mmap area.
+      Change:  Corrected the mmapping of the PCI MMIO space.
+      Impact:  Xen kernels
+
    Enhancements
    ------------
    1. Change:  Added support for RHEL6.2 for out-of-box release
    2. Change:  Updated the man page with -h and -p info
    3. Change:  Updated the -h info
+   4. Change:  Changed the log file open error to a warning and let
+               the daemon progress.  This was only observed under iSCSI boot
 
 
 uIP v0.7.0.13 (Aug 10, 2011)
