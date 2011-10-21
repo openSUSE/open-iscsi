@@ -250,10 +250,8 @@ int main(int argc, char *argv[])
 	if (main_log.enabled == LOGGER_ENABLED) {
 		/*  initialize the logger */
 		rc = init_logger(main_log.log_file);
-		if (rc != 0) {
-			printf("Could not initialize the logger\n");
-			goto error;
-		}
+		if (rc != 0)
+			printf("WARN: Could not initialize the logger\n");
 	}
 
 	LOG_INFO("Started iSCSI uio stack: Ver " PACKAGE_VERSION);

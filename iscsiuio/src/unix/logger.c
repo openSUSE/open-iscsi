@@ -109,7 +109,7 @@ void log_uip(char *level_str, char *fmt, ...)
 		fflush(stdout);
 	}
 
-      end:
+end:
 	va_end(ap2);
 	va_end(ap);
 	pthread_mutex_unlock(&main_log.lock);
@@ -135,7 +135,10 @@ int init_logger(char *filename)
 		       filename, strerror(errno));
 		rc = -EIO;
 	}
-	main_log.enabled = LOGGER_ENABLED;
+	if (rc)
+		main_log.enabled = LOGGER_DISABLED;
+	else
+		main_log.enabled = LOGGER_ENABLED;
 
 	pthread_mutex_unlock(&main_log.lock);
 
