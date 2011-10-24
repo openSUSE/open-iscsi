@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Mon Oct 24 09:13:19 CEST 2011 - hare@suse.de
+
+- Update iscsiuio to 0.7.0.14f (bnc#687392)
+- Default iscsid version to 872 for iscsiuio (bnc#687392)
+
+-------------------------------------------------------------------
 Mon Oct 10 13:46:21 CEST 2011 - hare@suse.de
 
 - Update iscsi_offload script (bnc#718014)
