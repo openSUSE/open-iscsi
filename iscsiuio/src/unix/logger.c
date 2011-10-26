@@ -129,12 +129,17 @@ int init_logger(char *filename)
 
 	pthread_mutex_lock(&main_log.lock);
 
+	if (opt.debug != DEBUG_ON) {
+		rc = -EIO;
+		goto disable;
+	}
 	main_log.fp = fopen(filename, "a");
 	if (main_log.fp == NULL) {
 		printf("Could not create log file: %s <%s>\n",
 		       filename, strerror(errno));
 		rc = -EIO;
 	}
+disable:
 	if (rc)
 		main_log.enabled = LOGGER_DISABLED;
 	else
@@ -142,7 +147,8 @@ int init_logger(char *filename)
 
 	pthread_mutex_unlock(&main_log.lock);
 
-	LOG_INFO("Initialize logger using log file: %s", filename);
+	if (!rc)
+		LOG_INFO("Initialize logger using log file: %s", filename);
 
 	return rc;
 }

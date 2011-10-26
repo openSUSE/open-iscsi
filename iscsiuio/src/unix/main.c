@@ -141,14 +141,11 @@ signal_wait:
 		break;
 	case SIGUSR1:
 		LOG_INFO("Caught SIGUSR1 signal, rotate log");
-retry:
 		fini_logger(SHUTDOWN_LOGGER);
 		rc = init_logger(main_log.log_file);
-		if (rc != 0) {
+		if (rc != 0)
 			printf("Could not initialize the logger in "
 			       "signal!\n");
-			goto retry;
-		}
 		goto signal_wait;
 	default:
 		break;
@@ -283,7 +280,7 @@ int main(int argc, char *argv[])
 	if (main_log.enabled == LOGGER_ENABLED) {
 		/*  initialize the logger */
 		rc = init_logger(main_log.log_file);
-		if (rc != 0)
+		if (rc != 0 && opt.debug == DEBUG_ON)
 			printf("WARN: Could not initialize the logger\n");
 	}
 
