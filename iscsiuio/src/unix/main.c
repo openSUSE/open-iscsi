@@ -48,6 +48,7 @@
 #include <sys/utsname.h>
 #include <net/ethernet.h>
 #include <arpa/inet.h>
+#include <sys/mman.h>
 
 #include "uip.h"
 #include "uip_arp.h"
@@ -198,6 +199,38 @@ static void daemon_init()
 	rc = chdir("/");
 }
 
+#define ISCSI_OOM_PATH_LEN 48
+
+int oom_adjust(void)
+{
+	int fd;
+	char path[ISCSI_OOM_PATH_LEN];
+	struct stat statb;
+
+	if (nice(-10) < 0)
+		LOG_DEBUG("Could not increase process priority: %s",
+			  strerror(errno));
+
+	snprintf(path, ISCSI_OOM_PATH_LEN, "/proc/%d/oom_score_adj", getpid());
+	if (stat(path, &statb)) {
+		/* older kernel so use old oom_adj file */
+		snprintf(path, ISCSI_OOM_PATH_LEN, "/proc/%d/oom_adj",
+			 getpid());
+	}
+	fd = open(path, O_WRONLY);
+	if (fd < 0)
+		return -1;
+	if (write(fd, "-16", 3) < 0) /* for 2.6.11 */
+		LOG_DEBUG("Could not set oom score to -16: %s",
+			  strerror(errno));
+	if (write(fd, "-17", 3) < 0) /* for Andrea's patch */
+		LOG_DEBUG("Could not set oom score to -17: %s",
+			  strerror(errno));
+	close(fd);
+	return 0;
+}
+
+
 /*******************************************************************************
  * Main routine
  ******************************************************************************/
@@ -345,6 +378,16 @@ int main(int argc, char *argv[])
 
 	/* Using sysfs to discover iSCSI hosts */
 	nic_discover_iscsi_hosts();
+
+	/* oom-killer will not kill us at the night... */
+	if (oom_adjust())
+		LOG_DEBUG("Can not adjust oom-killer's pardon");
+
+	/* we don't want our active sessions to be paged out... */
+	if (mlockall(MCL_CURRENT | MCL_FUTURE)) {
+		LOG_ERR("failed to mlockall, exiting...");
+		goto error;
+	}
 
 	/*  Start the iscsid listener */
 	rc = iscsid_start();
