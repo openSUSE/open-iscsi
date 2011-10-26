@@ -1,7 +1,7 @@
                               Release Notes
                         Broadcom uIP Linux Driver
                             Version 0.7.0.14
-                               10/21/2011
+                               10/26/2011
 
                           Broadcom Corporation
                          5300 California Avenue,
@@ -11,7 +11,7 @@
                            All rights reserved
 
 
-uIP v0.7.0.14 (Oct 21, 2011)
+uIP v0.7.0.14 (Oct 26, 2011)
 =======================================================
    Fixes
    -----
@@ -63,6 +63,10 @@ uIP v0.7.0.14 (Oct 21, 2011)
    3. Change:  Updated the -h info
    4. Change:  Changed the log file open error to a warning and let
                the daemon progress.  This was only observed under iSCSI boot
+   5. Change:  Disable logging by default
+   6. Change:  Added oom_adjust call to prevent OOM Killer from killing
+               iscsiuio when memory is low
+   7. Change:  Added mlockall setting to prevent page swap
 
 
 uIP v0.7.0.13 (Aug 10, 2011)
