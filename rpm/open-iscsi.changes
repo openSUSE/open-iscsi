@@ -2,6 +2,11 @@
 Fri Nov  4 09:15:52 CET 2011 - hare@suse.de
 
 - Update iscsiuio to 0.7.0.14g (bnc#726708)
+- Merge with mainline:
+  * Update for mixed mode on qla4xxx (bnc#727415)
+  * Fix printing of unknown host values in iscsiadm
+  * Fix IPv6 ibft/firmware boot
+  * Remove iSNS RFC files
 
 -------------------------------------------------------------------
 Mon Oct 24 09:13:19 CEST 2011 - hare@suse.de
