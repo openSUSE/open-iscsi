@@ -7,6 +7,7 @@ Fri Nov  4 09:15:52 CET 2011 - hare@suse.de
   * Fix printing of unknown host values in iscsiadm
   * Fix IPv6 ibft/firmware boot
   * Remove iSNS RFC files
+- Stop iscsiuio when run inside initrd (bnc#728095)
 
 -------------------------------------------------------------------
 Mon Oct 24 09:13:19 CEST 2011 - hare@suse.de

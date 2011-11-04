@@ -1,7 +1,7 @@
 #!/bin/bash
 #%stage: device
 #%depends: network
-#%programs: /sbin/iscsid /sbin/iscsiadm
+#%programs: /sbin/iscsid /sbin/iscsiadm /sbin/iscsiuio
 #%modules: iscsi_tcp crc32c scsi_transport_iscsi iscsi_ibft
 #%if: "$root_iscsi" -o "$TargetAddress"
 #

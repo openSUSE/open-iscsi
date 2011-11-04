@@ -405,9 +405,6 @@ case "$1" in
 	else
 	    echo -n "Starting iSCSI initiator service: "
 	    iscsi_load_transport_modules
-	    if grep -q bnx2i /proc/modules && [ -x $ISCSIUIO ] ; then
-		startproc $ISCSIUIO
-	    fi
 	    startproc $DAEMON $ARGS
 	    RETVAL=$?
 	    rc_status -v
