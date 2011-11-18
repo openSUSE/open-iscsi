@@ -258,6 +258,20 @@ static int uip_connect(int *fd)
 	return ipc_connect(fd, ISCSID_UIP_NAMESPACE);
 }
 
+int uip_query(void)
+{
+	int fd, err;
+
+	err = uip_connect(&fd);
+	if (err) {
+		log_warning("uIP daemon is not up");
+		return err;
+	}
+	close(fd);
+
+	return err;
+}
+
 int uip_broadcast(void *buf, size_t buf_len)
 {
 	int err;

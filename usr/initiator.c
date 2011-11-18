@@ -49,6 +49,7 @@
 #include "sysdeps.h"
 #include "iscsi_err.h"
 #include "kern_err_table.h"
+#include "iscsid_req.h"
 
 #define ISCSI_CONN_ERR_REOPEN_DELAY	3
 #define ISCSI_INTERNAL_ERR_REOPEN_DELAY	5
@@ -1916,6 +1917,11 @@ iscsi_sync_session(node_rec_t *rec, queue_task_t *qtask, uint32_t sid)
 		goto destroy_session;
 
 	qtask->rsp.command = MGMT_IPC_SESSION_SYNC;
+
+	/* For iSCSI boot situations, launch uIP first if needed before
+	 * tearing down the rootfs */
+	if (session->t->template->set_net_config)
+		uip_query();
 
 	log_debug(3, "Started sync iSCSI session %d", session->id);
 	session->notify_qtask = qtask;
