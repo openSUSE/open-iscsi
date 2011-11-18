@@ -64,11 +64,6 @@ AM_CONDITIONAL([DEBUG], [test x$debug = xtrue])
 
 ISCSID_VERSION_DEFAULT="872"
 ISCSID_VERSION=$ISCSID_VERSION_DEFAULT
-which iscsid 2>&1 > /dev/null
-if [ test $? -eq 0 ]; then
-	ISCSID_VERSION=`iscsid  -v | awk '{ print $3 }' | awk -F- '{ print $2 }'`
-	echo "Detected iscsid version $ISCSID_VERSION"
-fi
 
 AC_ARG_WITH(iscsid-version,
 [  --with-iscsid-version    Compile against a certain version of iscsid (default="$ISCSID_VERSION_DEFAULT")],
