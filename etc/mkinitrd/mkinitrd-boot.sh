@@ -45,25 +45,40 @@ if [ "$iSCSI_ignoreNodes" ]; then
 fi
 
 # get the command line InitiatorName
-tmp_InitiatorName="$(get_param InitiatorName)"
+boot_iname="$(get_param InitiatorName)"
+if [ "$boot_iname" -a "$boot_iname" != "default" ] ; then
+    origin="cmdline"
+fi
+
 # reads the InitiatorName variable
 . /etc/iscsi/initiatorname.iscsi
 
 load_modules
 
 # Check of iBFT settings
-if [ -d /sys/firmware/ibft/initiator ] ; then
-    # only use the iBFT InitiatorName if the commandline argument is not "default"
-    read iSCSI_INITIATOR_NAME < /sys/firmware/ibft/initiator/initiator-name
-    if [ "$iSCSI_INITIATOR_NAME" -a "$tmp_InitiatorName" != "default" ] ; then
-    	iSCSI_warning_InitiatorName "$iSCSI_INITIATOR_NAME" "iBFT"
-        InitiatorName=$iSCSI_INITIATOR_NAME
+if [ -z "$boot_iname" ] ; then
+    if [ -d /sys/firmware/ibft/initiator ] ; then
+	read boot_iname < /sys/firmware/ibft/initiator/initiator-name
+	origin="iBFT"
+    else 
+    # Check of iSCSI Boot settings
+	for boot_dir in /sys/firmware/iscsi_boot* ; do
+	    [ -d "$boot_dir" ] || continue;
+	    if [ -d "${boot_dir}/initiator" ] ; then
+		read boot_iname < ${boot_dir}/initiator/initiator-name
+		origin="iSCSI Boot"
+		break;
+	    fi
+	done
     fi
 fi
 
-if [ "$tmp_InitiatorName" != "$InitiatorName" -a "$tmp_InitiatorName" != "default" -a "$tmp_InitiatorName" ]; then
-    	iSCSI_warning_InitiatorName "$tmp_InitiatorName" "cmdline"
-	InitiatorName=$tmp_InitiatorName
+# Now figure out which one we should be using
+if [ "$boot_iname" != "default" ] ; then
+    if [ "$boot_iname" ] && [ "$boot_iname" != "$InitiatorName" ] ; then
+    	iSCSI_warning_InitiatorName "$boot_iname" "$origin"
+	InitiatorName="$boot_iname"
+    fi
 fi
 
 # store the detected InitiatorName permanently
@@ -77,6 +92,13 @@ echo "Starting iSCSI daemon"
 if [ -d /sys/firmware/ibft/initiator ] ; then
     # log into iBFT nodes
     /sbin/iscsiadm -m fw -l
+else
+    for boot_dir in /sys/firmware/iscsi_boot* ; do
+	[ -d "$boot_dir" ] || continue;
+	# Log into iSCSI boot sessions
+	/sbin/iscsiadm -m fw -l
+	break;
+    done
 fi
 
 # Check for command line sessions
