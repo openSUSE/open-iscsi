@@ -33,7 +33,6 @@ Recommends:     logrotate
 %define iscsi_release 872
 Summary:        Linux* Open-iSCSI Software Initiator
 Source:         %{name}-2.0-%{iscsi_release}.tar.bz2
-Source11:       iscsi-gen-initiatorname.sh
 Patch1:         %{name}-git-update.diff.bz2
 Patch2:         %{name}-git-merge.diff.bz2
 Patch3:         %{name}-sles11-sp2.diff.bz2
@@ -83,7 +82,6 @@ make CFLAGS="${RPM_OPT_FLAGS}"
 make DESTDIR=${RPM_BUILD_ROOT} install_user
 make DESTDIR=${RPM_BUILD_ROOT} install_initd_suse
 (cd iscsiuio; make DESTDIR=${RPM_BUILD_ROOT} install)
-install -D -m 755 %{S:11} ${RPM_BUILD_ROOT}/sbin/iscsi-gen-initiatorname
 (cd ${RPM_BUILD_ROOT}/sbin; ln -sf /etc/init.d/open-iscsi rcopen-iscsi)
 (cd ${RPM_BUILD_ROOT}/etc; ln -sf iscsi/iscsid.conf iscsid.conf)
 
