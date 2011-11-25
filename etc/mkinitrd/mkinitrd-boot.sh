@@ -87,6 +87,7 @@ echo "InitiatorName=$InitiatorName" > /etc/iscsi/initiatorname.iscsi
 unset iSCSI_warning_InitiatorName
 
 echo "Starting iSCSI daemon"
+/sbin/iscsiuio
 /sbin/iscsid -n
 
 if [ -d /sys/firmware/ibft/initiator ] ; then
