@@ -202,63 +202,6 @@ out:
 	return rc;
 }
 
-#if (ISCSID_VERSION == 872)
-static void copy_iface_rec(struct iface_rec *rec, iscsid_uip_broadcast_t *data)
-{
-	struct iface_rec_872 *rec_872;
-	struct iface_rec_872_22 *rec_872_22;
-
-	memset(rec, 0, sizeof(struct iface_rec));
-	/* Check for data->header.version for iface_rec decode */
-	if (data->header.payload_len == sizeof(struct iface_rec_872_22)) {
-		rec_872_22 = (struct iface_rec_872_22 *)
-						&data->u.iface_rec.rec;
-		rec->list = rec_872_22->list;
-		memcpy(&rec->name, &rec_872_22->name, ISCSI_MAX_IFACE_LEN);
-		rec->iface_num = rec_872_22->iface_num;
-		memcpy(&rec->netdev, &rec_872_22->netdev, IFNAMSIZ);
-		memcpy(&rec->ipaddress, &rec_872_22->ipaddress, NI_MAXHOST);
-		memcpy(&rec->subnet_mask, &rec_872_22->subnet_mask, NI_MAXHOST);
-		memcpy(&rec->gateway, &rec_872_22->gateway, NI_MAXHOST);
-		memcpy(&rec->bootproto, &rec_872_22->bootproto, NI_MAXHOST);
-		memcpy(&rec->ipv6_linklocal, &rec_872_22->ipv6_linklocal,
-		       NI_MAXHOST);
-		memcpy(&rec->ipv6_router, &rec_872_22->ipv6_router, NI_MAXHOST);
-		memcpy(&rec->ipv6_autocfg, &rec_872_22->ipv6_autocfg,
-		       NI_MAXHOST);
-		memcpy(&rec->linklocal_autocfg, &rec_872_22->linklocal_autocfg,
-		       NI_MAXHOST);
-		memcpy(&rec->router_autocfg, &rec_872_22->router_autocfg,
-		       NI_MAXHOST);
-		rec->vlan_id = rec_872_22->vlan_id;
-		rec->vlan_priority = rec_872_22->vlan_priority;
-		memcpy(&rec->vlan_state, &rec_872_22->vlan_state,
-		       ISCSI_MAX_STR_LEN);
-		memcpy(&rec->state, &rec_872_22->state, ISCSI_MAX_STR_LEN);
-		rec->mtu = rec_872_22->mtu;
-		rec->port = rec_872_22->port;
-		memcpy(&rec->hwaddress, &rec_872_22->hwaddress,
-		       ISCSI_HWADDRESS_BUF_SIZE);
-		memcpy(&rec->transport_name, &rec_872_22->transport_name,
-		       ISCSI_TRANSPORT_NAME_MAXLEN);
-		memcpy(&rec->alias, &rec_872_22->alias, TARGET_NAME_MAXLEN + 1);
-		memcpy(&rec->iname, &rec_872_22->iname, TARGET_NAME_MAXLEN + 1);
-	} else {
-		rec_872 = (struct iface_rec_872 *)&data->u.iface_rec.rec;
-		rec->list = rec_872->list;
-		memcpy(rec->name, rec_872->name, ISCSI_MAX_IFACE_LEN);
-		memcpy(rec->netdev, rec_872->netdev, IFNAMSIZ);
-		memcpy(rec->ipaddress, rec_872->ipaddress, NI_MAXHOST);
-		memcpy(rec->hwaddress, rec_872->hwaddress,
-		       ISCSI_HWADDRESS_BUF_SIZE);
-		memcpy(rec->transport_name, rec_872->transport_name,
-		       ISCSI_TRANSPORT_NAME_MAXLEN);
-		memcpy(rec->alias, rec_872->alias, TARGET_NAME_MAXLEN + 1);
-		memcpy(rec->iname, rec_872->iname, TARGET_NAME_MAXLEN + 1);
-	}
-}
-#endif
-
 static int parse_iface(void *arg)
 {
 	int rc;
@@ -275,17 +218,10 @@ static int parse_iface(void *arg)
 	int i, prefix_len = 64;
 	struct ip_addr_mask ipam;
 	struct iface_rec *rec;
-#if (ISCSID_VERSION == 872)
-	struct iface_rec localrec;
-#endif
 
 	data = (iscsid_uip_broadcast_t *) arg;
-#if (ISCSID_VERSION == 872)
-	copy_iface_rec(&localrec, data);
-	rec = &localrec;
-#else
 	rec = &data->u.iface_rec.rec;
-#endif
+
 	LOG_INFO(PFX "Received request for '%s' to set IP address: '%s' "
 		 "VLAN: %d",
 		 rec->netdev,
