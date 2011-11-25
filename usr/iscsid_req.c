@@ -68,7 +68,9 @@ static void iscsiuio_startup(void)
 		return;
 	}
 
-	system(startup_cmd);
+	if (system(startup_cmd) < 0)
+		log_error("Couldn't execute '%s' (err %d)",
+			  startup_cmd, errno);
 }
 
 #define MAXSLEEP 128
