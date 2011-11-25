@@ -1,4 +1,17 @@
 -------------------------------------------------------------------
+Fri Nov 25 15:18:49 CET 2011 - hare@suse.de
+
+- Start iscsiuio manually again (bnc#732798)
+- Remove compat code from iscsiuio
+- Fixup build warnings
+- Add uip_broadcast() header declaration
+- Handle error when starting iscsiuio from iscsid
+- Fixup definition for krecv_conn_state()
+- Include iscsi-gen-initiatorname script
+- Update mkinitrd scripts for iSCSI offload boot (bnc#732634)
+- Added launching of iscsiuio before session sync (bnc#731216)
+
+-------------------------------------------------------------------
 Fri Nov  4 09:15:52 CET 2011 - hare@suse.de
 
 - Update iscsiuio to 0.7.0.14g (bnc#726708)
