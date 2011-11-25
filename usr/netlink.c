@@ -1002,7 +1002,7 @@ kset_net_config(uint64_t transport_handle, uint32_t host_no,
 	return 0;
 }
 
-static int krecv_conn_state(struct iscsi_conn *conn, int *state)
+static int krecv_conn_state(struct iscsi_conn *conn, uint32_t *state)
 {
 	int rc;
 
