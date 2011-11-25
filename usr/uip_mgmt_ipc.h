@@ -66,6 +66,7 @@ typedef struct iscsid_uip_mgmt_rsp {
 extern int uip_broadcast_params(struct iscsi_transport *t,
 				struct iface_rec *iface,
 				struct iscsi_session *session);
+extern int uip_broadcast(void *buf, size_t buf_len);
 
 
 #endif /* UIP_MGMT_IPC_H */
