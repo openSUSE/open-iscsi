@@ -82,7 +82,7 @@ make CFLAGS="${RPM_OPT_FLAGS}"
 make DESTDIR=${RPM_BUILD_ROOT} install_user
 make DESTDIR=${RPM_BUILD_ROOT} install_initd_suse
 (cd iscsiuio; make DESTDIR=${RPM_BUILD_ROOT} install)
-(cd ${RPM_BUILD_ROOT}/sbin; ln -sf /etc/init.d/open-iscsi rcopen-iscsi)
+ln -sf ../etc/init.d/open-iscsi $RPM_BUILD_ROOT/usr/sbin/rcopen-iscsi
 (cd ${RPM_BUILD_ROOT}/etc; ln -sf iscsi/iscsid.conf iscsid.conf)
 
 %clean
