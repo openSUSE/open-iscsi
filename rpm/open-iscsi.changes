@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Mon Nov 28 16:20:20 CET 2011 - hare@suse.de
+
+- Enable offload interfaces from iscsi_offload script (bnc#730157)
+
+-------------------------------------------------------------------
 Fri Nov 25 15:18:49 CET 2011 - hare@suse.de
 
 - Start iscsiuio manually again (bnc#732798)
