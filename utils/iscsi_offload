@@ -265,6 +265,7 @@ fi
 if [ "$mod" = "qla4xxx" ] ; then
     iscsiadm -m iface -H $mac -o applyall
 fi
+ip link set dev $IFNAME up
 
 exit 0
 
