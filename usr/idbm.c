@@ -248,6 +248,8 @@ idbm_recinfo_node(node_rec_t *r, recinfo_t *ri)
 	__recinfo_str(IFACE_IPADDR, ri, r, iface.ipaddress, IDBM_SHOW, num, 1);
 	__recinfo_str(IFACE_ISCSINAME, ri, r, iface.name, IDBM_SHOW, num, 1);
 	__recinfo_str(IFACE_NETNAME, ri, r, iface.netdev, IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_GATEWAY, ri, r, iface.gateway, IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_SUBNET_MASK, ri, r, iface.subnet_mask, IDBM_SHOW, num, 1);
 	/*
 	 * svn 780 compat: older versions used node.transport_name and
 	 * rec->transport_name
