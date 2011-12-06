@@ -844,8 +844,6 @@ int iface_setup_from_boot_context(struct iface_rec *iface,
 			return 0;
 		}
 	} else if (strlen(context->iface)) {
-/* this ifdef is only temp until distros and firmwares are updated */
-#ifdef OFFLOAD_BOOT_SUPPORTED
 		hostno = iscsi_sysfs_get_host_no_from_hwaddress(context->mac,
 								&rc);
 		if (rc) {
@@ -860,9 +858,6 @@ int iface_setup_from_boot_context(struct iface_rec *iface,
 		}
 
 		strlcpy(iface->netdev, context->iface, sizeof(iface->netdev));
-#else
-		return 0;
-#endif
 	} else
 		return 0;
 
