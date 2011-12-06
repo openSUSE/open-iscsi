@@ -4,7 +4,7 @@
 #
 # Configure iSCSI offload engines for use with open-iscsi
 # Usage:
-#    iscsi_offload [-d | -r | -i <ipaddr> ] <nic>
+#    iscsi_offload [-d | -f | -i <ipaddr> | -t ] <nic>
 #
 # Copyright (c) 2011 Hannes Reinecke, SUSE Labs
 # This script is licensed under the GPL.
@@ -34,12 +34,13 @@
 #    5: internal error running iscsiadm
 #
 # Output:
-#    <mac> [none|dhcp|ip <ipaddr>]
+#    <mac> [none|dhcp|ip <ipaddr>|ibft]
 # where
 #    <mac>: MAC Address of the iSCSI offload engine
 #    none:  No IP configuration set for the iSCSI offload engine
 #    dhcp:  iSCSI offload engine configured for DHCP
 #    ip:    iSCSI offload engine configured with static IP address <ipaddr>
+#    ibft:  iSCSI offload engine configured from iBFT values
 #
 
 #
@@ -106,8 +107,9 @@ while getopts di:t options ; do
 	i ) mode=static
 	    optaddr=$OPTARG
 	    ;;
-	t ) no_rename=1;;
-	?)  printf "Usage: %s [-d|-t|-i ipaddr] ifname\n" $0
+	f ) mode=firmware;;
+	t ) dry_run=1;;
+	?)  printf "Usage: %s [-d|-t|-i ipaddr|-f] ifname\n" $0
 	    exit 1;;
     esac
 done
@@ -120,6 +122,16 @@ if [ -z "$IFNAME" ] ; then
     exit 1
 fi
 
+if [ "$dry_run" ] ; then
+    if [ "$mode" = "dhcp" ] ; then
+	echo "'-t' specified, ignoring '-d'"
+	mode=
+    elif [ "$mode" = "static" ] ; then
+	echo "'-t' specified, ignoring '-s'"
+	mode=
+    fi
+fi
+
 if [ ! -L /sys/class/net/$IFNAME ] ; then
     echo "Interface $IFNAME not found"
     exit 1
@@ -129,7 +141,7 @@ if [ "$optaddr" ] && ! ip route get $optaddr ; then
     echo "Invalid IP address $optaddr"
     exit 1
 fi
-if [ "$no_rename" ] ; then
+if [ "$dry_run" ] ; then
     mode=
 fi
 
@@ -167,6 +179,7 @@ if [ -z "$mod" ] ; then
     exit 2
 fi
 
+# Check if the required modules are already loaded
 loaded=$(sed -n "/^$mod/p" /proc/modules)
 if [ -z "$loaded" ] ; then
     modprobe $mod
@@ -178,6 +191,7 @@ if [ -z "$loaded" ] ; then
     exit 3
 fi
 
+# Get the correct MAC address for the various devices
 if [ "$mod" = "bnx2i" ] ; then
     mac=$(iscsi_macaddress_from_pcidevice $pcipath $IFNAME)
 elif [ "$mod" = "cxgb3i" ] ; then
@@ -210,7 +224,7 @@ else
     ipaddr=
 fi
 
-if [ -z "$no_rename" ] ; then
+if [ -z "$dry_run" ] ; then
     if [ "$ioe_mac" != "$mac" ] ; then
 	if [ -n "$ioe_mac" ] ; then
 	    echo "Warning: Updating MAC address on iface $ioe_iface"
@@ -230,18 +244,47 @@ elif [ "$ioe_mod" != "$mod" ] ; then
     echo "Warning: Transport mismatch on iface $ioe_iface: $ioe_mod should be $mod"
 fi
 
+# Check iBFT setting
+if [ -d /sys/firmware/ibft ] ; then
+    for if in /sys/firmware/ibft/ethernet* ; do
+	read ibft_mac < $if/mac
+	[ "$ibft_mac" = "$mac" ] || continue
+	read ibft_origin < $if/origin
+	if [ "$ibft_origin" -eq 1 ] ; then
+	    ibft_mode=static
+	elif [ "$ibft_origin" -eq 3 ] ; then
+	    ibft_mode=dhcp
+	fi
+	read ibft_dhcp < $if/dhcp
+	if [ "$ibft_dhcp" -a "$ibft_mode" != "dhcp" ] ; then
+	    ibft_mode=dhcp
+	fi
+	if [ "$ibft_mode" = "dhcp" ] ; then
+	    ibft_ipaddr="0.0.0.0"
+	else
+	    read ibft_ipaddr < $if/ip-addr
+	    read ibft_gateway < $if/gateway
+	    read ibft_mask < $if/subnet-mask
+	fi
+    done
+fi
+if [ -z "$optaddr" ] && [ "$ibft_ipaddr" ] ; then
+    optaddr=$ibft_ipaddr
+fi
+
+# Check if the interface needs to be configured
 if [ -z "$mode" ] ; then
-    if [ "$ipaddr" = "<empty>" ] ; then
+    if [ "$optaddr" = "$ibft_ipaddr" ] ; then
+	echo "$mac ibft"
+    elif [ "$ipaddr" = "<empty>" ] ; then
 	echo "$mac none"
     elif [ "$ipaddr" = "0.0.0.0" ] ; then
 	echo "$mac dhcp"
+	ipaddr=
     else 
 	echo "$mac ip $ipaddr"
     fi
-    if [ -z "$no_rename" ] && [ -n "$ipaddr" ] ; then
-	iscsiadm -m iface -I $ioe_iface --op=update --name=iface.ipaddress --value=$ipaddr
-    fi
-    exit 0
+    [ "$dry_run" ] && exit 0
 elif [ "$mode" = "dhcp" ] ; then
     if [ "$ipaddr" = "0.0.0.0" ] ; then
 	echo "$mac dhcp"
@@ -262,6 +305,22 @@ if ! iscsiadm -m iface -I $ioe_iface -o update -n iface.ipaddress -v $optaddr ; 
     echo "Failed to set IP address: $?"
     exit 1
 fi
+if [ "$ibft_mode" = "dhcp" ] ; then
+    iscsiadm -m iface -I $ioe_iface --op=update \
+	--name iface.gateway --value=""
+    iscsiadm -m iface -I $ioe_iface --op=update \
+	--name=iface.subnet_mask --value=""
+elif [ "$ibft_mode" = "static" ] ; then
+    if [ "$ibft_gateway" ] ; then
+	iscsiadm -m iface -I $ioe_iface --op=update \
+	    --name=iface.gateway --value="$ibft_gateway"
+    fi
+    if [ "$ibft_mask" ] ; then
+	iscsiadm -m iface -I $ioe_iface --op=update \
+	    --name=iface.subnet_mask --value=$ibft_mask
+    fi
+fi
+
 if [ "$mod" = "qla4xxx" ] ; then
     iscsiadm -m iface -H $mac -o applyall
 fi
