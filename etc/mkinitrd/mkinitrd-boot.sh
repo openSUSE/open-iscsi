@@ -2,7 +2,7 @@
 #%stage: device
 #%depends: network
 #%programs: /sbin/iscsid /sbin/iscsiadm /sbin/iscsiuio
-#%modules: iscsi_tcp crc32c scsi_transport_iscsi iscsi_ibft
+#%modules: iscsi_tcp crc32c scsi_transport_iscsi iscsi_ibft bnx2i
 #%if: "$root_iscsi" -o "$TargetAddress"
 #
 ##### iSCSI initialization
