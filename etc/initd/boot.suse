@@ -17,6 +17,7 @@
 ### END INIT INFO
 
 ISCSIADM=/sbin/iscsiadm
+ISCSIUIO=/sbin/iscsiuio
 CONFIG_FILE=/etc/iscsid.conf
 DAEMON=/sbin/iscsid
 ARGS="-c $CONFIG_FILE"
@@ -29,6 +30,15 @@ ARGS="-c $CONFIG_FILE"
 # during mkinitrd run should not be removed when the open-iscsi
 # service is stopped.
 #
+iscsi_load_iscsiuio()
+{
+    TRANSPORT=`$ISCSIADM -m session 2> /dev/null | grep "bnx2i"`
+    if [ "$TRANSPORT" ] ; then
+	echo -n "Launch iscsiuio "
+        startproc $ISCSIUIO
+    fi
+}
+
 iscsi_mark_root_nodes()
 {
     $ISCSIADM -m session 2> /dev/null | while read t num i target ; do
@@ -44,7 +54,7 @@ iscsi_mark_root_nodes()
 rc_reset
 
 # We only need to start this for root on iSCSI
-if ! grep -q iscsi_tcp /proc/modules ; then
+if ! $ISCSIADM -m session > /dev/null 2>&1 ; then
     rc_failed 6
     rc_exit
 fi
@@ -52,6 +62,7 @@ fi
 case "$1" in
     start)
 	echo -n "Starting iSCSI initiator for the root device: "
+	iscsi_load_iscsiuio
 	startproc $DAEMON $ARGS
 	rc_status -v
 	iscsi_mark_root_nodes
