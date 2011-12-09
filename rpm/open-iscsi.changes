@@ -1,4 +1,16 @@
 -------------------------------------------------------------------
+Fri Dec  9 15:09:01 CET 2011 - hare@suse.de
+
+- iscsiadm: Return correct error when login fails (bnc#715071)
+- Add bnx2i to list of modules (bnc#718014)
+- iscsi_offload: Configure interface from iBFT
+- Allow modifications for iface.gateway and iface.subnet_mask
+- Remove OFFLOAD_BOOT_SUPPORTED define
+- iscsiadm: Allow -d flag for firmware mode
+- iscsid prints invalid log message
+- Start iscsiuio early in boot.open-iscsi (bnc#731216)
+
+-------------------------------------------------------------------
 Mon Nov 28 16:20:20 CET 2011 - hare@suse.de
 
 - Enable offload interfaces from iscsi_offload script (bnc#730157)
