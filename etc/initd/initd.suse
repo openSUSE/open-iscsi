@@ -399,11 +399,13 @@ iscsi_list_all_nodes()
 
 case "$1" in
     start)
+        echo -n "Loading iscsi modules: "
+        iscsi_load_transport_modules
+        rc_status -v
 	if checkproc $DAEMON ; then
 	    RETVAL=0
 	else
 	    echo -n "Starting iSCSI initiator service: "
-	    iscsi_load_transport_modules
 	    if grep -q bnx2i /proc/modules && [ -x $ISCSI_UIO ] ; then
 		startproc $ISCSIUIO
 	    fi
