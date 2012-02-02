@@ -721,10 +721,10 @@ void idbm_recinfo_config(recinfo_t *info, FILE *f)
 		}
 		*(value+i) = 0;
 
-		if (!strcmp(name, "node.startup")) {
+		if (!strcmp(name, "node.startup") && strlen(value)) {
 			node_startup_value = strdup(value);
 		}
-		if (!strcmp(name, "node.conn[0].startup")) {
+		if (!strcmp(name, "node.conn[0].startup") && strlen(value)) {
 			conn_startup_value = strdup(value);
 		}
 		(void)idbm_rec_update_param(info, name, value, line_number);
