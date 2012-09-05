@@ -999,7 +999,7 @@ static void session_scan_host(struct iscsi_session *session, int hostno,
 		exit(0);
 	} else if (pid > 0) {
 		reap_inc();
-		if (qtask) {
+		if (qtask && qtask->mgmt_ipc_fd >= 0) {
 			close(qtask->mgmt_ipc_fd);
 			free(qtask);
 		}
@@ -1623,6 +1623,9 @@ static void session_conn_process_login(void *data)
 
 	if (state == ISCSI_CONN_STATE_FREE)
 		goto failed_login;
+
+	if (conn->state == ISCSI_CONN_STATE_LOGGED_IN)
+		return;
 
 	conn->state = ISCSI_CONN_STATE_LOGGED_IN;
 	/*
