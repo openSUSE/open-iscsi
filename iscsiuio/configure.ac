@@ -62,17 +62,6 @@ AC_ARG_ENABLE(debug,
     fi])
 AM_CONDITIONAL([DEBUG], [test x$debug = xtrue])
 
-ISCSID_VERSION_DEFAULT="873"
-ISCSID_VERSION=$ISCSID_VERSION_DEFAULT
-
-AC_ARG_WITH(iscsid-version,
-[  --with-iscsid-version    Compile against a certain version of iscsid (default="$ISCSID_VERSION_DEFAULT")],
-    ISCSID_VERSION=$withval)
-
-echo "ISCSID_VERSION: $ISCSID_VERSION"
-CFLAGS="${CFLAGS} -DISCSID_VERSION=$ISCSID_VERSION"
-AC_SUBST(CFLAGS, ${CFLAGS})
-
 AC_CONFIG_COMMANDS([default],[[ echo 'char *build_date ="'`date`'";' > src/unix/build_date.c  && echo 'char *build_date; '> src/unix/build_date.h]],[[]])
 
 AC_PREFIX_DEFAULT()
