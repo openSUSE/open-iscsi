@@ -78,7 +78,7 @@ install: install_programs install_doc install_etc \
 	install_initd install_iname install_iface
 
 install_user: install_programs install_doc install_etc \
-	install_initd install_iname install_iface
+	install_initd install_iface
 
 install_programs:  $(PROGRAMS) $(SCRIPTS)
 	$(INSTALL) -d $(DESTDIR)$(sbindir)
