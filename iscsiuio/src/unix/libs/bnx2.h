@@ -194,7 +194,7 @@ struct l2_fhdr {
 
 /* Used to determin the CHIP ID */
 /* chip num:16-31, rev:12-15, metal:4-11, bond_id:0-3 */
-#define CHIP_NUM(bp)                    ((bp) & 0xffff0000)
+#define BNX2_CHIP_NUM(bp)               ((bp) & 0xffff0000)
 #define CHIP_NUM_5706                   0x57060000
 #define CHIP_NUM_5708                   0x57080000
 #define CHIP_NUM_5709                   0x57090000

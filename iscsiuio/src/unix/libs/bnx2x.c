@@ -88,6 +88,8 @@ static const char brcm_57712_MF[] = "Broadcom NetXtreme II BCM57712 MF "
 				    "10-Gigabit";
 static const char brcm_57712_VF[] = "Broadcom NetXtreme II BCM57712 VF "
 				    "10-Gigabit";
+static const char brcm_57713[] = "Broadcom NetXtreme II BCM57713 10-Gigabit";
+static const char brcm_57713e[] = "Broadcom NetXtreme II BCM57713E 10-Gigabit";
 static const char brcm_57800[] = "Broadcom NetXtreme II BCM57800 10-Gigabit";
 static const char brcm_57800_MF[] = "Broadcom NetXtreme II BCM57800 MF "
 				    "10-Gigabit";
@@ -98,31 +100,49 @@ static const char brcm_57810_MF[] = "Broadcom NetXtreme II BCM57810 MF "
 				    "10-Gigabit";
 static const char brcm_57810_VF[] = "Broadcom NetXtreme II BCM57810 VF "
 				    "10-Gigabit";
+static const char brcm_57811[] = "Broadcom NetXtreme II BCM57811 10-Gigabit";
+static const char brcm_57811_MF[] = "Broadcom NetXtreme II BCM57811 MF "
+				    "10-Gigabit";
+static const char brcm_57811_VF[] = "Broadcom NetXtreme II BCM57811 VF "
+				    "10-Gigabit";
 static const char brcm_57840[] = "Broadcom NetXtreme II BCM57840 10-Gigabit";
 static const char brcm_57840_MF[] = "Broadcom NetXtreme II BCM57840 MF "
 				    "10-Gigabit";
 static const char brcm_57840_VF[] = "Broadcom NetXtreme II BCM57840 VF "
 				    "10-Gigabit";
+static const char brcm_57840_4_10[] = "Broadcom NetXtreme II BCM57840 4x"
+				      "10-Gigabit";
+static const char brcm_57840_2_20[] = "Broadcom NetXtreme II BCM57840 2x"
+				      "20-Gigabit";
+
 
 /*******************************************************************************
  * PCI ID constants
  ******************************************************************************/
-#define PCI_VENDOR_ID_BROADCOM		0x14e4
-#define PCI_DEVICE_ID_NX2_57710		0x164e
-#define PCI_DEVICE_ID_NX2_57711		0x164f
-#define PCI_DEVICE_ID_NX2_57711E	0x1650
-#define PCI_DEVICE_ID_NX2_57712		0x1662
-#define PCI_DEVICE_ID_NX2_57712_MF	0x1663
-#define PCI_DEVICE_ID_NX2_57712_VF	0x166f
-#define PCI_DEVICE_ID_NX2_57800		0x168a
-#define PCI_DEVICE_ID_NX2_57800_MF	0x16a5
-#define PCI_DEVICE_ID_NX2_57800_VF	0x16a9
-#define PCI_DEVICE_ID_NX2_57810		0x168e
-#define PCI_DEVICE_ID_NX2_57810_MF	0x16ae
-#define PCI_DEVICE_ID_NX2_57810_VF	0x16af
-#define PCI_DEVICE_ID_NX2_57840		0x168d
-#define PCI_DEVICE_ID_NX2_57840_MF	0x16ab
-#define PCI_DEVICE_ID_NX2_57840_VF	0x16ad
+#define PCI_VENDOR_ID_BROADCOM			0x14e4
+#define PCI_DEVICE_ID_NX2_57710			0x164e
+#define PCI_DEVICE_ID_NX2_57711			0x164f
+#define PCI_DEVICE_ID_NX2_57711E		0x1650
+#define PCI_DEVICE_ID_NX2_57712			0x1662
+#define PCI_DEVICE_ID_NX2_57712_MF		0x1663
+#define PCI_DEVICE_ID_NX2_57712_VF		0x166f
+#define PCI_DEVICE_ID_NX2_57713			0x1651
+#define PCI_DEVICE_ID_NX2_57713E		0x1652
+#define PCI_DEVICE_ID_NX2_57800			0x168a
+#define PCI_DEVICE_ID_NX2_57800_MF		0x16a5
+#define PCI_DEVICE_ID_NX2_57800_VF		0x16a9
+#define PCI_DEVICE_ID_NX2_57810			0x168e
+#define PCI_DEVICE_ID_NX2_57810_MF		0x16ae
+#define PCI_DEVICE_ID_NX2_57810_VF		0x16af
+#define PCI_DEVICE_ID_NX2_57811			0x163d
+#define PCI_DEVICE_ID_NX2_57811_MF		0x163e
+#define PCI_DEVICE_ID_NX2_57811_VF		0x163f
+#define PCI_DEVICE_ID_NX2_57840_OBSOLETE	0x168d
+#define PCI_DEVICE_ID_NX2_57840_MF_OBSOLETE	0x16ab
+#define PCI_DEVICE_ID_NX2_57840_4_10		0x16a1
+#define PCI_DEVICE_ID_NX2_57840_2_20		0x16a2
+#define PCI_DEVICE_ID_NX2_57840_MF		0x16a4
+#define PCI_DEVICE_ID_NX2_57840_VF		0x16ad
 #define PCI_ANY_ID (~0)
 
 /*  This is the table used to match PCI vendor and device ID's to the
@@ -140,6 +160,10 @@ static const struct pci_device_id bnx2x_pci_tbl[] = {
 	 PCI_ANY_ID, PCI_ANY_ID, brcm_57712_MF},
 	{PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57712_VF,
 	 PCI_ANY_ID, PCI_ANY_ID, brcm_57712_VF},
+	{PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57713,
+	 PCI_ANY_ID, PCI_ANY_ID, brcm_57713},
+	{PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57713E,
+	 PCI_ANY_ID, PCI_ANY_ID, brcm_57713e},
 	{PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57800,
 	 PCI_ANY_ID, PCI_ANY_ID, brcm_57800},
 	{PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57800_MF,
@@ -152,8 +176,20 @@ static const struct pci_device_id bnx2x_pci_tbl[] = {
 	 PCI_ANY_ID, PCI_ANY_ID, brcm_57810_MF},
 	{PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57810_VF,
 	 PCI_ANY_ID, PCI_ANY_ID, brcm_57810_VF},
-	{PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57840,
+	{PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57811,
+	 PCI_ANY_ID, PCI_ANY_ID, brcm_57811},
+	{PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57811_MF,
+	 PCI_ANY_ID, PCI_ANY_ID, brcm_57811_MF},
+	{PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57811_VF,
+	 PCI_ANY_ID, PCI_ANY_ID, brcm_57811_VF},
+	{PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57840_OBSOLETE,
 	 PCI_ANY_ID, PCI_ANY_ID, brcm_57840},
+	{PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57840_MF_OBSOLETE,
+	 PCI_ANY_ID, PCI_ANY_ID, brcm_57840_MF},
+	{PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57840_4_10,
+	 PCI_ANY_ID, PCI_ANY_ID, brcm_57840_4_10},
+	{PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57840_2_20,
+	 PCI_ANY_ID, PCI_ANY_ID, brcm_57840_2_20},
 	{PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57840_MF,
 	 PCI_ANY_ID, PCI_ANY_ID, brcm_57840_MF},
 	{PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57840_VF,

@@ -537,7 +537,7 @@ static int bnx2_open(nic_t *nic)
 	LOG_DEBUG(PFX "Chip ID: %x", bnx2_get_chip_id(bp));
 
 	/*  on a 5709 when using MSI-X the status block is at an offset */
-	if (CHIP_NUM(bnx2_get_chip_id(bp)) == CHIP_NUM_5709) {
+	if (BNX2_CHIP_NUM(bnx2_get_chip_id(bp)) == CHIP_NUM_5709) {
 		/*  determine if we are using MSI-X */
 		val = bnx2_rd32(bp, BNX2_TSCH_TSS_CFG);
 		if (val) {
@@ -673,7 +673,7 @@ static int bnx2_open(nic_t *nic)
 
 	/*  Prepare the multicast addresses */
 	val = 4 | BNX2_RPM_SORT_USER2_BC_EN | BNX2_RPM_SORT_USER2_MC_EN;
-	if (CHIP_NUM(bnx2_get_chip_id(bp)) != CHIP_NUM_5709)
+	if (BNX2_CHIP_NUM(bnx2_get_chip_id(bp)) != CHIP_NUM_5709)
 		val |= BNX2_RPM_SORT_USER2_PROM_VLAN;
 
 	bnx2_wr32(bp, BNX2_RPM_SORT_USER2, 0x0);
