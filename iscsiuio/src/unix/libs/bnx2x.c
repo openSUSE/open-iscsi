@@ -1004,12 +1004,6 @@ static int bnx2x_open(nic_t * nic)
 			if ((val & 6) != 6)
 				goto open_error;
 
-			if (!CHIP_IS_E1(bp)) {
-				LOG_INFO(PFX "%s:  SD mode not supported",
-					 nic->log_name);
-				goto open_error;
-			}
-
 			mac_offset = proto_offset + 0x4;
 			val = bnx2x_rd32(bp, mf_cfg_addr + mac_offset);
 			mac[0] = (__u8) (val >> 8);

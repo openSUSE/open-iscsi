@@ -223,6 +223,8 @@ uIP v0.7.4.3 (Jun 26, 2012)
 
   10. Added support for jumbo MTU (independent from the L2 MTU)
 
+  11. Change:  Re-enable HP SD mode
+
 
 uIP v0.7.0.14 (Oct 26, 2011)
 =======================================================
