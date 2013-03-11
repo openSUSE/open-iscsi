@@ -138,11 +138,11 @@ install_kernel:
 	$(MAKE) -C kernel install_kernel
 
 install_iname:
-	if [ ! -f /etc/iscsi/initiatorname.iscsi ]; then \
+	if [ ! -f $(DESTDIR)/etc/iscsi/initiatorname.iscsi ]; then \
 		echo "InitiatorName=`$(DESTDIR)/sbin/iscsi-iname`" > $(DESTDIR)/etc/iscsi/initiatorname.iscsi ; \
 		echo "***************************************************" ; \
 		echo "Setting InitiatorName to `cat $(DESTDIR)/etc/iscsi/initiatorname.iscsi`" ; \
-		echo "To override edit /etc/iscsi/initiatorname.iscsi" ; \
+		echo "To override edit $(DESTDIR)/etc/iscsi/initiatorname.iscsi" ; \
 		echo "***************************************************" ; \
 	fi
 
