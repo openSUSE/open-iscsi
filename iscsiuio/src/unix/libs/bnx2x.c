@@ -374,7 +374,7 @@ error:
 
 static inline int bnx2x_is_ver70(bnx2x_t *bp)
 {
-	return (bp->version.major == 1 && bp->version.minor == 70);
+	return (bp->version.major == 1 && bp->version.minor >= 70);
 }
 
 static inline int bnx2x_is_ver60(bnx2x_t * bp)
@@ -653,7 +653,9 @@ static int bnx2x_open(nic_t * nic)
 		return -ENOMEM;
 
 	if (!bnx2x_is_drv_version_unknown(&bnx2x_version))
-		bnx2x_get_drv_version(bp);
+		rc = bnx2x_get_drv_version(bp);
+		if (rc)
+			goto open_error;
 	else {
 		bnx2x_version.major = bp->version.major;
 		bnx2x_version.minor = bp->version.minor;
