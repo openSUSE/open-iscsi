@@ -22,7 +22,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <sys/un.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -33,7 +32,6 @@
 #include "iscsi_util.h"
 #include "config.h"
 #include "iscsi_err.h"
-#include "uip_mgmt_ipc.h"
 
 static void iscsid_startup(void)
 {
@@ -54,67 +52,7 @@ static void iscsid_startup(void)
 			  startup_cmd, errno);
 }
 
-static void iscsiuio_startup(void)
-{
-	char *startup_cmd;
-
-	startup_cmd = cfg_get_string_param(CONFIG_FILE, "iscsiuio.startup");
-	if (!startup_cmd) {
-		log_error("iscsiuio is not running. Could not start it up "
-			  "automatically using the startup command in the "
-			  "/etc/iscsi/iscsid.conf iscsiuio.startup setting. "
-			  "Please check that the file exists or that your "
-			  "init scripts have started iscsid.");
-		return;
-	}
-
-	if (system(startup_cmd) < 0)
-		log_error("Couldn't execute '%s' (err %d)",
-			  startup_cmd, errno);
-}
-
 #define MAXSLEEP 128
-
-static int ipc_connect(int *fd, char *unix_sock_name)
-{
-	int nsec;
-	struct sockaddr_un addr;
-
-	*fd = socket(AF_LOCAL, SOCK_STREAM, 0);
-	if (*fd < 0) {
-		log_error("can not create IPC socket (%d) for iSCSI uio!", errno);
-		return ISCSI_ERR_ISCSID_NOTCONN;
-	}
-
-	memset(&addr, 0, sizeof(addr));
-	addr.sun_family = AF_LOCAL;
-	memcpy((char *) &addr.sun_path + 1, unix_sock_name,
-		strlen(unix_sock_name));
-	/*
-	 * Trying to connect with exponential backoff
-	 */
-	for (nsec = 1; nsec <= MAXSLEEP; nsec <<= 1) {
-		if (connect(*fd, (struct sockaddr *) &addr, sizeof(addr)) == 0)
-			/* Connection established */
-			return ISCSI_SUCCESS;
-
-		/* If iscsiuio isn't there, there's no sense
-		 * in retrying. */
-		if (errno == ECONNREFUSED) {
-			if (nsec == 1)
-				iscsiuio_startup();
-			else
-				break;
-		}
-		/*
-		 * Delay before trying again
-		 */
-		if (nsec <= MAXSLEEP/2)
-			sleep(nsec);
-	}
-	log_error("can not connect to iSCSI uio daemon (%d)!", errno);
-	return ISCSI_ERR_ISCSID_NOTCONN;
-}
 
 static int iscsid_connect(int *fd, int start_iscsid)
 {
@@ -253,84 +191,4 @@ int iscsid_req_by_sid(iscsiadm_cmd_e cmd, int sid)
 	if (err)
 		return err;
 	return iscsid_req_wait(cmd, fd);
-}
-
-static int uip_connect(int *fd)
-{
-	return ipc_connect(fd, ISCSID_UIP_NAMESPACE);
-}
-
-int uip_query(void)
-{
-	int fd, err;
-
-	err = uip_connect(&fd);
-	if (err) {
-		log_warning("uIP daemon is not up");
-		return err;
-	}
-	close(fd);
-
-	return err;
-}
-
-int uip_broadcast(void *buf, size_t buf_len)
-{
-	int err;
-	int fd;
-	iscsid_uip_rsp_t rsp;
-	int flags;
-	int count;
-
-	err = uip_connect(&fd);
-	if (err) {
-		log_warning("uIP daemon is not up");
-		return err;
-	}
-
-	/*  Send the data to uIP */
-	if ((err = write(fd, buf, buf_len)) != buf_len) {
-		log_error("got write error (%d/%d), daemon died?",
-			err, errno);
-		close(fd);
-		return -EIO;
-	}
-
-	/*  Set the socket to a non-blocking read, this way if there are
-	 *  problems waiting for uIP, iscsid can bailout early */
-	flags = fcntl(fd, F_GETFL, 0);
-	if (flags == -1)
-		flags = 0;
-	err = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-	if(err != 0) {
-		log_error("could not set uip broadcast to non-blocking: %d",
-			  errno);
-		close(fd);
-		return -EIO;
-	}
-
-#define MAX_UIP_BROADCAST_READ_TRIES 3
-	for(count = 0; count < MAX_UIP_BROADCAST_READ_TRIES; count++) {
-		/*  Wait for the response */
-		err = read(fd, &rsp, sizeof(rsp));
-		if (err == sizeof(rsp)) {
-			log_debug(3, "Broadcasted to uIP with length: %ld\n",
-				  buf_len);
-			break;
-		} else if((err == -1) && (errno == EAGAIN)) {
-			usleep(250000);
-			continue;
-		} else {
-			log_error("Could not read response (%d/%d), daemon died?",
-				  err, errno);
-			break;
-		}
-	}
-
-	if(count == MAX_UIP_BROADCAST_READ_TRIES)
-		log_error("Could not broadcast to uIP");
-
-	close(fd);
-
-	return 0;
 }

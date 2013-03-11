@@ -25,10 +25,12 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <errno.h>
+#include <time.h>
 #include <inttypes.h>
 #include <asm/types.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/poll.h>
 #include <linux/netlink.h>
 
 #include "types.h"
@@ -39,6 +41,8 @@
 #include "iscsi_sysfs.h"
 #include "transport.h"
 #include "iscsi_netlink.h"
+#include "iscsi_err.h"
+#include "iscsi_timer.h"
 
 static int ctrl_fd;
 static struct sockaddr_nl src_addr, dest_addr;
@@ -63,6 +67,15 @@ static int ctldev_handle(void);
 					sizeof(struct iscsi_hdr))
 
 #define NLM_SETPARAM_DEFAULT_MAX (NI_MAXHOST + 1 + sizeof(struct iscsi_uevent))
+
+struct iscsi_ping_event {
+	uint32_t host_no;
+	uint32_t pid;
+	int32_t status;
+	int active;
+};
+
+struct iscsi_ping_event ping_event;
 
 struct nlattr *iscsi_nla_alloc(uint16_t type, uint16_t len)
 {
@@ -322,6 +335,9 @@ __kipc_call(struct iovec *iovp, int count)
 			ctldev_handle();
 		} else if (ev->type == ISCSI_UEVENT_GET_STATS) {
 			/* kget_stats() will read */
+			return 0;
+		} else if (ev->type == ISCSI_UEVENT_GET_CHAP) {
+			/* kget_chap() will read */
 			return 0;
 		} else {
 			if ((rc = nlpayload_read(ctrl_fd, (void*)ev,
@@ -1024,6 +1040,218 @@ exit:
 	return rc;
 }
 
+
+
+
+static int
+ksend_ping(uint64_t transport_handle, uint32_t host_no, struct sockaddr *addr,
+	   uint32_t iface_num, uint32_t iface_type, uint32_t pid, uint32_t size)
+{
+	int rc, addrlen;
+	struct iscsi_uevent *ev;
+	struct iovec iov[2];
+
+	log_debug(8, "in %s", __FUNCTION__);
+
+	memset(setparam_buf, 0, NLM_SETPARAM_DEFAULT_MAX);
+	ev = (struct iscsi_uevent *)setparam_buf;
+	ev->type = ISCSI_UEVENT_PING;
+	ev->transport_handle = transport_handle;
+	ev->u.iscsi_ping.host_no = host_no;
+	ev->u.iscsi_ping.iface_num = iface_num;
+	ev->u.iscsi_ping.iface_type = iface_type;
+	ev->u.iscsi_ping.payload_size = size;
+	ev->u.iscsi_ping.pid = pid;
+
+	if (addr->sa_family == PF_INET)
+		addrlen = sizeof(struct sockaddr_in);
+	else if (addr->sa_family == PF_INET6)
+		addrlen = sizeof(struct sockaddr_in6);
+	else {
+		log_error("%s unknown addr family %d\n",
+			  __FUNCTION__, addr->sa_family);
+		return -EINVAL;
+	}
+	memcpy(setparam_buf + sizeof(*ev), addr, addrlen);
+
+	iov[1].iov_base = ev;
+	iov[1].iov_len = sizeof(*ev) + addrlen;
+	rc = __kipc_call(iov, 2);
+	if (rc < 0)
+		return rc;
+
+	return 0;
+}
+
+static int kexec_ping(uint64_t transport_handle, uint32_t host_no,
+		      struct sockaddr *addr, uint32_t iface_num,
+		      uint32_t iface_type, uint32_t size, uint32_t *status)
+{
+	struct pollfd pfd;
+	struct timeval ping_timer;
+	int timeout, fd, rc;
+	uint32_t pid;
+
+	*status = 0;
+
+	fd = ipc->ctldev_open();
+	if (fd < 0) {
+		log_error("Could not open netlink socket.");
+		return ISCSI_ERR;
+	}
+
+	/* prepare to poll */
+	memset(&pfd, 0, sizeof(pfd));
+	pfd.fd = fd;
+	pfd.events = POLLIN | POLLPRI;
+
+	/* get unique ping id */
+	pid = rand();
+
+	rc = ksend_ping(transport_handle, host_no, addr, iface_num,
+			iface_type, pid, size);
+	if (rc != 0) {
+		switch (rc) {
+		case -ENOSYS:
+			rc = ISCSI_ERR_OP_NOT_SUPP;
+			break;
+		case -EINVAL:
+			rc = ISCSI_ERR_INVAL;
+			break;
+		default:
+			rc = ISCSI_ERR;
+		}
+		goto close_nl;
+	}
+
+	ping_event.host_no = -1;
+	ping_event.pid = -1;
+	ping_event.status = -1;
+	ping_event.active = -1;
+
+	iscsi_timer_set(&ping_timer, 30);
+
+	timeout = iscsi_timer_msecs_until(&ping_timer);
+
+	while (1) {
+		pfd.revents = 0;
+		rc = poll(&pfd, 1, timeout);
+
+		if (iscsi_timer_expired(&ping_timer)) {
+			rc = ISCSI_ERR_TRANS_TIMEOUT;
+			break;
+		}
+
+		if (rc > 0) {
+			if (pfd.revents & (POLLIN | POLLPRI)) {
+				timeout = iscsi_timer_msecs_until(&ping_timer);
+				rc = ipc->ctldev_handle();
+
+				if (ping_event.active != 1)
+					continue;
+
+				if (pid != ping_event.pid)
+					continue;
+
+				rc = 0;
+				*status = ping_event.status;
+				break;
+			}
+
+			if (pfd.revents & POLLHUP) {
+				rc = ISCSI_ERR_TRANS;
+				break;
+			}
+
+			if (pfd.revents & POLLNVAL) {
+				rc = ISCSI_ERR_INTERNAL;
+				break;
+			}
+
+			if (pfd.revents & POLLERR) {
+				rc = ISCSI_ERR_INTERNAL;
+				break;
+			}
+		} else if (rc < 0) {
+			rc = ISCSI_ERR_INTERNAL;
+			break;
+		}
+	}
+
+close_nl:
+	ipc->ctldev_close();
+	return rc;
+}
+
+static int kget_chap(uint64_t transport_handle, uint32_t host_no,
+		     uint16_t chap_tbl_idx, uint32_t num_entries,
+		     char *chap_buf, uint32_t *valid_chap_entries)
+{
+	int rc = 0;
+	int ev_size;
+	struct iscsi_uevent ev;
+	struct iovec iov[2];
+	char nlm_ev[NLMSG_SPACE(sizeof(struct iscsi_uevent))];
+	struct nlmsghdr *nlh;
+
+	memset(&ev, 0, sizeof(struct iscsi_uevent));
+
+	ev.type = ISCSI_UEVENT_GET_CHAP;
+	ev.transport_handle = transport_handle;
+	ev.u.get_chap.host_no = host_no;
+	ev.u.get_chap.chap_tbl_idx = chap_tbl_idx;
+	ev.u.get_chap.num_entries = num_entries;
+
+	iov[1].iov_base = &ev;
+	iov[1].iov_len = sizeof(ev);
+	rc = __kipc_call(iov, 2);
+	if (rc < 0)
+		return rc;
+
+	if ((rc = nl_read(ctrl_fd, nlm_ev,
+			  NLMSG_SPACE(sizeof(struct iscsi_uevent)),
+			  MSG_PEEK)) < 0) {
+		log_error("can not read nlm_ev, error %d", rc);
+		return rc;
+	}
+
+	nlh = (struct nlmsghdr *)nlm_ev;
+	ev_size = nlh->nlmsg_len - NLMSG_ALIGN(sizeof(struct nlmsghdr));
+
+	if ((rc = nlpayload_read(ctrl_fd, (void *)chap_buf, ev_size, 0)) < 0) {
+		log_error("can not read from NL socket, error %d", rc);
+		return rc;
+	}
+
+	*valid_chap_entries = ev.u.get_chap.num_entries;
+
+	return rc;
+}
+
+static int kdelete_chap(uint64_t transport_handle, uint32_t host_no,
+			uint16_t chap_tbl_idx)
+{
+	int rc = 0;
+	struct iscsi_uevent ev;
+	struct iovec iov[2];
+
+	memset(&ev, 0, sizeof(struct iscsi_uevent));
+
+	ev.type = ISCSI_UEVENT_DELETE_CHAP;
+	ev.transport_handle = transport_handle;
+	ev.u.delete_chap.host_no = host_no;
+	ev.u.delete_chap.chap_tbl_idx = chap_tbl_idx;
+
+	iov[1].iov_base = &ev;
+	iov[1].iov_len = sizeof(ev);
+
+	rc = __kipc_call(iov, 2);
+	if (rc < 0)
+		return rc;
+
+	return rc;
+}
+
 static void drop_data(struct nlmsghdr *nlh)
 {
 	int ev_size;
@@ -1041,7 +1269,7 @@ static int ctldev_handle(void)
 	char nlm_ev[NLMSG_SPACE(sizeof(struct iscsi_uevent))];
 	struct nlmsghdr *nlh;
 	struct iscsi_ev_context *ev_context;
-	uint32_t sid = 0, cid = 0, state = 0;
+	uint32_t sid = 0, cid = 0;
 
 	log_debug(7, "in %s", __FUNCTION__);
 
@@ -1060,11 +1288,17 @@ static int ctldev_handle(void)
 	/* old kernels sent ISCSI_UEVENT_CREATE_SESSION on creation */
 	case ISCSI_UEVENT_CREATE_SESSION:
 		drop_data(nlh);
+		if (!ipc_ev_clbk)
+			return 0;
+
 		if (ipc_ev_clbk->create_session)
 			ipc_ev_clbk->create_session(ev->r.c_session_ret.host_no,
 						    ev->r.c_session_ret.sid);
 		return 0;
 	case ISCSI_KEVENT_DESTROY_SESSION:
+		if (!ipc_ev_clbk)
+			return 0;
+
 		drop_data(nlh);
 		if (ipc_ev_clbk->destroy_session)
 			ipc_ev_clbk->destroy_session(ev->r.d_session.host_no,
@@ -1081,13 +1315,38 @@ static int ctldev_handle(void)
 	case ISCSI_KEVENT_CONN_LOGIN_STATE:
 		sid = ev->r.conn_login.sid;
 		cid = ev->r.conn_login.cid;
-		state = ev->r.conn_login.state;
 		break;
 	case ISCSI_KEVENT_UNBIND_SESSION:
 		sid = ev->r.unbind_session.sid;
 		/* session wide event so cid is 0 */
 		cid = 0;
 		break;
+	case ISCSI_KEVENT_HOST_EVENT:
+		switch (ev->r.host_event.code) {
+		case ISCSI_EVENT_LINKUP:
+			log_warning("Host%u: Link Up.\n",
+				    ev->r.host_event.host_no);
+			break;
+		case ISCSI_EVENT_LINKDOWN:
+			log_warning("Host%u: Link Down.\n",
+				    ev->r.host_event.host_no);
+			break;
+		default:
+			log_debug(7, "Host%u: Unknwon host event: %u.\n",
+				  ev->r.host_event.host_no,
+				  ev->r.host_event.code);
+		}
+
+		drop_data(nlh);
+		return 0;
+	case ISCSI_KEVENT_PING_COMP:
+		ping_event.host_no = ev->r.ping_comp.host_no;
+		ping_event.pid = ev->r.ping_comp.pid;
+		ping_event.status = ev->r.ping_comp.status;
+		ping_event.active = 1;
+
+		drop_data(nlh);
+		return 0;
 	default:
 		if ((ev->type > ISCSI_UEVENT_MAX && ev->type < KEVENT_BASE) ||
 		    (ev->type > ISCSI_KEVENT_MAX))
@@ -1281,6 +1540,9 @@ struct iscsi_ipc nl_ipc = {
 	.recv_pdu_end           = krecv_pdu_end,
 	.set_net_config         = kset_net_config,
 	.recv_conn_state        = krecv_conn_state,
+	.exec_ping		= kexec_ping,
+	.get_chap		= kget_chap,
+	.delete_chap		= kdelete_chap,
 };
 struct iscsi_ipc *ipc = &nl_ipc;
 

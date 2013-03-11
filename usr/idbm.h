@@ -26,6 +26,7 @@
 #include <sys/types.h>
 #include "initiator.h"
 #include "config.h"
+#include "list.h"
 
 #define NODE_CONFIG_DIR		ISCSI_CONFIG_ROOT"nodes"
 #define SLP_CONFIG_DIR		ISCSI_CONFIG_ROOT"slp"
@@ -79,7 +80,9 @@ typedef struct idbm {
 	discovery_rec_t	drec_isns;
 	recinfo_t	dinfo_isns[MAX_KEYS];
 } idbm_t;
-struct db_set_param {
+
+struct user_param {
+	struct list_head list;
 	char *name;
 	char *value;
 };
@@ -139,8 +142,11 @@ extern int idbm_discovery_read(discovery_rec_t *rec, int type, char *addr,
 extern int idbm_rec_read(node_rec_t *out_rec, char *target_name,
 			 int tpgt, char *addr, int port,
 			 struct iface_rec *iface);
+extern int idbm_node_set_rec_from_param(struct list_head *params,
+					node_rec_t *rec, int verify);
 extern int idbm_node_set_param(void *data, node_rec_t *rec);
 extern int idbm_discovery_set_param(void *data, discovery_rec_t *rec);
+struct user_param *idbm_alloc_user_param(char *name, char *value);
 extern void idbm_node_setup_defaults(node_rec_t *rec);
 extern struct node_rec *idbm_find_rec_in_list(struct list_head *rec_list,
 					      char *targetname, char *addr,
@@ -161,6 +167,7 @@ enum {
 	IDBM_PRINT_TYPE_DISCOVERY,
 	IDBM_PRINT_TYPE_NODE,
 	IDBM_PRINT_TYPE_IFACE,
+	IDBM_PRINT_TYPE_HOST_CHAP,
 };
 
 extern void idbm_print(int type, void *rec, int show, FILE *f);
@@ -172,5 +179,7 @@ extern struct node_rec *idbm_create_rec(char *targetname, int tpgt,
 					int verbose);
 extern struct node_rec *
 idbm_create_rec_from_boot_context(struct boot_context *context);
+
+extern int idbm_print_host_chap_info(struct iscsi_chap_rec *chap);
 
 #endif /* IDBM_H */

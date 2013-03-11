@@ -16,7 +16,7 @@ initddir = $(etcdir)/init.d
 mkinitrd = $(exec_prefix)/lib/mkinitrd/scripts
 
 MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8
-PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi-iname
+PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi_discovery utils/iscsi-iname
 SCRIPTS = utils/iscsi_discovery utils/iscsi_offload utils/iscsi-gen-initiatorname
 INSTALL = install
 ETCFILES = etc/iscsid.conf

@@ -169,7 +169,7 @@ free_conf:
 int iface_conf_read(struct iface_rec *iface)
 {
 	struct iface_rec *def_iface;
-	int rc;
+	int rc, retry = 0;
 
 	def_iface = iface_match_default(iface);
 	if (def_iface) {
@@ -197,12 +197,24 @@ int iface_conf_read(struct iface_rec *iface)
 		return 0;
 	}
 
+retry_read:
 	rc = idbm_lock();
 	if (rc)
 		return rc;
 
 	rc = __iface_conf_read(iface);
 	idbm_unlock();
+
+	/*
+	 * cmd was run before running -m iface, so force def bindings
+	 * creation to see if that was the one requested
+	 */
+	if (retry < 1 && rc == ISCSI_ERR_IDBM) {
+		iface_setup_host_bindings();
+		retry++;
+		goto retry_read;
+	}
+
 	return rc;
 }
 
@@ -277,11 +289,11 @@ free_conf:
 	return rc;
 }
 
-int iface_conf_update(struct db_set_param *param,
-		       struct iface_rec *iface)
+int iface_conf_update(struct list_head *params, struct iface_rec *iface)
 {
 	struct iface_rec *def_iface;
 	recinfo_t *info;
+	struct user_param *param;
 	int rc = 0;
 
 	def_iface = iface_match_default(iface);
@@ -296,13 +308,18 @@ int iface_conf_update(struct db_set_param *param,
 		return ISCSI_ERR_NOMEM;
 
 	idbm_recinfo_iface(iface, info);
-	rc = idbm_verify_param(info, param->name);
-	if (rc)
-		goto free_info;
 
-	rc = idbm_rec_update_param(info, param->name, param->value, 0);
-	if (rc)
-		goto free_info;
+	list_for_each_entry(param, params, list) {
+		rc = idbm_verify_param(info, param->name);
+		if (rc)
+			goto free_info;
+	}
+
+	list_for_each_entry(param, params, list) {
+		rc = idbm_rec_update_param(info, param->name, param->value, 0);
+		if (rc)
+			goto free_info;
+	}
 
 	rc = iface_conf_write(iface);
 free_info:
@@ -425,12 +442,23 @@ int iface_get_by_net_binding(struct iface_rec *pattern,
 	return ISCSI_ERR_NO_OBJS_FOUND;
 }
 
-static int iface_get_iptype(struct iface_rec *iface)
+int iface_get_iptype(struct iface_rec *iface)
 {
-	if (strcmp(iface->bootproto, "dhcp") && !strstr(iface->ipaddress, "."))
-		return ISCSI_IFACE_TYPE_IPV6;
-	else
-		return ISCSI_IFACE_TYPE_IPV4;
+	/* address might not be set if user config with another tool */
+	if (!strlen(iface->ipaddress) ||
+	    !strcmp(UNKNOWN_VALUE, iface->ipaddress)) {
+		/* try to figure out by name */
+		if (strstr(iface->name, "ipv4"))
+			return ISCSI_IFACE_TYPE_IPV4;
+		else
+			return ISCSI_IFACE_TYPE_IPV6;
+	} else {
+		if (strcmp(iface->bootproto, "dhcp") &&
+		    !strstr(iface->ipaddress, "."))
+			return ISCSI_IFACE_TYPE_IPV6;
+		else
+			return ISCSI_IFACE_TYPE_IPV4;
+	}
 }
 
 static int iface_setup_binding_from_kern_iface(void *data,
@@ -438,6 +466,7 @@ static int iface_setup_binding_from_kern_iface(void *data,
 {
 	struct host_info *hinfo = data;
 	struct iface_rec iface;
+	char iface_path[PATH_MAX];
 
 	if (!strlen(hinfo->iface.hwaddress)) {
 		log_error("Invalid offload iSCSI host %u. Missing "
@@ -463,7 +492,11 @@ static int iface_setup_binding_from_kern_iface(void *data,
 			 hinfo->iface.transport_name, hinfo->iface.hwaddress);
 	}
 
-	if (iface_conf_read(&iface)) {
+	memset(iface_path, 0, sizeof(iface_path));
+	snprintf(iface_path, PATH_MAX, "%s/%s", IFACE_CONFIG_DIR,
+		 iface.name);
+
+	if (access(iface_path, F_OK) != 0) {
 		/* not found so create it */
 		if (iface_conf_write(&iface)) {
 			log_error("Could not create default iface conf %s.",
@@ -521,6 +554,8 @@ void iface_setup_host_bindings(void)
 	}
 	idbm_unlock();
 
+	transport_probe_for_offload();
+
 	if (iscsi_sysfs_for_each_host(NULL, &nr_found,
 				      __iface_setup_host_bindings))
 		log_error("Could not scan scsi hosts. HW/OFFLOAD iscsi "
@@ -532,10 +567,40 @@ void iface_copy(struct iface_rec *dst, struct iface_rec *src)
 {
 	if (strlen(src->name))
 		strcpy(dst->name, src->name);
+	if (src->iface_num)
+		dst->iface_num = src->iface_num;
 	if (strlen(src->netdev))
 		strcpy(dst->netdev, src->netdev);
 	if (strlen(src->ipaddress))
 		strcpy(dst->ipaddress, src->ipaddress);
+	if (strlen(src->subnet_mask))
+		strcpy(dst->subnet_mask, src->subnet_mask);
+	if (strlen(src->gateway))
+		strcpy(dst->gateway, src->gateway);
+	if (strlen(src->bootproto))
+		strcpy(dst->bootproto, src->bootproto);
+	if (strlen(src->ipv6_linklocal))
+		strcpy(dst->ipv6_linklocal, src->ipv6_linklocal);
+	if (strlen(src->ipv6_router))
+		strcpy(dst->ipv6_router, src->ipv6_router);
+	if (strlen(src->ipv6_autocfg))
+		strcpy(dst->ipv6_autocfg, src->ipv6_autocfg);
+	if (strlen(src->linklocal_autocfg))
+		strcpy(dst->linklocal_autocfg, src->linklocal_autocfg);
+	if (strlen(src->router_autocfg))
+		strcpy(dst->router_autocfg, src->router_autocfg);
+	if (src->vlan_id)
+		dst->vlan_id = src->vlan_id;
+	if (src->vlan_priority)
+		dst->vlan_priority = src->vlan_priority;
+	if (strlen(src->vlan_state))
+		strcpy(dst->vlan_state, src->vlan_state);
+	if (strlen(src->state))
+		strcpy(dst->state, src->state);
+	if (src->mtu)
+		dst->mtu = src->mtu;
+	if (src->port)
+		dst->port = src->port;
 	if (strlen(src->hwaddress))
 		strcpy(dst->hwaddress, src->hwaddress);
 	if (strlen(src->transport_name))
@@ -576,7 +641,7 @@ int iface_match(struct iface_rec *pattern, struct iface_rec *iface)
 		return 1;
 
 	if (!strcmp(pattern->name, iface->name)) {
-		if (strcmp(pattern->name, DEFAULT_IFACENAME))
+		if (!strcmp(pattern->name, DEFAULT_IFACENAME))
 			return 1;
 		/*
 		 * For default we allow the same name, but different
@@ -828,22 +893,30 @@ void iface_link_ifaces(struct list_head *ifaces)
 int iface_setup_from_boot_context(struct iface_rec *iface,
 				   struct boot_context *context)
 {
-	struct iscsi_transport *t;
+	struct iscsi_transport *t = NULL;
+	char transport_name[ISCSI_TRANSPORT_NAME_MAXLEN];
 	uint32_t hostno;
-	int rc;
 
 	if (strlen(context->initiatorname))
 		strlcpy(iface->iname, context->initiatorname,
 			sizeof(iface->iname));
 
 	if (strlen(context->scsi_host_name)) {
-		if (sscanf(context->scsi_host_name,
-			   "iscsi_boot%u", &hostno) != 1) {
+		if (sscanf(context->scsi_host_name, "iscsi_boot%u", &hostno) != 		    1) {
 			log_error("Could not parse %s's host no.",
 				  context->scsi_host_name);
 			return 0;
 		}
 	} else if (strlen(context->iface)) {
+/* this ifdef is only temp until distros and firmwares are updated */
+#ifdef OFFLOAD_BOOT_SUPPORTED
+
+		memset(transport_name, 0, ISCSI_TRANSPORT_NAME_MAXLEN);
+		/* make sure offload driver is loaded */
+		if (!net_get_transport_name_from_netdev(context->iface,
+							transport_name))
+			t = iscsi_sysfs_get_transport_by_name(transport_name);
+
 		hostno = iscsi_sysfs_get_host_no_from_hwaddress(context->mac,
 								&rc);
 		if (rc) {
@@ -858,13 +931,17 @@ int iface_setup_from_boot_context(struct iface_rec *iface,
 		}
 
 		strlcpy(iface->netdev, context->iface, sizeof(iface->netdev));
+#else
+		return 0;
+#endif
 	} else
 		return 0;
 
 	/*
 	 * set up for access through a offload card.
 	 */
-	t = iscsi_sysfs_get_transport_by_hba(hostno);
+	if (!t)
+		t = iscsi_sysfs_get_transport_by_hba(hostno);
 	if (!t) {
 		log_error("Could not get transport for host%u. "
 			  "Make sure the iSCSI driver is loaded.",
@@ -932,41 +1009,6 @@ fail:
 		free(iface);
 	}
 	return rc;
-}
-
-int iface_setup_netdev(struct iscsi_transport *t,
-		       struct iscsi_session *session,
-		       struct iface_rec *iface)
-{
-	if (t->template->set_net_config) {
-		/* uip needs the netdev name */
-		struct host_info hinfo;
-		int hostno, rc;
-
-		/* this assumes that the netdev or hw address is going to be
-		   set */
-		hostno = iscsi_sysfs_get_host_no_from_hwinfo(iface, &rc);
-		if (rc) {
-			log_debug(4, "Couldn't get host no.\n");
-			return rc;
-		}
-
-		/* uip needs the netdev name */
-		if (!strlen(iface->netdev)) {
-			memset(&hinfo, 0, sizeof(hinfo));
-			hinfo.host_no = hostno;
-			rc = iscsi_sysfs_get_hostinfo_by_host_no(&hinfo);
-			if (rc) {
-				log_debug(4, "Couldn't get hostinfo.\n");
-				return rc;
-			}
-			strcpy(iface->netdev, hinfo.iface.netdev);
-		}
-
-		return t->template->set_net_config(t, iface, session);
-	}
-
-	return 0;
 }
 
 struct iface_param_count {

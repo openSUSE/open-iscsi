@@ -84,7 +84,7 @@ static int find_sysfs_dirs(const char *fpath, const struct stat *sb,
 static int get_iface_from_device(char *id, struct boot_context *context)
 {
 	char dev_dir[FILENAMESZ];
-	int rc = EOPNOTSUPP;
+	int rc = ENODEV;
 	DIR *dirfd;
 	struct dirent *dent;
 
@@ -99,7 +99,8 @@ static int get_iface_from_device(char *id, struct boot_context *context)
 		return errno;
 
 	while ((dent = readdir(dirfd))) {
-		if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, ".."))
+		if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, "..") ||
+		    strncmp(dent->d_name, "net:", 4))
 			continue;
 
 		if (!strncmp(dent->d_name, "net:", 4)) {
@@ -115,19 +116,17 @@ static int get_iface_from_device(char *id, struct boot_context *context)
 				rc = EINVAL;
 			rc = 0;
 			break;
-		}
-		if (!strcmp(dent->d_name, "net")) {
-			rc = ENODEV;
+		} else {
+			printf("Could not read ethernet to net link.\n");
+			rc = EOPNOTSUPP;
 			break;
 		}
 	}
 
 	closedir(dirfd);
 
-	if (rc != ENODEV) {
-		printf("Could not read ethernet to net link\n.");
+	if (rc != ENODEV)
 		return rc;
-	}
 
 	/* If not found try again with newer kernel networkdev sysfs layout */
 	strlcat(dev_dir, "/net", FILENAMESZ);

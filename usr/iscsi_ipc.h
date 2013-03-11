@@ -134,6 +134,17 @@ struct iscsi_ipc {
 			       struct iovec *iovs, uint32_t param_count);
 
 	int (*recv_conn_state) (struct iscsi_conn *conn, uint32_t *state);
+
+	int (*exec_ping) (uint64_t transport_handle, uint32_t host_no,
+			  struct sockaddr *addr, uint32_t iface_num,
+			  uint32_t iface_type, uint32_t size, uint32_t *status);
+
+	int (*get_chap) (uint64_t transport_handle, uint32_t host_no,
+			 uint16_t chap_tbl_idx, uint32_t num_entries,
+			 char *chap_buf, uint32_t *valid_chap_entries);
+
+	int (*delete_chap) (uint64_t transport_handle, uint32_t host_no,
+			    uint16_t chap_tbl_idx);
 };
 
 #endif /* ISCSI_IPC_H */

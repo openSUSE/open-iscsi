@@ -231,7 +231,7 @@ iscsi_check_if_mounted()
     local dev=$1
     local d m t o x p
 
-    cat /proc/mounts | sed -ne '/^\/dev\/.*/p' | while read d m t o x; do 
+    sed < /proc/mounts -ne '/^\/dev\/.*/p' | while read d m t o x; do
 	if [ -L "$d" ] ; then
 	    d=$(readlink -f $d)
 	fi
@@ -258,10 +258,10 @@ iscsi_check_if_mounted()
 
 #
 # Unwind block device stack
-# 
+#
 # Stops unwinding if either no more 'holders'
 # are found or if a device is mounted
-# 
+#
 # Unmounts top-level device and deconfigures
 # all devices down the stack
 #
@@ -388,6 +388,7 @@ iscsi_list_all_nodes()
 {
     # Check for active sessions
     if $ISCSIADM -m session > /dev/null; then
+	echo "No active connections."
 	return 0
     fi
     echo "Active connections:"
@@ -399,14 +400,14 @@ iscsi_list_all_nodes()
 
 case "$1" in
     start)
-        echo -n "Loading iscsi modules: "
-        iscsi_load_transport_modules
-        rc_status -v
+	echo -n "Loading iscsi modules: "
+	iscsi_load_transport_modules
+	rc_status -v
 	if checkproc $DAEMON ; then
 	    RETVAL=0
 	else
 	    echo -n "Starting iSCSI initiator service: "
-	    if grep -q bnx2i /proc/modules && [ -x $ISCSI_UIO ] ; then
+	    if grep -q bnx2i /proc/modules && [ -x $ISCSIUIO ] ; then
 		startproc $ISCSIUIO
 	    fi
 	    startproc $DAEMON $ARGS

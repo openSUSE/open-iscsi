@@ -222,16 +222,18 @@ typedef struct iface_rec {
 	char			ipv6_autocfg[NI_MAXHOST];
 	char			linklocal_autocfg[NI_MAXHOST];
 	char			router_autocfg[NI_MAXHOST];
-	unsigned short		vlan_id;
-	unsigned char		vlan_priority;
+	uint16_t		vlan_id;
+	uint8_t			vlan_priority;
 	char			vlan_state[ISCSI_MAX_STR_LEN];
 	char			state[ISCSI_MAX_STR_LEN]; /* 0 = disable,
 							   * 1 = enable */
 	uint16_t		mtu;
 	uint16_t		port;
+	char			port_state[ISCSI_MAX_STR_LEN];
+	char			port_speed[ISCSI_MAX_STR_LEN];
 	/*
 	 * TODO: we may have to make this bigger and interconnect
-	 * specific for infiniband 
+	 * specific for infinniband 
 	 */
 	char			hwaddress[ISCSI_HWADDRESS_BUF_SIZE];
 	char			transport_name[ISCSI_TRANSPORT_NAME_MAXLEN];

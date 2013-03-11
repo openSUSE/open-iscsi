@@ -248,8 +248,6 @@ idbm_recinfo_node(node_rec_t *r, recinfo_t *ri)
 	__recinfo_str(IFACE_IPADDR, ri, r, iface.ipaddress, IDBM_SHOW, num, 1);
 	__recinfo_str(IFACE_ISCSINAME, ri, r, iface.name, IDBM_SHOW, num, 1);
 	__recinfo_str(IFACE_NETNAME, ri, r, iface.netdev, IDBM_SHOW, num, 1);
-	__recinfo_str(IFACE_GATEWAY, ri, r, iface.gateway, IDBM_SHOW, num, 1);
-	__recinfo_str(IFACE_SUBNET_MASK, ri, r, iface.subnet_mask, IDBM_SHOW, num, 1);
 	/*
 	 * svn 780 compat: older versions used node.transport_name and
 	 * rec->transport_name
@@ -257,6 +255,32 @@ idbm_recinfo_node(node_rec_t *r, recinfo_t *ri)
 	__recinfo_str(IFACE_TRANSPORTNAME, ri, r, iface.transport_name,
 		      IDBM_SHOW, num, 1);
 	__recinfo_str(IFACE_INAME, ri, r, iface.iname, IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_BOOT_PROTO, ri, r, iface.bootproto, IDBM_SHOW,
+		      num, 1);
+	__recinfo_str(IFACE_SUBNET_MASK, ri, r, iface.subnet_mask,
+		      IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_GATEWAY, ri, r, iface.gateway, IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_IPV6_AUTOCFG, ri, r, iface.ipv6_autocfg,
+		      IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_LINKLOCAL_AUTOCFG, ri, r, iface.linklocal_autocfg,
+		      IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_ROUTER_AUTOCFG, ri, r, iface.router_autocfg,
+		      IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_LINKLOCAL, ri, r, iface.ipv6_linklocal,
+		      IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_ROUTER, ri, r, iface.ipv6_router, IDBM_SHOW, num,
+		      1);
+	__recinfo_str(IFACE_STATE, ri, r, iface.state, IDBM_SHOW, num, 1);
+	__recinfo_uint16(IFACE_VLAN_ID, ri, r, iface.vlan_id, IDBM_SHOW, num,
+			 1);
+	__recinfo_uint8(IFACE_VLAN_PRIORITY, ri, r, iface.vlan_priority,
+			IDBM_SHOW, num, 1);
+	__recinfo_str(IFACE_VLAN_STATE, ri, r, iface.vlan_state, IDBM_SHOW,
+		      num, 1);
+	__recinfo_int(IFACE_NUM, ri, r, iface.iface_num, IDBM_SHOW, num, 1);
+	__recinfo_uint16(IFACE_MTU, ri, r, iface.mtu, IDBM_SHOW, num, 1);
+	__recinfo_uint16(IFACE_PORT, ri, r, iface.port, IDBM_SHOW, num, 1);
+
 	__recinfo_str(NODE_DISC_ADDR, ri, r, disc_address, IDBM_SHOW,
 		      num, 0);
 	__recinfo_int(NODE_DISC_PORT, ri, r, disc_port, IDBM_SHOW,
@@ -421,6 +445,30 @@ void idbm_recinfo_iface(iface_rec_t *r, recinfo_t *ri)
 	__recinfo_uint16(IFACE_PORT, ri, r, port, IDBM_SHOW, num, 1);
 }
 
+static void idbm_recinfo_host_chap(struct iscsi_chap_rec *r, recinfo_t *ri)
+{
+	int num = 0;
+
+	__recinfo_uint16(HOST_AUTH_INDEX, ri, r, chap_tbl_idx, IDBM_SHOW,
+			 num, 1);
+
+	if (r->chap_type == CHAP_TYPE_OUT) {
+		__recinfo_str(HOST_AUTH_USERNAME, ri, r, username, IDBM_SHOW,
+			      num, 0);
+		__recinfo_str(HOST_AUTH_PASSWORD, ri, r, password, IDBM_MASKED,
+			      num, 1);
+		__recinfo_int(HOST_AUTH_PASSWORD_LEN, ri, r, password_length,
+			      IDBM_HIDE, num, 1);
+	} else {
+		__recinfo_str(HOST_AUTH_USERNAME_IN, ri, r, username, IDBM_SHOW,
+			      num, 0);
+		__recinfo_str(HOST_AUTH_PASSWORD_IN, ri, r, password,
+			      IDBM_MASKED, num, 1);
+		__recinfo_int(HOST_AUTH_PASSWORD_IN_LEN, ri, r, password_length,
+			      IDBM_HIDE, num, 1);
+	}
+}
+
 recinfo_t *idbm_recinfo_alloc(int max_keys)
 {
 	recinfo_t *info;
@@ -450,6 +498,9 @@ void idbm_print(int type, void *rec, int show, FILE *f)
 		break;
 	case IDBM_PRINT_TYPE_IFACE:
 		idbm_recinfo_iface((struct iface_rec *)rec, info);
+		break;
+	case IDBM_PRINT_TYPE_HOST_CHAP:
+		idbm_recinfo_host_chap((struct iscsi_chap_rec *)rec, info);
 		break;
 	}
 
@@ -553,6 +604,7 @@ setup_passwd_len:
 	for (i=0; i<MAX_KEYS; i++) {
 		if (!strcmp(name, info[i].name)) {
 			int j;
+
 			log_debug(7, "updated '%s', '%s' => '%s'", name,
 				  info[i].value, value);
 			/* parse recinfo by type */
@@ -661,8 +713,6 @@ void idbm_recinfo_config(recinfo_t *info, FILE *f)
 	char name[NAME_MAXVAL];
 	char value[VALUE_MAXVAL];
 	char *line, *nl, buffer[2048];
-	char *node_startup_value = NULL;
-	char *conn_startup_value = NULL;
 	int line_number = 0;
 	int c = 0, i;
 
@@ -721,32 +771,8 @@ void idbm_recinfo_config(recinfo_t *info, FILE *f)
 		}
 		*(value+i) = 0;
 
-		if (!strcmp(name, "node.startup") && strlen(value)) {
-			node_startup_value = strdup(value);
-		}
-		if (!strcmp(name, "node.conn[0].startup") && strlen(value)) {
-			conn_startup_value = strdup(value);
-		}
-		(void)idbm_rec_update_param(info, name, value, line_number);
+		idbm_rec_update_param(info, name, value, line_number);
 	} while (line);
-	/*
-	 * Compat hack:
-	 * Keep node.startup and node.conn[0].startup in sync even
-	 * if only one of those has been specified in the config file.
-	 */
-	if (node_startup_value && conn_startup_value) {
-		/* Both have been specified, that's okay */
-		free(node_startup_value);
-		free(conn_startup_value);
-	} else if (node_startup_value) {
-		(void)idbm_rec_update_param(info, "node.conn[0].startup",
-					    node_startup_value, -1);
-		free(node_startup_value);
-	} else {
-		(void)idbm_rec_update_param(info, "node.startup",
-					    conn_startup_value, -1);
-		free(conn_startup_value);
-	}
 }
 
 /*
@@ -844,6 +870,13 @@ int idbm_print_iface_info(void *data, struct iface_rec *iface)
 	int show = *((int *)data);
 
 	idbm_print(IDBM_PRINT_TYPE_IFACE, iface, show, stdout);
+	return 0;
+}
+
+int idbm_print_host_chap_info(struct iscsi_chap_rec *chap)
+{
+	/* User only calls this to print chap so always print */
+	idbm_print(IDBM_PRINT_TYPE_HOST_CHAP, chap, 1, stdout);
 	return 0;
 }
 
@@ -2322,11 +2355,42 @@ idbm_slp_defaults(struct iscsi_slp_config *cfg)
 	       sizeof(struct iscsi_slp_config));
 }
 
-int idbm_node_set_param(void *data, node_rec_t *rec)
+struct user_param *idbm_alloc_user_param(char *name, char *value)
 {
-	struct db_set_param *param = data;
+	struct user_param *param;
+
+	param = calloc(1, sizeof(*param));
+	if (!param)
+		return NULL;
+
+	INIT_LIST_HEAD(&param->list);
+
+	param->name = strdup(name);
+	if (!param->name)
+		goto free_param;
+
+	param->value = strdup(value);
+	if (!param->value)
+		goto free_name;
+
+	return param;
+
+free_name:
+	free(param->name);
+free_param:
+	free(param);
+	return NULL;
+}
+
+int idbm_node_set_rec_from_param(struct list_head *params, node_rec_t *rec,
+				 int verify)
+{
+	struct user_param *param;
 	recinfo_t *info;
 	int rc = 0;
+
+	if (list_empty(params))
+		return 0;
 
 	info = idbm_recinfo_alloc(MAX_KEYS);
 	if (!info)
@@ -2334,26 +2398,43 @@ int idbm_node_set_param(void *data, node_rec_t *rec)
 
 	idbm_recinfo_node(rec, info);
 
-	rc = idbm_verify_param(info, param->name);
-	if (rc)
-		goto free_info;
+	if (verify) {
+		list_for_each_entry(param, params, list) {
+			rc = idbm_verify_param(info, param->name);
+			if (rc)
+				goto free_info;
+		}
+	}
 
-	rc = idbm_rec_update_param(info, param->name, param->value, 0);
-	if (rc)
-		goto free_info;
-
-	rc = idbm_rec_write(rec);
-	if (rc)
-		goto free_info;
+	list_for_each_entry(param, params, list) {
+		rc = idbm_rec_update_param(info, param->name, param->value, 0);
+		if (rc) {
+			if (rc == ISCSI_ERR_INVAL)
+				log_error("Unknown parameter %s.", param->name);
+			goto free_info;
+		}
+	}
 
 free_info:
 	free(info);
 	return rc;
 }
 
+int idbm_node_set_param(void *data, node_rec_t *rec)
+{
+	int rc;
+
+	rc = idbm_node_set_rec_from_param(data, rec, 1);
+	if (rc)
+		return rc;
+
+	return idbm_rec_write(rec);
+}
+
 int idbm_discovery_set_param(void *data, discovery_rec_t *rec)
 {
-	struct db_set_param *param = data;
+	struct list_head *params = data;
+	struct user_param *param;
 	recinfo_t *info;
 	int rc = 0;
 
@@ -2363,13 +2444,17 @@ int idbm_discovery_set_param(void *data, discovery_rec_t *rec)
 
 	idbm_recinfo_discovery((discovery_rec_t *)rec, info);
 
-	rc = idbm_verify_param(info, param->name);
-	if (rc)
-		goto free_info;
+	list_for_each_entry(param, params, list) {
+		rc = idbm_verify_param(info, param->name);
+		if (rc)
+			goto free_info;
+	}
 
-	rc = idbm_rec_update_param(info, param->name, param->value, 0);
-	if (rc)
-		goto free_info;
+	list_for_each_entry(param, params, list) {
+		rc = idbm_rec_update_param(info, param->name, param->value, 0);
+		if (rc)
+			goto free_info;
+	}
 
 	rc = idbm_discovery_write((discovery_rec_t *)rec);
 	if (rc)

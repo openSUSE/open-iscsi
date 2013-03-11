@@ -45,11 +45,9 @@
 #include "iscsi_sysfs.h"
 #include "iscsi_settings.h"
 #include "iface.h"
-#include "host.h"
 #include "sysdeps.h"
 #include "iscsi_err.h"
 #include "kern_err_table.h"
-#include "iscsid_req.h"
 
 #define ISCSI_CONN_ERR_REOPEN_DELAY	3
 #define ISCSI_INTERNAL_ERR_REOPEN_DELAY	5
@@ -599,11 +597,6 @@ __session_conn_reopen(iscsi_conn_t *conn, queue_task_t *qtask, int do_stop,
 
 	if (!redirected)
 		session->reopen_cnt++;
-
-	/* uIP will needs to be re-triggered on the connection re-open */
-	if (iface_setup_netdev(conn->session->t, conn->session,
-			       &conn->session->nrec.iface) != 0)
-		goto queue_reopen;
 
 	if (iscsi_conn_connect(conn, qtask)) {
 		delay = ISCSI_CONN_ERR_REOPEN_DELAY;
@@ -1917,11 +1910,6 @@ iscsi_sync_session(node_rec_t *rec, queue_task_t *qtask, uint32_t sid)
 		goto destroy_session;
 
 	qtask->rsp.command = MGMT_IPC_SESSION_SYNC;
-
-	/* For iSCSI boot situations, launch uIP first if needed before
-	 * tearing down the rootfs */
-	if (session->t->template->set_net_config)
-		uip_query();
 
 	log_debug(3, "Started sync iSCSI session %d", session->id);
 	session->notify_qtask = qtask;

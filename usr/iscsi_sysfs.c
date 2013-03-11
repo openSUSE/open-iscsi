@@ -518,7 +518,7 @@ static int iscsi_sysfs_read_iface(struct iface_rec *iface, int host_no,
 	if (ret) {
 		ret = sysfs_get_str(host_id, ISCSI_HOST_SUBSYS, "initiatorname",
 				    iface->iname, sizeof(iface->iname));
-		if (ret) {
+		if (ret)
 			/*
 			 * default iname is picked up later from
 			 * initiatorname.iscsi if software/partial-offload.
@@ -528,9 +528,15 @@ static int iscsi_sysfs_read_iface(struct iface_rec *iface, int host_no,
 			 */
 			log_debug(7, "Could not read initiatorname for "
 				  "host%d\n", host_no);
-			ret = 0;
-		}
+		/* optional so do not return error */
+		ret = 0;
 	}
+
+	sysfs_get_str(host_id, ISCSI_HOST_SUBSYS, "port_state",
+		      iface->port_state, sizeof(iface->port_state));
+
+	sysfs_get_str(host_id, ISCSI_HOST_SUBSYS, "port_speed",
+		      iface->port_speed, sizeof(iface->port_speed));
 
 	/*
 	 * this is on the session, because we support multiple bindings
@@ -1144,13 +1150,31 @@ static uint32_t get_target_no_from_sid(uint32_t sid, int *err)
 
 }
 
-struct iscsi_transport *iscsi_sysfs_get_transport_by_name(char *transport_name)
+int iscsi_sysfs_is_transport_loaded(char *transport_name)
 {
 	struct iscsi_transport *t;
 
 	/* sync up kernel and userspace */
-	if (read_transports())
-		return NULL;
+	read_transports();
+
+	/* check if the transport is loaded and matches */
+	list_for_each_entry(t, &transports, list) {
+		if (t->handle && !strncmp(t->name, transport_name,
+					  ISCSI_TRANSPORT_NAME_MAXLEN))
+			return 1;
+	}
+
+	return 0;
+}
+
+struct iscsi_transport *iscsi_sysfs_get_transport_by_name(char *transport_name)
+{
+	struct iscsi_transport *t;
+	int retry = 0;
+
+retry:
+	/* sync up kernel and userspace */
+	read_transports();
 
 	/* check if the transport is loaded and matches */
 	list_for_each_entry(t, &transports, list) {
@@ -1158,6 +1182,13 @@ struct iscsi_transport *iscsi_sysfs_get_transport_by_name(char *transport_name)
 					  ISCSI_TRANSPORT_NAME_MAXLEN))
 			return t;
 	}
+
+	if (retry < 1) {
+		retry++;
+		if (!transport_load_kmod(transport_name))
+			goto retry;
+	}
+
 	return NULL;
 }
 
@@ -1365,41 +1396,4 @@ struct iscsi_transport *iscsi_sysfs_get_transport_by_session(char *sys_session)
 char *iscsi_sysfs_get_iscsi_kernel_version(void)
 {
 	return sysfs_attr_get_value("/module/scsi_transport_iscsi", "version");
-}
-
-int iscsi_sysfs_check_class_version(void)
-{
-	char *version;
-	int i;
-
-	version = iscsi_sysfs_get_iscsi_kernel_version();
-	if (!version)
-		goto fail;
-
-	log_warning("transport class version %s. iscsid version %s",
-		    version, ISCSI_VERSION_STR);
-
-	for (i = 0; i < strlen(version); i++) {
-		if (version[i] == '-')
-			break;
-	}
-
-	if (i == strlen(version))
-		goto fail;
-
-	/*
-	 * We want to make sure the release and interface are the same.
-	 * It is ok for the svn versions to be different.
-	 */
-	if (!strncmp(version, ISCSI_VERSION_STR, i) ||
-	   /* support 2.6.18 */
-	    !strncmp(version, "1.1", 3))
-		return 0;
-
-fail:
-	log_error( "Missing or Invalid version from %s. Make sure a up "
-		"to date scsi_transport_iscsi module is loaded and a up to"
-		"date version of iscsid is running. Exiting...",
-		ISCSI_VERSION_FILE);
-	return -1;
 }

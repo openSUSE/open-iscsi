@@ -60,8 +60,7 @@ int oom_adjust(void)
 	char path[ISCSI_OOM_PATH_LEN];
 	struct stat statb;
 
-	errno = 0;
-	if (nice(-10) < 0 && errno)
+	if (nice(-10) < 0)
 		log_debug(1, "Could not increase process priority: %s",
 			  strerror(errno));
 
@@ -91,13 +90,24 @@ str_to_ipport(char *str, int *port, int *tpgt)
 
 	if (!strchr(ip, '.')) {
 		if (*ip == '[') {
+			/* IPv6 with [] */
 			if (!(sport = strchr(ip, ']')))
 				return NULL;
 			*sport++ = '\0';
 			ip++;
 			str = sport;
-		} else
-			sport = NULL;
+		} else {
+			/* hostname or ipv6 */
+			sport = strchr(ip, ':');
+			if (sport) {
+				if (strchr(sport + 1, ':'))
+					/* ipv6 */
+					sport = NULL;
+				else
+					/* hostname:port */
+					str = sport;
+			}
+		}
 	}
 
 	if (sport && (sport = strchr(str, ':'))) {
@@ -179,7 +189,6 @@ char *strstrip(char *s)
 char *cfg_get_string_param(char *pathname, const char *key)
 {
 	FILE *f = NULL;
-	int len;
 	char *line, buffer[1024];
 	char *value = NULL, *param, *comment;
 
@@ -188,7 +197,6 @@ char *cfg_get_string_param(char *pathname, const char *key)
 		return NULL;
 	}
 
-	len = strlen(key);
 	if ((f = fopen(pathname, "r"))) {
 		while ((line = fgets(buffer, sizeof (buffer), f))) {
 			param = strstr(line, key);

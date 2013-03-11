@@ -22,11 +22,8 @@
 
 #define IFACE_CONFIG_DIR	ISCSI_CONFIG_ROOT"ifaces"
 
-struct iscsi_transport;
-struct iscsi_session;
 struct iface_rec;
 struct list_head;
-struct db_set_param;
 struct boot_context;
 
 extern void iface_copy(struct iface_rec *dst, struct iface_rec *src);
@@ -46,23 +43,21 @@ extern int iface_print_tree(void *data, struct iface_rec *iface);
 extern void iface_setup_host_bindings(void);
 extern int iface_get_by_net_binding(struct iface_rec *pattern,
 				    struct iface_rec *out_rec);
-extern int iface_conf_update(struct db_set_param *set_param,
+extern int iface_conf_update(struct list_head *params,
 			     struct iface_rec *iface);
 extern int iface_conf_write(struct iface_rec *iface);
 extern int iface_conf_delete(struct iface_rec *iface);
 extern int iface_is_valid(struct iface_rec *iface);
 extern void iface_link_ifaces(struct list_head *ifaces);
 extern int iface_setup_from_boot_context(struct iface_rec *iface,
-					 struct boot_context *context);
+                                   struct boot_context *context);
 extern int iface_create_ifaces_from_boot_contexts(struct list_head *ifaces,
 						  struct list_head *targets);
-extern int iface_setup_netdev(struct iscsi_transport *t,
-			      struct iscsi_session *session,
-			      struct iface_rec *iface);
 extern int iface_get_param_count(struct iface_rec *iface_primary,
 				 int iface_all);
 extern int iface_build_net_config(struct iface_rec *iface_primary,
 				  int iface_all, struct iovec *iovs);
+extern int iface_get_iptype(struct iface_rec *iface);
 
 #define iface_fmt "[hw=%s,ip=%s,net_if=%s,iscsi_if=%s]"
 #define iface_str(_iface) \

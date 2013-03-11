@@ -174,6 +174,16 @@ static int print_host_iface(void *data, struct iface_rec *iface)
 			       iface->ipv6_router);
 	}
 
+	if (!strlen(iface->port_state))
+		printf("%sPort State: %s\n", prefix, UNKNOWN_VALUE);
+	else
+		printf("%sPort State: %s\n", prefix, iface->port_state);
+
+	if (!strlen(iface->port_speed))
+		printf("%sPort Speed: %s\n", prefix, UNKNOWN_VALUE);
+	else
+		printf("%sPort Speed: %s\n", prefix, iface->port_speed);
+
 	if (!iface->port)
 		printf("%sPort: %s\n", prefix, UNKNOWN_VALUE);
 	else
@@ -285,6 +295,7 @@ int host_info_print(int info_level, uint32_t host_no)
 			break;
 		}
 
+		transport_probe_for_offload();
 		err = iscsi_sysfs_for_each_host(&flags, &num_found,
 						host_info_print_tree);
 		break;

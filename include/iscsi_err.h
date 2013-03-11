@@ -58,6 +58,10 @@ enum {
 	ISCSI_ERR_ISNS_QUERY		= 25,
 	/* iSNS registration/deregistration failed */
 	ISCSI_ERR_ISNS_REG_FAILED	= 26,
+	/* operation not supported */
+	ISCSI_ERR_OP_NOT_SUPP		= 27,
+	/* device or resource in use */
+	ISCSI_ERR_BUSY			= 28,
 
 	/* Always last. Indicates end of error code space */
 	ISCSI_MAX_ERR_VAL,

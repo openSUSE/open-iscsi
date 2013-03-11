@@ -35,9 +35,6 @@ struct iscsi_transport_template {
 	int (*ep_poll) (struct iscsi_conn *conn, int timeout_ms);
 	void (*ep_disconnect) (struct iscsi_conn *conn);
 	void (*create_conn) (struct iscsi_conn *conn);
-	int (*set_net_config) (struct iscsi_transport *t,
-			       struct iface_rec *iface,
-			       struct iscsi_session *session);
 };
 
 /* represents data path provider */
@@ -51,5 +48,7 @@ struct iscsi_transport {
 };
 
 extern int set_transport_template(struct iscsi_transport *t);
+extern int transport_load_kmod(char *transport_name);
+extern int transport_probe_for_offload(void);
 
 #endif

@@ -36,7 +36,6 @@ struct iscsi_auth_config;
 
 extern void free_transports(void);
 extern char *iscsi_sysfs_get_iscsi_kernel_version(void);
-extern int iscsi_sysfs_check_class_version(void);
 extern int iscsi_sysfs_get_sessioninfo_by_id(struct session_info *info,
 					     char *sys_session);
 extern int iscsi_sysfs_session_has_leadconn(uint32_t sid);
@@ -89,6 +88,7 @@ extern struct iscsi_transport *iscsi_sysfs_get_transport_by_hba(uint32_t host_no
 extern struct iscsi_transport *iscsi_sysfs_get_transport_by_session(char *sys_session);
 extern struct iscsi_transport *iscsi_sysfs_get_transport_by_sid(uint32_t sid);
 extern struct iscsi_transport *iscsi_sysfs_get_transport_by_name(char *transport_name);
+extern int iscsi_sysfs_is_transport_loaded(char *transport_name);
 extern int iscsi_sysfs_session_supports_nop(int sid);
 extern int iscsi_sysfs_session_user_created(int sid);
 
