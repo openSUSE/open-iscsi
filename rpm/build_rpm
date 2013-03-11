@@ -5,7 +5,7 @@
 
 RPM="open-iscsi"
 #BRANCH="sles11-sp2"
-BRANCH="sles11-sp2-update-to-873"
+BRANCH="sles11-sp2"
 VERSION="2.0-873"
 DESTDIR=
 TMPDIR=
