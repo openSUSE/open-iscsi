@@ -1,7 +1,7 @@
                               Release Notes
                         Broadcom uIP Linux Driver
-                            Version 0.7.0.14
-                               10/26/2011
+                            Version 0.7.4.3
+                               06/26/2012
 
                           Broadcom Corporation
                          5300 California Avenue,
@@ -9,6 +9,219 @@
 
                Copyright (c) 2004 - 2011 Broadcom Corporation
                            All rights reserved
+
+
+uIP v0.7.4.3 (Jun 26, 2012)
+=======================================================
+   Fixes
+   -----
+   1. Problem: Cont00060368 - segfault observed after failing both
+               mpio paths
+      Change:  Various memory leaks were identified and resolved in
+               the nic cleanup path
+      Impact:  All
+
+   2. Problem: Cont00060734 - ifupdown-mtu change stress with active
+               session causes iscsiuio to fail
+      Change:  Fixed a race condition between the nic enable thread
+               and when DHCP fails
+      Impact:  All
+
+   3. Problem: Cont00049383 - No mechanism in iface file to support
+               gateway/routing
+      Change:  Added support for the additional network parameters
+               as passed from the newer iscsi-util.
+               These parameters include:
+               IPv4: subnet_mask, gateway
+               IPv6: ipv6_linklocal, ipv6_router,
+                     ipv6_autocfg, linklocal_autocfg, router_autocfg
+               VLAN: vlan_id, vlan_priority, vlan_state
+               Other: mtu, port
+      Impact:  All
+
+   4. Problem: Cont00060806 - Unable to connect target using DHCP over
+               tagged VLAN
+      Change:  DHCP+VLAN is a new feature enhancement that was added
+               alongside all other new iface parameters.
+      Impact:  All
+
+   5. Problem: Cont00061513 - Unable to connect to target over VLAN
+               interface
+      Cause:   The VLAN id was not properly passed back to the CNIC
+               driver for the offload request
+      Change:  Fixed the VLAN id being passed back to the CNIC driver
+      Impact:  All
+
+   6. Problem: Cont00061529 - Unable to connect to target after an
+               initial failed login attempt until iscsi service is
+               restarted
+      Cause:   Upon a failed DHCPv4 acquisition due to the wrong VLAN
+               tag in the initial iface setup, any iscsid connect request
+               from the same NIC will get dropped due to a bug.
+      Change:  Fixed the bug which prevented new iscsid connect requests
+               from getting honored
+      Impact:  All
+
+   7. Problem: Cont00061708 - Unable to log into target after running
+               driver load/unload
+      Cause:   A bug was introduced in the previous bug fix (CQ61459)
+               where a pthread_cond_broadcast call was erroneously
+               enabled
+      Change:  Restored this back
+      Impact:  All
+
+   8. Problem: Cont00061978 - Load/unload stress test fails
+      Cause:   The bnx2x open request was failing due to the module
+               request procedure.  However, the open failure was
+               not being handled correctly.
+      Change:  Fixed the device open error handling
+      Impact:  5771X/578XX
+
+   9. Problem: Cont00062170 - IPv6 login/logout stress fails
+      Cause:   The packet buffer routine for IPv6 did not take
+               network order <-> host order into consideration
+      Change:  Added a htons call to compensate for the ntohs pair
+      Impact:  All
+
+  10. Problem: Cont00061869 - Unable to setup an offload iSCSI
+               connection with FLR/NPAR under ESX5.0:PDA
+      Cause:   The physical function ID was previously extracted
+               from the sysfs of the VM which might not be consistent
+               to the actual physical setup due to the function
+               remapping in the hypervisor
+      Change:  Read the physical function ID directly from the BAR0
+               ME register
+      Impact:  All
+
+  11. Problem: Cont00062170 - IPv6 login/logout stress fails
+      Cause:   The packet interrupt was lost after running the test
+               for a much longer period of time.  A bug in the
+               packet processing routine was found to exit prematurely
+      Change:  Fixed the packet processing routine to process all
+               packets before exiting
+      Impact:  All
+
+  12. Problem: Cont00062660 - Unable to login with VLAN iscsiuio
+               on RHEL6.2
+      Cause:   The open-iscsi util in RHEL6.2 has a bug which
+               does not pass the correct iface_num to iscsiuio
+      Change:  Added workaround to fall back to do the legacy
+               VLAN support if iface_num and vlan_id = 0
+      Impact:  RHEL6.2
+
+  13. Problem: Cont00062805 - Cannot login to iSCSI targets on RHEL6.3
+      Cause:   The problem was caused by a change made to the iface_rec
+               structure in the RHEL6.3 inbox open-iscsi util
+      Change:  The new changes is now incorporated
+      Impact:  All
+
+  14. Problem: Cont00062993 - IPv6 DHCP with VLAN specification in
+               iface file gets wrong address
+      Cause:   The DHCPv6 request was using the same DUID as always
+               so the non-VLAN DHCP server responded to our broadcast
+               instead
+      Change:  Changed the DHCPv6 request DUID to link address + time
+               instead of link address alone
+      Impact:  DHCPv6 operation
+
+  15. Problem: RHEL BZ 734010/804580 - issues found by the Coverity
+               scan
+      Cause:   10 code issues were flagged for revision
+      Change:  Fixed all area of concern
+      Impact:  All
+
+  16. Problem: Cont00063177 - IPv4 DHCP with VLAN specification in
+               iface file gets wrong address
+      Cause:   The DHCPv4 handler was not discriminating the VLAN tag
+               associated with the DHCP offers from multiple DHCP
+               servers
+      Change:  Changed the DHCPv4 handler to drop DHCP offer packets
+               that doesn't match the VLAN tag of the intended DHCP
+               discovery packet
+      Impact:  DHCPv4 operation
+
+  17. Problem: Cont00063421 - Static IPv6 cannot connect via RA/LL
+      Cause:   The router advertise and the linklocal address
+               were corrupted due to the override capabilities
+               added for the newer open-iscsi util
+      Change:  Fixed the address override code
+      Impact:  Static IPv6
+
+  18. Problem: Cont00063443 - Compilation error on SLES11sp1
+      Cause:   The iface_num field was not defined
+      Change:  Fixed all references to iface_num
+      Impact:  SLES11sp1
+
+  19. Problem: Cont00063518 - HBA fails to connect across router
+               using iface.gateway address
+      Cause:   The gateway override code did not populate the
+               address into the lower level engine
+      Change:  Fixed the gateway override code
+      Impact:  IPv4 Static IP operation
+
+  20. Problem: Cont00063567 - IPv6 LL and RA override does not work
+      Cause:   The IPv6 LL/RA override addresses were overwritten
+               by the NDP engine
+      Change:  Fixed the LL/RA override code
+      Impact:  IPv6 operation
+
+  21. Problem: Cont00063626 - Static IPv6 does not connect when
+               the prefix len is not set explicitly
+      Cause:   The IPv6 prefix length was not set correctly
+               for Static IPv6 operation when CIDR notation is
+               not specified
+      Change:  Fixed the default prefix length
+      Impact:  Static IPv6
+
+  22. Problem: Cont00063651 - Cannot connect to iSCSI targets
+               HP PTM/SF
+      Cause:   Switch-Dependent mode + invalid Outer VLAN was
+               not supported
+      Change:  Allow SD+invalid OV to fallback to SF operation mode
+      Impact:  5771X/578XX
+
+  23. Problem: Cont00063816 - The initiator is not able to connect
+               to the iSCSI targets over VLAN
+      Cause:   The process packet routine did not consider the PCP
+               of the VLAN tag to be non-zero.  This created a
+               mismatch when this VLAN tag was compared against the
+               nic_iface->vlan_id which doesn't include the PCP.
+      Change:  Added the consideration of non-zero PCP
+      Impact:  All
+
+  24. Problem: Cont00063863 - can't boot into offload image
+               when VLAN is enabled
+      Cause:   During the iSCSI login exchange, certain iSCSI targets
+               will send an ARP request even though the TCP connection
+               has been made.  The bug was in this ARP reply where
+               the local MAC was corrupted when VLAN is enabled.
+      Change:  Fixed the ARP reply packet
+      Impact:  All
+
+   Enhancements
+   ------------
+   1. Change:  Default iscsiuio logging to off.  Use the '-d'
+               option to enable
+
+   2. Change:  Disable HP SD mode
+
+   3  Lock iscsid's connect request with path_req so connect requests
+      with DHCP/Static will no longer override each other
+
+   4. Fixed the if_down handler from global to nic specific
+
+   5. Fixed various synchronization issues
+
+   6. Updated README
+
+   7. Added support for the new iface_num field in the iscsi_uevent
+      path
+
+   8. Fixed bug in the nic_iface search engine based on iface_num
+
+   9. Allow VLAN tag = 1 (router management) to connect offload
+
+  10. Added support for jumbo MTU (independent from the L2 MTU)
 
 
 uIP v0.7.0.14 (Oct 26, 2011)
