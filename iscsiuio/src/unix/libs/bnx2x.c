@@ -288,6 +288,7 @@ static void bnx2x_set_drv_version_unknown(bnx2x_t * bp)
 	bp->version.sub_minor = BNX2X_UNKNOWN_SUB_MINOR_VERSION;
 }
 
+/* Return: 1 = Unknown, 0 = Known */
 static int bnx2x_is_drv_version_unknown(struct bnx2x_driver_version *version)
 {
 	if ((version->major == (uint16_t)BNX2X_UNKNOWN_MAJOR_VERSION) &&
@@ -652,11 +653,13 @@ static int bnx2x_open(nic_t * nic)
 	if (bp == NULL)
 		return -ENOMEM;
 
-	if (!bnx2x_is_drv_version_unknown(&bnx2x_version))
+	if (bnx2x_is_drv_version_unknown(&bnx2x_version)) {
+		/* If version is unknown, go read from ethtool */
 		rc = bnx2x_get_drv_version(bp);
 		if (rc)
 			goto open_error;
-	else {
+	} else {
+		/* Version is not unknown, jsut use it */
 		bnx2x_version.major = bp->version.major;
 		bnx2x_version.minor = bp->version.minor;
 		bnx2x_version.sub_minor = bp->version.sub_minor;

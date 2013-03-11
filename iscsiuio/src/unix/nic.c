@@ -1042,8 +1042,15 @@ int process_packets(nic_t * nic,
 		pthread_mutex_lock(&nic->nic_mutex);
 
 		/*  check if we have the given VLAN interface */
-		if (nic_iface != NULL)
+		if (nic_iface != NULL) {
+			if (pkt->vlan_tag != nic_iface->vlan_id) {
+				/* Matching nic_iface not found, drop */
+				pthread_mutex_unlock(&nic->nic_mutex);
+				rc = EINVAL;  /* Return the +error code */
+				goto done;
+			}
 			goto nic_iface_present;
+		}
 
 		/* Best effort to find the correct instance
 		   Input: protocol and vlan_tag */
@@ -1051,12 +1058,12 @@ int process_packets(nic_t * nic,
 					       IFACE_NUM_INVALID,
 					       IP_CONFIG_OFF);
 		if (nic_iface == NULL) {
-			/* Matching nic_iface not found, check parent */
+			/* Matching nic_iface not found */
 			pthread_mutex_unlock(&nic->nic_mutex);
 			LOG_PACKET(PFX "%s: Couldn't find interface for "
 				   "VLAN: %d af_type %d",
 				nic->log_name, pkt->vlan_tag, af_type);
-			rc = 0;
+			rc = EINVAL;  /* Return the +error code */
 			goto done;
 		}
 nic_iface_present:
