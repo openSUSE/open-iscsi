@@ -354,19 +354,18 @@ static int ctldev_handle(char *data, nic_t *nic)
 				   Use the nic_iface found from the top
 				   of the protocol family and ignore
 				   the VLAN id from the path_req */
-				pthread_mutex_unlock(&nic->nic_mutex);
-				goto nic_iface_done;
-			} else if (!(nic_iface->iface_num == 0 &&
-				     nic_iface->vlan_id == 0 &&
-				     path->vlan_id)) {
+				if (!(nic_iface->iface_num == 0 &&
+				      nic_iface->vlan_id == 0 &&
+				      path->vlan_id)) {
+					pthread_mutex_unlock(&nic->nic_mutex);
+					goto nic_iface_done;
+				}
 				/* If iface_num == 0 and vlan_id == 0 but
 				   the vlan_id from path_req is > 0,
-				   then do the legacy support since
+				   then fallthru to the legacy support since
 				   this is most likely from an older iscsid
 				   (RHEL6.2/6.3 but has iface_num support)
 				*/
-				pthread_mutex_unlock(&nic->nic_mutex);
-				goto nic_iface_done;
 			}
 			/* Legacy VLAN support:
 			   This newly created nic_iface must inherit the
