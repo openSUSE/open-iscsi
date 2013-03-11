@@ -467,6 +467,18 @@ struct client_init_general_data {
 #define BAR_XSTRORM_INTMEM				0x420000
 #define BAR_TSTRORM_INTMEM				0x430000
 
+#define BAR_ME_REGISTER					0x450000
+#define ME_REG_PF_NUM_SHIFT		0
+#define ME_REG_PF_NUM\
+	(7L<<ME_REG_PF_NUM_SHIFT) /* Relative PF Num */
+#define ME_REG_VF_VALID			(1<<8)
+#define ME_REG_VF_NUM_SHIFT		9
+#define ME_REG_VF_NUM_MASK		(0x3f<<ME_REG_VF_NUM_SHIFT)
+#define ME_REG_VF_ERR			(0x1<<3)
+#define ME_REG_ABS_PF_NUM_SHIFT		16
+#define ME_REG_ABS_PF_NUM\
+	(7L<<ME_REG_ABS_PF_NUM_SHIFT) /* Absolute PF Num */
+
 #define USTORM_RX_PRODS_OFFSET(port, client_id) \
 	(IS_E1H_OFFSET ? (0x1000 + (port * 0x680) + (client_id * 0x40)) \
 	: (0x4000 + (port * 0x360) + (client_id * 0x30)))

@@ -826,7 +826,15 @@ static int bnx2x_open(nic_t * nic)
 			 nic->log_name);
 		goto open_error;
 	}
-
+	/* In E1/E1H use pci device function as read from sysfs.
+	 * In E2/E3 read physical function from ME register since these chips
+	 * support Physical Device Assignment where kernel BDF maybe arbitrary
+	 * (depending on hypervisor).
+	 */
+	if (CHIP_IS_E2_PLUS(bp)) {
+		func = (bnx2x_rd32(bp, BAR_ME_REGISTER) & ME_REG_ABS_PF_NUM) >>
+			ME_REG_ABS_PF_NUM_SHIFT;
+	}
 	bp->func = func;
 	bp->port = bp->func % PORT_MAX;
 
