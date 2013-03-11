@@ -1395,7 +1395,7 @@ static int bnx2x_read(nic_t *nic, packet_t *pkt)
 		union eth_rx_cqe *cqe;
 		__u8 cqe_fp_flags;
 		void *rx_pkt;
-		int len, pad, cqe_size;
+		int len, pad, cqe_size, max_len;
 		rc = 1;
 
 		if (bnx2x_is_ver70(bp)) {
@@ -1421,10 +1421,13 @@ static int bnx2x_read(nic_t *nic, packet_t *pkt)
 
 			/*  Doto query MTU size of physical device */
 			/*  Ensure len is valid */
-			if (len > pkt->max_buf_size)
+			max_len = pkt->max_buf_size < bp->rx_buffer_size ?
+				  pkt->max_buf_size : bp->rx_buffer_size;
+			if (len + pad > max_len) {
 				LOG_DEBUG(PFX "%s: bad BD length: %d",
 					  nic->log_name, len);
-
+				len = max_len - pad;
+			}
 			if (len > 0) {
 				msync(rx_pkt, len, MS_SYNC);
 				/*  Copy the data */
