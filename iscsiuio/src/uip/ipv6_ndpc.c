@@ -87,11 +87,8 @@ static PT_THREAD(handle_ndp(struct uip_stack *ustack, int force))
 		goto rtr_adv;
 
 	/* For AUTOCFG == DHCPv6, do all
-	   For         == ND, skip RTR
+	   For         == ND, skip DHCP only and do RTR
 	   For         == UNUSED/UNSPEC, do all as according to DHCP or not */
-	if (ustack->ipv6_autocfg & IPV6_AUTOCFG_ND)
-		goto rtr_adv;
-
 	s->state = NDPC_STATE_RTR_SOL;
 	/* try_again: */
 	s->ticks = CLOCK_SECOND * IPV6_MAX_ROUTER_SOL_DELAY;
@@ -206,7 +203,7 @@ wait_dhcp:
 
 		/* End of DHCPv6 engine */
 	} else {
-		IPV6_ADDR tmp, tmp2, tmp3;
+		IPV6_ADDR src, gw, ll;
 		char buf[INET6_ADDRSTRLEN];
 
 		/* Static IPv6 */
@@ -217,22 +214,37 @@ wait_dhcp:
 		}
 staticv6:
 		ipv6_disable_dhcpv6(ipv6c);
-		memcpy(&tmp.addr8, &ustack->hostaddr6, sizeof(IPV6_ADDR));
+		memcpy(&src.addr8, &ustack->hostaddr6, sizeof(IPV6_ADDR));
 		LOG_DEBUG("%s: host ip addr %02x:%02x:%02x:%02x:%02x:%02x:"
 			  "%02x:%02x", s->nic->log_name,
 		     ustack->hostaddr6[0], ustack->hostaddr6[1],
 		     ustack->hostaddr6[2], ustack->hostaddr6[3],
 		     ustack->hostaddr6[4], ustack->hostaddr6[5],
 		     ustack->hostaddr6[6], ustack->hostaddr6[7]);
-		memcpy(&tmp2.addr8, &ustack->default_route_addr6,
-		       sizeof(IPV6_ADDR));
-		memset(&tmp3, 0, sizeof(tmp3));
-		ipv6_set_ip_params(ipv6c, &tmp,
-				   ustack->prefix_len, &tmp2, &tmp3);
 
-		ipv6_add_solit_node_address(ipv6c, &tmp);
+		/* Copy out the default_router_addr6 and ll */
+		if (ustack->router_autocfg == IPV6_RTR_AUTOCFG_OFF)
+			memcpy(&gw.addr8, &ustack->default_route_addr6,
+			       sizeof(IPV6_ADDR));
+		else {
+			memcpy(&ustack->default_route_addr6,
+			       &ipv6c->default_router, sizeof(IPV6_ADDR));
+			memset(&gw, 0, sizeof(gw));
+		}
+		if (ustack->linklocal_autocfg == IPV6_LL_AUTOCFG_OFF)
+			memcpy(&ll.addr8, &ustack->linklocal6,
+			       sizeof(IPV6_ADDR));
+		else {
+			memcpy(&ustack->linklocal6, &ipv6c->link_local_addr,
+			       sizeof(IPV6_ADDR));
+			memset(&ll, 0, sizeof(ll));
+		}
+		ipv6_set_ip_params(ipv6c, &src,
+				   ustack->prefix_len, &gw, &ll);
 
-		inet_ntop(AF_INET6, &tmp.addr8, buf, sizeof(buf));
+		ipv6_add_solit_node_address(ipv6c, &src);
+
+		inet_ntop(AF_INET6, &src.addr8, buf, sizeof(buf));
 		LOG_INFO("%s: Static hostaddr IP: %s", s->nic->log_name,
 			 buf);
 	}
@@ -332,31 +344,9 @@ init2:
 	PT_INIT(&s->pt);
 
 	if (ustack->ip_config == IPV6_CONFIG_DHCP) {
-		/* DHCPv6 specific
-		   - ignore router_autocfg, linklocal_autocfg
-		*/
+		/* DHCPv6 specific */
 	} else {
-		/* Static v6 specific
-		   - if ipv6_autocfg == ND, do NDP, ignore router/ll autocfg
-		   - else, skip NDP
-		   - if router_autocfg == auto, do rtr auto?
-		   - else set rtr addr
-		*/
-		if (ustack->ipv6_autocfg != IPV6_AUTOCFG_ND) {
-			memset(&tmp, 0, sizeof(tmp));
-			memset(&tmp2, 0, sizeof(tmp2));
-			if (ustack->linklocal_autocfg ==
-			    IPV6_LL_AUTOCFG_OFF)
-				memcpy(&tmp.addr8,
-				       &ustack->linklocal6,
-				       sizeof(IPV6_ADDR));
-			if (ustack->router_autocfg ==
-			    IPV6_RTR_AUTOCFG_OFF)
-				memcpy(&tmp2.addr8,
-				       &ustack->default_route_addr6,
-				       sizeof(IPV6_ADDR));
-			ipv6_set_ip_params(ipv6c, &tmp, 0, &tmp2, &tmp);
-		}
+		/* Static v6 specific */
 	}
 
 	return 0;
