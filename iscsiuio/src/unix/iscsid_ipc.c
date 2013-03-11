@@ -232,11 +232,7 @@ static int decode_iface(struct iface_rec_decode *ird, struct iface_rec *rec)
 
 	ird->iface_num = rec->iface_num;
 	if (rec->iface_num != IFACE_NUM_INVALID) {
-		if (!strcmp(rec->vlan_state, "disable")) {
-			ird->vlan_state = 0;
-			ird->vlan_priority = 0;
-			ird->vlan_id = 0;
-		} else {
+		if (rec->vlan_id && strcmp(rec->vlan_state, "disable")) {
 			ird->vlan_state = 1;
 			ird->vlan_priority = rec->vlan_priority << 12;
 			ird->vlan_id = rec->vlan_id;
