@@ -894,7 +894,7 @@ static void prepare_ustack(nic_t * nic,
 	if (nic_iface->ustack.ip_config == IPV6_CONFIG_DHCP ||
 	    nic_iface->ustack.ip_config == IPV6_CONFIG_STATIC) {
 		eth = (struct ether_header *)ustack->data_link_layer;
-		eth->ether_type = UIP_ETHTYPE_IPv6;
+		eth->ether_type = htons(UIP_ETHTYPE_IPv6);
 	}
 }
 
@@ -909,40 +909,42 @@ int do_timers_per_nic_iface(nic_t *nic, nic_interface_t *nic_iface,
 	if (pkt == NULL)
 		return -EIO;
 
-	for (i = 0; i < UIP_UDP_CONNS; i++) {
-		prepare_ustack(nic, nic_iface, ustack, pkt);
+	if (nic_iface->protocol == AF_INET) {
+		for (i = 0; i < UIP_UDP_CONNS; i++) {
+			prepare_ustack(nic, nic_iface, ustack, pkt);
 
-		uip_udp_periodic(ustack, i);
-		/* If the above function invocation resulted
-		 * in data that should be sent out on the
-		 * network, the global variable uip_len is
-		 * set to a value > 0. */
-		if (ustack->uip_len > 0) {
-			pkt->buf_size = ustack->uip_len;
+			uip_udp_periodic(ustack, i);
+			/* If the above function invocation resulted
+			 * in data that should be sent out on the
+			 * network, the global variable uip_len is
+			 * set to a value > 0. */
+			if (ustack->uip_len > 0) {
+				pkt->buf_size = ustack->uip_len;
+				prepare_ipv4_packet(nic, nic_iface, ustack,
+						    pkt);
+				(*nic->ops->write) (nic, nic_iface, pkt);
+				ustack->uip_len = 0;
+			}
+		}
+	} else {
+		/* Added periodic poll for IPv6 NDP engine */
+		if (ustack->ndpc != NULL) {	/* If engine is active */
+			prepare_ustack(nic, nic_iface, ustack, pkt);
 
-			prepare_ipv4_packet(nic, nic_iface, ustack, pkt);
-
-			(*nic->ops->write) (nic, nic_iface, pkt);
-			ustack->uip_len = 0;
+			uip_ndp_periodic(ustack);
+			/* If the above function invocation resulted
+			 * in data that should be sent out on the
+			 * network, the global variable uip_len is
+			 * set to a value > 0. */
+			if (ustack->uip_len > 0) {
+				pkt->buf_size = ustack->uip_len;
+				prepare_ipv6_packet(nic, nic_iface, ustack,
+						    pkt);
+				(*nic->ops->write) (nic, nic_iface, pkt);
+				ustack->uip_len = 0;
+			}
 		}
 	}
-	/* Added periodic poll for IPv6 NDP engine */
-	if (ustack->ndpc != NULL) {	/* If engine is active */
-		prepare_ustack(nic, nic_iface, ustack, pkt);
-
-		uip_ndp_periodic(ustack);
-		/* If the above function invocation resulted
-		 * in data that should be sent out on the
-		 * network, the global variable uip_len is
-		 * set to a value > 0. */
-		if (ustack->uip_len > 0) {
-			pkt->buf_size = ustack->uip_len;
-			prepare_ipv6_packet(nic, nic_iface, ustack, pkt);
-			(*nic->ops->write) (nic, nic_iface, pkt);
-			ustack->uip_len = 0;
-		}
-	}
-
 	/* Call the ARP timer function every 10 seconds. */
 	if (timer_expired(arp_timer)) {
 		timer_reset(arp_timer);
