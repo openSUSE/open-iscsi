@@ -400,6 +400,7 @@ static int ctldev_handle(char *data, nic_t *nic)
 			persist_all_nic_iface(nic);
 
 			nic_iface = vlan_iface;
+			nic_iface->flags |= NIC_IFACE_ACQUIRE;
 
 			pthread_mutex_unlock(&nic->nic_mutex);
 
