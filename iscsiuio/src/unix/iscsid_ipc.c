@@ -678,17 +678,12 @@ reacquire:
 			   sizeof(struct in6_addr)))
 			memcpy(nic_iface->ustack.netmask6,
 			       &ird.ipv6_subnet_mask, sizeof(struct in6_addr));
-		/* Do not allow linklocal override
 		if (ird.linklocal_autocfg == IPV6_LL_AUTOCFG_OFF)
 			memcpy(nic_iface->ustack.linklocal6,
 			       &ird.ipv6_linklocal, sizeof(struct in6_addr));
-		*/
-		/* Will get override by NDP if enabled */
-		/* Do not allow RTR override for DHCP
 		if (ird.router_autocfg == IPV6_RTR_AUTOCFG_OFF)
 			memcpy(nic_iface->ustack.default_route_addr6,
 			       &ird.ipv6_router, sizeof(struct in6_addr));
-		*/
 		LOG_INFO(PFX "%s: configuring using DHCPv6",
 			 nic->log_name);
 		nic_iface->ustack.ip_config = IPV6_CONFIG_DHCP;

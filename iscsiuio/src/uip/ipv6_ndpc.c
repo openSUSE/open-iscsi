@@ -65,6 +65,7 @@ static PT_THREAD(handle_ndp(struct uip_stack *ustack, int force))
 	pIPV6_CONTEXT ipv6c;
 	pDHCPV6_CONTEXT dhcpv6c = NULL;
 	u16_t task = 0;
+	char buf[INET6_ADDRSTRLEN];
 
 	s = ustack->ndpc;
 	if (s == NULL) {
@@ -193,19 +194,10 @@ wait_dhcp:
 		} while (dhcpv6c->dhcpv6_done == FALSE);
 		s->state = NDPC_STATE_DHCPV6_DONE;
 
-		/* Copy out the default_router_addr6 and ll */
-		memcpy(&ustack->default_route_addr6, &ipv6c->default_router,
-		       sizeof(IPV6_ADDR));
-		memcpy(&ustack->linklocal6, &ipv6c->link_local_addr,
-		       sizeof(IPV6_ADDR));
-
 		LOG_DEBUG("%s: ndpc_handle got dhcpv6", s->nic->log_name);
 
 		/* End of DHCPv6 engine */
 	} else {
-		IPV6_ADDR src, gw, ll;
-		char buf[INET6_ADDRSTRLEN];
-
 		/* Static IPv6 */
 		if (ustack->ip_config == IPV6_CONFIG_DHCP) {
 			LOG_DEBUG("%s: ndpc_handle DHCP failed",
@@ -214,40 +206,23 @@ wait_dhcp:
 		}
 staticv6:
 		ipv6_disable_dhcpv6(ipv6c);
-		memcpy(&src.addr8, &ustack->hostaddr6, sizeof(IPV6_ADDR));
-		LOG_DEBUG("%s: host ip addr %02x:%02x:%02x:%02x:%02x:%02x:"
-			  "%02x:%02x", s->nic->log_name,
-		     ustack->hostaddr6[0], ustack->hostaddr6[1],
-		     ustack->hostaddr6[2], ustack->hostaddr6[3],
-		     ustack->hostaddr6[4], ustack->hostaddr6[5],
-		     ustack->hostaddr6[6], ustack->hostaddr6[7]);
-
-		/* Copy out the default_router_addr6 and ll */
-		if (ustack->router_autocfg == IPV6_RTR_AUTOCFG_OFF)
-			memcpy(&gw.addr8, &ustack->default_route_addr6,
-			       sizeof(IPV6_ADDR));
-		else {
-			memcpy(&ustack->default_route_addr6,
-			       &ipv6c->default_router, sizeof(IPV6_ADDR));
-			memset(&gw, 0, sizeof(gw));
-		}
-		if (ustack->linklocal_autocfg == IPV6_LL_AUTOCFG_OFF)
-			memcpy(&ll.addr8, &ustack->linklocal6,
-			       sizeof(IPV6_ADDR));
-		else {
-			memcpy(&ustack->linklocal6, &ipv6c->link_local_addr,
-			       sizeof(IPV6_ADDR));
-			memset(&ll, 0, sizeof(ll));
-		}
-		ipv6_set_ip_params(ipv6c, &src,
-				   ustack->prefix_len, &gw, &ll);
-
-		ipv6_add_solit_node_address(ipv6c, &src);
-
-		inet_ntop(AF_INET6, &src.addr8, buf, sizeof(buf));
-		LOG_INFO("%s: Static hostaddr IP: %s", s->nic->log_name,
-			 buf);
 	}
+	/* Copy out the default_router_addr6 and ll */
+	if (ustack->router_autocfg != IPV6_RTR_AUTOCFG_OFF)
+		memcpy(&ustack->default_route_addr6,
+		       &ipv6c->default_router, sizeof(IPV6_ADDR));
+	inet_ntop(AF_INET6, &ustack->default_route_addr6,
+		  buf, sizeof(buf));
+	LOG_INFO("%s: Default router IP: %s", s->nic->log_name,
+		 buf);
+
+	if (ustack->linklocal_autocfg != IPV6_LL_AUTOCFG_OFF)
+		memcpy(&ustack->linklocal6, &ipv6c->link_local_addr,
+		       sizeof(IPV6_ADDR));
+	inet_ntop(AF_INET6, &ustack->linklocal6,
+		  buf, sizeof(buf));
+	LOG_INFO("%s: Linklocal IP: %s", s->nic->log_name,
+		 buf);
 
 ipv6_loop:
 	s->state = NDPC_STATE_BACKGROUND_LOOP;
@@ -278,7 +253,8 @@ int ndpc_init(nic_t * nic, struct uip_stack *ustack,
 	pIPV6_CONTEXT ipv6c;
 	pDHCPV6_CONTEXT dhcpv6c;
 	struct ndpc_state *s = ustack->ndpc;
-	IPV6_ADDR tmp, tmp2;
+	IPV6_ADDR src, gw, ll;
+	char buf[INET6_ADDRSTRLEN];
 
 	if (s) {
 		LOG_DEBUG("NDP: NDP context already allocated");
@@ -345,9 +321,30 @@ init2:
 
 	if (ustack->ip_config == IPV6_CONFIG_DHCP) {
 		/* DHCPv6 specific */
+		memset(&src, 0, sizeof(src));
 	} else {
 		/* Static v6 specific */
+		memcpy(&src.addr8, &ustack->hostaddr6, sizeof(IPV6_ADDR));
+		ipv6_add_solit_node_address(ipv6c, &src);
+
+		inet_ntop(AF_INET6, &src.addr8, buf, sizeof(buf));
+		LOG_INFO("%s: Static hostaddr IP: %s", s->nic->log_name,
+			 buf);
 	}
+	/* Copy out the default_router_addr6 and ll */
+	if (ustack->router_autocfg == IPV6_RTR_AUTOCFG_OFF)
+		memcpy(&gw.addr8, &ustack->default_route_addr6,
+		       sizeof(IPV6_ADDR));
+	else
+		memset(&gw, 0, sizeof(gw));
+
+	if (ustack->linklocal_autocfg == IPV6_LL_AUTOCFG_OFF)
+		memcpy(&ll.addr8, &ustack->linklocal6,
+		       sizeof(IPV6_ADDR));
+	else
+		memset(&ll, 0, sizeof(ll));
+	ipv6_set_ip_params(ipv6c, &src,
+			   ustack->prefix_len, &gw, &ll);
 
 	return 0;
 error2:
@@ -405,8 +402,6 @@ int ndpc_request(struct uip_stack *ustack, void *in, void *out, int request)
 	ipv6c = s->ipv6_context;
 	switch (request) {
 	case NEIGHBOR_SOLICIT:
-		LOG_DEBUG("nd sol: in=%p in->eth=%p in->ipv6=%p", in, in,
-			  (u8_t *) in + 4);
 		*(int *)out = ipv6_send_nd_solicited_packet(ipv6c,
 					  (pETH_HDR) ((pNDPC_REQPTR)in)->eth,
 					  (pIPV6_HDR) ((pNDPC_REQPTR)in)->ipv6);

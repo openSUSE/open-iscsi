@@ -1403,8 +1403,6 @@ void uip_process(struct uip_stack *ustack, u8_t flag)
 #endif /* UIP_UDP */
 
 		/* This is IPv6 ICMPv6 processing code. */
-		LOG_DEBUG(PFX "icmp6_input: length %d", ustack->uip_len);
-
 		if (ipv6_hdr->ip6_nxt != UIP_PROTO_ICMP6) {
 			/* We only allow ICMPv6 packets from here. */
 			++ustack->stats.ip.drop;

@@ -86,10 +86,6 @@ int dhcpv6_do_discovery(pDHCPV6_CONTEXT dhcpv6_context)
 	    (pIPV6_HDR) dhcpv6_context->ipv6_context->ustack->network_layer;
 	dhcpv6_context->udp =
 	    (pUDP_HDR) ((u8_t *) dhcpv6_context->ipv6 + sizeof(IPV6_HDR));
-	LOG_INFO("dhcpv6: ipv6c=%p, ustack=%p eth=%p ipv6=%p udp=%p",
-		 dhcpv6_context->ipv6_context,
-		 dhcpv6_context->ipv6_context->ustack, dhcpv6_context->eth,
-		 dhcpv6_context->ipv6, dhcpv6_context->udp);
 
 	/* Send out DHCPv6 Solicit packet. */
 	dhcpv6_send_solicit_packet(dhcpv6_context);

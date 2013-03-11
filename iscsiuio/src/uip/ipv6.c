@@ -38,6 +38,7 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <arpa/inet.h>
 #include "logger.h"
 #include "uip.h"
 #include "ipv6.h"
@@ -192,8 +193,9 @@ void ipv6_init(struct ndpc_state *ndp, int cfg)
 	/* Default Prefix length is 64 */
 	/* Add Link local address to the head of the ipv6 address
 	   list */
-	ipv6_add_prefix_entry(ipv6_context,
-			      &ipv6_context->link_local_addr, 64);
+	if (ipv6_context->ustack->linklocal_autocfg != IPV6_LL_AUTOCFG_OFF)
+		ipv6_add_prefix_entry(ipv6_context,
+				      &ipv6_context->link_local_addr, 64);
 
 	/*
 	 * Convert Multicast IP address to Multicast MAC adress per 
@@ -840,6 +842,7 @@ STATIC void ipv6_icmp_handle_router_adv(pIPV6_CONTEXT ipv6_context)
 	pICMPV6_OPT_HDR icmp_opt;
 	u16_t opt_len;
 	u16_t len;
+	char buf[INET6_ADDRSTRLEN];
 
 	if (ipv6_context->flags & IPV6_FLAGS_ROUTER_ADV_RECEIVED)
 		return;
@@ -882,20 +885,15 @@ STATIC void ipv6_icmp_handle_router_adv(pIPV6_CONTEXT ipv6_context)
 
 		if (icmp->nd_ra_router_lifetime != 0) {
 			/* There is a default router. */
-			memcpy((char __FAR__ *)&ipv6_context->default_router,
-			       (char __FAR__ *)&ipv6->ipv6_src,
-			       sizeof(IPV6_ADDR));
-			LOG_DEBUG("IPV6: def router "
-				  "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x "
-				  "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
-			ipv6->ipv6_src.addr8[0], ipv6->ipv6_src.addr8[1],
-			ipv6->ipv6_src.addr8[2], ipv6->ipv6_src.addr8[3],
-			ipv6->ipv6_src.addr8[4], ipv6->ipv6_src.addr8[5],
-			ipv6->ipv6_src.addr8[6], ipv6->ipv6_src.addr8[7],
-			ipv6->ipv6_src.addr8[8], ipv6->ipv6_src.addr8[9],
-			ipv6->ipv6_src.addr8[10], ipv6->ipv6_src.addr8[11],
-			ipv6->ipv6_src.addr8[12], ipv6->ipv6_src.addr8[13],
-			ipv6->ipv6_src.addr8[14], ipv6->ipv6_src.addr8[15]);
+			if (ipv6_context->ustack->router_autocfg !=
+			    IPV6_RTR_AUTOCFG_OFF)
+				memcpy(
+				   (char __FAR__*)&ipv6_context->default_router,
+				       (char __FAR__*)&ipv6->ipv6_src,
+				       sizeof(IPV6_ADDR));
+			inet_ntop(AF_INET6, &ipv6_context->default_router,
+				  buf, sizeof(buf));
+			LOG_DEBUG("IPV6: Got default router IP: %s", buf)
 		}
 	}
 }
@@ -1151,6 +1149,8 @@ void ipv6_set_ip_params(pIPV6_CONTEXT ipv6_context,
 		/* Override the default gateway addr */
 		memcpy((char __FAR__*)&ipv6_context->default_router,
 		       (char __FAR__*)default_gateway, sizeof(IPV6_ADDR));
+		ipv6_add_prefix_entry(ipv6_context, default_gateway,
+				      prefix_len);
 	}
 	if (!(IPV6_IS_ADDR_UNSPECIFIED(linklocal))) {
 		/* Override the linklocal addr */
