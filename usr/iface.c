@@ -43,6 +43,8 @@
 #include "iscsi_err.h"
 #include "iscsi_netlink.h"
 
+#define	OFFLOAD_BOOT_SUPPORTED	/* for SUSE */
+
 /*
  * Default ifaces for use with transports that do not bind to hardware
  * by defaults (transports that let the interconnect layer to the routing
@@ -894,7 +896,6 @@ int iface_setup_from_boot_context(struct iface_rec *iface,
 				   struct boot_context *context)
 {
 	struct iscsi_transport *t = NULL;
-	char transport_name[ISCSI_TRANSPORT_NAME_MAXLEN];
 	uint32_t hostno;
 
 	if (strlen(context->initiatorname))
@@ -910,6 +911,8 @@ int iface_setup_from_boot_context(struct iface_rec *iface,
 	} else if (strlen(context->iface)) {
 /* this ifdef is only temp until distros and firmwares are updated */
 #ifdef OFFLOAD_BOOT_SUPPORTED
+		char transport_name[ISCSI_TRANSPORT_NAME_MAXLEN];
+		int rc;
 
 		memset(transport_name, 0, ISCSI_TRANSPORT_NAME_MAXLEN);
 		/* make sure offload driver is loaded */
