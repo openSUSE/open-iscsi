@@ -1007,10 +1007,12 @@ int process_packets(nic_t * nic,
 		struct ip_hdr *ip;
 		pIPV6_HDR ip6;
 		void *dst_ip;
+		uint16_t vlan_id;
 
 		pkt->data_link_layer = pkt->buf;
 
-		if ((pkt->vlan_tag == 0) ||
+		vlan_id = pkt->vlan_tag & 0xFFF;
+		if ((vlan_id == 0) ||
 		    (NIC_VLAN_STRIP_ENABLED & nic->flags)) {
 			type = ntohs(ETH_BUF(pkt->buf)->type);
 			pkt->network_layer = pkt->data_link_layer +
@@ -1035,7 +1037,7 @@ int process_packets(nic_t * nic,
 			break;
 		default:
 			LOG_PACKET(PFX "%s: Ignoring vlan:0x%x ethertype:0x%x",
-				   nic->log_name, pkt->vlan_tag, type);
+				   nic->log_name, vlan_id, type);
 			goto done;
 		}
 
@@ -1043,7 +1045,7 @@ int process_packets(nic_t * nic,
 
 		/*  check if we have the given VLAN interface */
 		if (nic_iface != NULL) {
-			if (pkt->vlan_tag != nic_iface->vlan_id) {
+			if (vlan_id != nic_iface->vlan_id) {
 				/* Matching nic_iface not found, drop */
 				pthread_mutex_unlock(&nic->nic_mutex);
 				rc = EINVAL;  /* Return the +error code */
@@ -1054,7 +1056,7 @@ int process_packets(nic_t * nic,
 
 		/* Best effort to find the correct instance
 		   Input: protocol and vlan_tag */
-		nic_iface = nic_find_nic_iface(nic, af_type, pkt->vlan_tag,
+		nic_iface = nic_find_nic_iface(nic, af_type, vlan_id,
 					       IFACE_NUM_INVALID,
 					       IP_CONFIG_OFF);
 		if (nic_iface == NULL) {
@@ -1062,7 +1064,7 @@ int process_packets(nic_t * nic,
 			pthread_mutex_unlock(&nic->nic_mutex);
 			LOG_PACKET(PFX "%s: Couldn't find interface for "
 				   "VLAN: %d af_type %d",
-				nic->log_name, pkt->vlan_tag, af_type);
+				nic->log_name, vlan_id, af_type);
 			rc = EINVAL;  /* Return the +error code */
 			goto done;
 		}
@@ -1078,7 +1080,7 @@ nic_iface_present:
 		/*  Adjust the network layer pointer depending if there is a
 		 *  VLAN tag or not, or if the hardware has stripped out the
 		 *  VLAN tag */
-		if ((pkt->vlan_tag == 0) ||
+		if ((vlan_id == 0) ||
 		    (NIC_VLAN_STRIP_ENABLED & nic->flags))
 			ustack->network_layer = ustack->data_link_layer +
 			    sizeof(struct uip_eth_hdr);
