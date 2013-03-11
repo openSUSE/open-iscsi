@@ -338,11 +338,10 @@ static int parse_iface(void *arg)
 	rec = &data->u.iface_rec.rec;
 
 	LOG_INFO(PFX "Received request for '%s' to set IP address: '%s' "
-		 "VLAN: '%d' iface_num: %d",
+		 "VLAN: '%d'",
 		 rec->netdev,
 		 rec->ipaddress,
-		 rec->vlan_id,
-		 rec->iface_num);
+		 rec->vlan_id);
 
 	rc = decode_iface(&ird, rec);
 	if (ird.vlan_id && valid_vlan(ird.vlan_id) == 0) {

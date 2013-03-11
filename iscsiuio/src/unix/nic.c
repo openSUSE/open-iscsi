@@ -1234,7 +1234,6 @@ static int do_acquisition(nic_t *nic, nic_interface_t *nic_iface,
 			  struct timer *periodic_timer, struct timer *arp_timer)
 {
 	struct in_addr addr;
-	uip_ip4addr_t tmp = { 0, 0 };
 	struct in6_addr addr6;
 	void *res;
 	char buf[INET6_ADDRSTRLEN];
@@ -1273,14 +1272,16 @@ static int do_acquisition(nic_t *nic, nic_interface_t *nic_iface,
 		set_uip_stack(&nic_iface->ustack,
 			      &nic_iface->ustack.hostaddr,
 			      &nic_iface->ustack.netmask,
-			      &tmp, nic_iface->mac_addr);
+			      &nic_iface->ustack.default_route_addr,
+			      nic_iface->mac_addr);
 		break;
 
 	case IPV4_CONFIG_DHCP:
 		set_uip_stack(&nic_iface->ustack,
 			      &nic_iface->ustack.hostaddr,
 			      &nic_iface->ustack.netmask,
-			      &tmp, nic_iface->mac_addr);
+			      &nic_iface->ustack.default_route_addr,
+			      nic_iface->mac_addr);
 		if (dhcpc_init(nic, &nic_iface->ustack,
 			       nic_iface->mac_addr, ETH_ALEN)) {
 			if (nic_iface->ustack.dhcpc) {
