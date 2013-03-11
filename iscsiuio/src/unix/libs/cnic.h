@@ -48,6 +48,7 @@ int cnic_nl_open();
 void cnic_nl_close();
 
 int cnic_handle_iscsi_path_req(nic_t * nic, int, struct iscsi_uevent *,
-			       struct iscsi_path *path);
+			       struct iscsi_path *path,
+			       nic_interface_t *nic_iface);
 
 #endif /* __CNIC_NL_H__ */

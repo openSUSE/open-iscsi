@@ -86,6 +86,12 @@ static PT_THREAD(handle_ndp(struct uip_stack *ustack, int force))
 	if (s->state == NDPC_STATE_RTR_ADV)
 		goto rtr_adv;
 
+	/* For AUTOCFG == DHCPv6, do all
+	   For         == ND, skip RTR
+	   For         == UNUSED/UNSPEC, do all as according to DHCP or not */
+	if (ustack->ipv6_autocfg & IPV6_AUTOCFG_ND)
+		goto rtr_adv;
+
 	s->state = NDPC_STATE_RTR_SOL;
 	/* try_again: */
 	s->ticks = CLOCK_SECOND * IPV6_MAX_ROUTER_SOL_DELAY;
@@ -97,7 +103,7 @@ static PT_THREAD(handle_ndp(struct uip_stack *ustack, int force))
 		ipv6_autoconfig(s->ipv6_context);
 
 		timer_set(&s->timer, s->ticks);
-	      wait_rtr:
+wait_rtr:
 		s->ustack->uip_flags &= ~UIP_NEWDATA;
 		LOG_DEBUG("%s: ndpc_handle wait for rtr adv flags=0x%x",
 			  s->nic->log_name, ipv6c->flags);
@@ -134,10 +140,12 @@ no_rtr_adv:
 	s->state = NDPC_STATE_RTR_ADV;
 
 rtr_adv:
-	/* Both Static IPv6 and DHCPv6 comes here */
+	if (!(ustack->ip_config & IPV6_CONFIG_DHCP))
+		goto staticv6;
 
+	/* Only DHCPv6 comes here */
 	task = ipv6_do_stateful_dhcpv6(ipv6c, ISCSI_FLAGS_DHCP_TCPIP_CONFIG);
-	if (task && (ustack->ip_config == IPV6_CONFIG_DHCP)) {
+	if (task) {
 		/* Run the DHCPv6 engine */
 
 		if (!dhcpv6c)
@@ -187,19 +195,27 @@ wait_dhcp:
 			}
 		} while (dhcpv6c->dhcpv6_done == FALSE);
 		s->state = NDPC_STATE_DHCPV6_DONE;
+
+		/* Copy out the default_router_addr6 and ll */
+		memcpy(&ustack->default_route_addr6, &ipv6c->default_router,
+		       sizeof(IPV6_ADDR));
+		memcpy(&ustack->linklocal6, &ipv6c->link_local_addr,
+		       sizeof(IPV6_ADDR));
+
 		LOG_DEBUG("%s: ndpc_handle got dhcpv6", s->nic->log_name);
 
 		/* End of DHCPv6 engine */
 	} else {
+		IPV6_ADDR tmp, tmp2, tmp3;
+		char buf[INET6_ADDRSTRLEN];
+
 		/* Static IPv6 */
 		if (ustack->ip_config == IPV6_CONFIG_DHCP) {
 			LOG_DEBUG("%s: ndpc_handle DHCP failed",
 				  s->nic->log_name);
 			PT_RESTART(&s->pt);
 		}
-		IPV6_ADDR tmp, tmp2;
-		char buf[INET6_ADDRSTRLEN];
-
+staticv6:
 		ipv6_disable_dhcpv6(ipv6c);
 		memcpy(&tmp.addr8, &ustack->hostaddr6, sizeof(IPV6_ADDR));
 		LOG_DEBUG("%s: host ip addr %02x:%02x:%02x:%02x:%02x:%02x:"
@@ -208,16 +224,17 @@ wait_dhcp:
 		     ustack->hostaddr6[2], ustack->hostaddr6[3],
 		     ustack->hostaddr6[4], ustack->hostaddr6[5],
 		     ustack->hostaddr6[6], ustack->hostaddr6[7]);
-		memset(&tmp2, 0, sizeof(tmp2));
+		memcpy(&tmp2.addr8, &ustack->default_route_addr6,
+		       sizeof(IPV6_ADDR));
+		memset(&tmp3, 0, sizeof(tmp3));
 		ipv6_set_ip_params(ipv6c, &tmp,
-				   ustack->prefix_len, &tmp2);
+				   ustack->prefix_len, &tmp2, &tmp3);
 
 		ipv6_add_solit_node_address(ipv6c, &tmp);
 
 		inet_ntop(AF_INET6, &tmp.addr8, buf, sizeof(buf));
 		LOG_INFO("%s: Static hostaddr IP: %s", s->nic->log_name,
 			 buf);
-
 	}
 
 ipv6_loop:
@@ -249,6 +266,7 @@ int ndpc_init(nic_t * nic, struct uip_stack *ustack,
 	pIPV6_CONTEXT ipv6c;
 	pDHCPV6_CONTEXT dhcpv6c;
 	struct ndpc_state *s = ustack->ndpc;
+	IPV6_ADDR tmp, tmp2;
 
 	if (s) {
 		LOG_DEBUG("NDP: NDP context already allocated");
@@ -314,9 +332,31 @@ init2:
 	PT_INIT(&s->pt);
 
 	if (ustack->ip_config == IPV6_CONFIG_DHCP) {
-		/* DHCPv6 specific */
+		/* DHCPv6 specific
+		   - ignore router_autocfg, linklocal_autocfg
+		*/
 	} else {
-		/* Static v6 specific */
+		/* Static v6 specific
+		   - if ipv6_autocfg == ND, do NDP, ignore router/ll autocfg
+		   - else, skip NDP
+		   - if router_autocfg == auto, do rtr auto?
+		   - else set rtr addr
+		*/
+		if (ustack->ipv6_autocfg != IPV6_AUTOCFG_ND) {
+			memset(&tmp, 0, sizeof(tmp));
+			memset(&tmp2, 0, sizeof(tmp2));
+			if (ustack->linklocal_autocfg ==
+			    IPV6_LL_AUTOCFG_OFF)
+				memcpy(&tmp.addr8,
+				       &ustack->linklocal6,
+				       sizeof(IPV6_ADDR));
+			if (ustack->router_autocfg ==
+			    IPV6_RTR_AUTOCFG_OFF)
+				memcpy(&tmp2.addr8,
+				       &ustack->default_route_addr6,
+				       sizeof(IPV6_ADDR));
+			ipv6_set_ip_params(ipv6c, &tmp, 0, &tmp2, &tmp);
+		}
 	}
 
 	return 0;
@@ -367,8 +407,8 @@ int ndpc_request(struct uip_stack *ustack, void *in, void *out, int request)
 	//LOG_DEBUG("%s: NDP - Request %d", s->nic->log_name, request);
 
 	while (s->state != NDPC_STATE_BACKGROUND_LOOP) {
-		LOG_DEBUG("%s: ndpc state not in background loop, run handler",
-			  s->nic->log_name);
+		LOG_DEBUG("%s: ndpc state not in background loop, run handler ",
+			  "request = %d", s->nic->log_name, request);
 		handle_ndp(ustack, 1);
 	}
 
@@ -384,12 +424,6 @@ int ndpc_request(struct uip_stack *ustack, void *in, void *out, int request)
 	case CHECK_LINK_LOCAL_ADDR:
 		*(int *)out = ipv6_is_it_our_link_local_address(ipv6c,
 								(pIPV6_ADDR)in);
-		break;
-	case GET_LINK_LOCAL_ADDR:
-		*(pIPV6_ADDR *) out = &ipv6c->link_local_addr;
-		break;
-	case GET_DEFAULT_ROUTER_ADDR:
-		*(pIPV6_ADDR *)out = &ipv6c->default_router;
 		break;
 	case CHECK_ARP_TABLE:
 		*(int *)out = ipv6_ip_in_arp_table(ipv6c,

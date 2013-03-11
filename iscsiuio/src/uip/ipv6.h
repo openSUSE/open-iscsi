@@ -343,7 +343,8 @@ int ipv6_add_prefix_entry(pIPV6_CONTEXT ipv6_context,
 			  IPV6_ADDR * ipv6_addr, u8_t prefix_len);
 void ipv6_set_ip_params(pIPV6_CONTEXT ipv6_context,
 			pIPV6_ADDR src_ip, u8_t prefix_len,
-			pIPV6_ADDR default_gateway);
+			pIPV6_ADDR default_gateway,
+			pIPV6_ADDR linklocal);
 void ipv6_set_host_addr(pIPV6_CONTEXT ipv6_context, pIPV6_ADDR src_ip);
 int ipv6_get_default_router_ip_addrs(pIPV6_CONTEXT ipv6_context,
 				     pIPV6_ADDR ip_addr);

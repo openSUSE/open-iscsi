@@ -261,12 +261,7 @@ static int cnic_nl_neigh_rsp(nic_t * nic, int fd,
 		}
 		if (ret) {
 			/* Get link local IPv6 address */
-			if (ndpc_request(&nic_iface->ustack, NULL,
-					 &src_ipv6, GET_LINK_LOCAL_ADDR)) {
-				src_ipv6 = (u8_t *)all_zeroes_addr6;
-				LOG_DEBUG(PFX "RSP Get LL failed");
-				goto src_done;
-			}
+			src_ipv6 = (u8_t *)&nic_iface->ustack.linklocal6;
 		} else {
 			if (ndpc_request(&nic_iface->ustack,
 					 &path_req->dst.v6_addr,
@@ -323,67 +318,18 @@ const static struct timeval tp_wait = {
  */
 int cnic_handle_ipv4_iscsi_path_req(nic_t * nic, int fd,
 				    struct iscsi_uevent *ev,
-				    struct iscsi_path *path)
+				    struct iscsi_path *path,
+				    nic_interface_t *nic_iface)
 {
-	nic_interface_t *nic_iface, *vlan_iface;
 	struct in_addr src_addr, dst_addr,
 	    src_matching_addr, dst_matching_addr, netmask;
 	__u8 mac_addr[6];
 	int rc;
 	uint16_t arp_retry;
 	int status = 0;
-
-	memset(mac_addr, 0, sizeof(mac_addr));
-
-	pthread_mutex_lock(&nic_list_mutex);
-
-	/*  Find the proper interface via VLAN id */
-	nic_iface = nic_find_nic_iface_protocol(nic, 0, AF_INET);
-	if (nic_iface == NULL) {
-		pthread_mutex_unlock(&nic_list_mutex);
-		LOG_ERR(PFX "%s: Couldn't find net_iface vlan_id: %d",
-			nic->log_name, path->vlan_id);
-		return -EINVAL;
-	}
-	if (path->vlan_id) {
-		vlan_iface = nic_find_vlan_iface_protocol(nic, nic_iface,
-							  path->vlan_id,
-							  AF_INET);
-		if (vlan_iface == NULL) {
-			LOG_INFO(PFX "%s couldn't find interface with VLAN = %d"
-				 "ip_type: 0x%x creating it",
-				 nic->log_name, path->vlan_id, AF_INET);
-
-			/*  Create the nic interface */
-			vlan_iface = nic_iface_init();
-
-			if (vlan_iface == NULL) {
-				LOG_ERR(PFX "Couldn't allocate nic_iface for "
-					"VLAN: %d", vlan_iface,
-					path->vlan_id);
-				return -EINVAL;
-			}
-
-			vlan_iface->protocol = nic_iface->protocol;
-			vlan_iface->vlan_id = path->vlan_id;
-			vlan_iface->ustack.ip_config =
-						nic_iface->ustack.ip_config;
-			memcpy(vlan_iface->ustack.hostaddr,
-			       nic_iface->ustack.hostaddr,
-			       sizeof(nic_iface->ustack.hostaddr));
-			memcpy(vlan_iface->ustack.netmask,
-			       nic_iface->ustack.netmask,
-			       sizeof(nic_iface->ustack.netmask));
-			nic_add_vlan_iface(nic, nic_iface, vlan_iface);
-		} else {
-			LOG_INFO(PFX "%s: using existing vlan interface",
-				 nic->log_name);
-		}
-		nic_iface = vlan_iface;
-	}
-
 #define MAX_ARP_RETRY 4
 
+	memset(mac_addr, 0, sizeof(mac_addr));
 	memcpy(&dst_addr, &path->dst.v4_addr, sizeof(dst_addr));
 	memcpy(&src_addr, nic_iface->ustack.hostaddr, sizeof(src_addr));
 
@@ -445,20 +391,15 @@ int cnic_handle_ipv4_iscsi_path_req(nic_t * nic, int fd,
 				ts.tv_sec = tp_abs.tv_sec;
 				ts.tv_nsec = tp_abs.tv_usec * 1000;
 
-				pthread_mutex_unlock(&nic_list_mutex);
+				/* Wait 1s for if_down */
+				pthread_mutex_lock(&nic->nl_process_mutex);
 				rc = pthread_cond_timedwait
-				    (&nl_process_if_down_cond,
-				     &nl_process_mutex, &ts);
+						(&nic->nl_process_if_down_cond,
+						 &nic->nl_process_mutex, &ts);
 
 				if (rc == ETIMEDOUT) {
-					pthread_mutex_unlock(&nl_process_mutex);
-
-					if (pthread_mutex_trylock
-					    (&nic_list_mutex) != 0) {
-						arp_retry = MAX_ARP_RETRY;
-						goto done;
-
-					}
+					pthread_mutex_unlock
+						(&nic->nl_process_mutex);
 
 					rc = uip_lookup_arp_entry(dst_addr.
 								  s_addr,
@@ -466,8 +407,9 @@ int cnic_handle_ipv4_iscsi_path_req(nic_t * nic, int fd,
 					if (rc == 0)
 						goto done;
 				} else {
-					nl_process_if_down = 0;
-					pthread_mutex_unlock(&nl_process_mutex);
+					nic->nl_process_if_down = 0;
+					pthread_mutex_unlock
+						(&nic->nl_process_mutex);
 
 					arp_retry = MAX_ARP_RETRY;
 					goto done;
@@ -491,9 +433,6 @@ done:
 
 	cnic_nl_neigh_rsp(nic, fd, ev, path, mac_addr,
 			  nic_iface, status, AF_INET);
-
-	pthread_mutex_unlock(&nic_list_mutex);
-
 	return rc;
 }
 
@@ -507,9 +446,9 @@ done:
  */
 int cnic_handle_ipv6_iscsi_path_req(nic_t * nic, int fd,
 				    struct iscsi_uevent *ev,
-				    struct iscsi_path *path)
+				    struct iscsi_path *path,
+				    nic_interface_t *nic_iface)
 {
-	nic_interface_t *nic_iface, *vlan_iface;
 	__u8 mac_addr[6];
 	int rc, i;
 	uint16_t neighbor_retry;
@@ -525,52 +464,6 @@ int cnic_handle_ipv6_iscsi_path_req(nic_t * nic, int fd,
 	inet_ntop(AF_INET6, &path->dst.v6_addr,
 		  addr_dst_str, sizeof(addr_dst_str));
 
-	pthread_mutex_lock(&nic_list_mutex);
-
-	/*  Find the proper interface via VLAN id */
-	nic_iface = nic_find_nic_iface_protocol(nic, 0, AF_INET6);
-	if (nic_iface == NULL) {
-		pthread_mutex_unlock(&nic_list_mutex);
-		LOG_ERR(PFX "%s: Couldn't find net_iface vlan_id: %d",
-			nic->log_name, path->vlan_id);
-		return -EINVAL;
-	}
-	if (path->vlan_id) {
-		vlan_iface = nic_find_vlan_iface_protocol(nic, nic_iface,
-							  path->vlan_id,
-							  AF_INET6);
-		if (vlan_iface == NULL) {
-			LOG_INFO(PFX "%s couldn't find interface with VLAN = %d"
-				 "ip_type: 0x%x creating it",
-				 nic->log_name, path->vlan_id, AF_INET6);
-
-			/*  Create the nic interface */
-			vlan_iface = nic_iface_init();
-
-			if (vlan_iface == NULL) {
-				LOG_ERR(PFX "Couldn't allocate nic_iface for "
-					"VLAN: %d", vlan_iface,
-					path->vlan_id);
-				return -EINVAL;
-			}
-			vlan_iface->protocol = nic_iface->protocol;
-			vlan_iface->vlan_id = path->vlan_id;
-			vlan_iface->ustack.ip_config =
-						nic_iface->ustack.ip_config;
-			memcpy(vlan_iface->ustack.hostaddr6,
-			       nic_iface->ustack.hostaddr6,
-			       sizeof(nic_iface->ustack.hostaddr6));
-			memcpy(vlan_iface->ustack.netmask6,
-			       nic_iface->ustack.netmask6,
-			       sizeof(nic_iface->ustack.netmask6));
-			nic_add_vlan_iface(nic, nic_iface, vlan_iface);
-		} else {
-			LOG_INFO(PFX "%s: using existing vlan interface",
-				 nic->log_name);
-		}
-		nic_iface = vlan_iface;
-	}
-
 	/*  Depending on the IPv6 address of the target we will need to
 	 *  determine whether we use the assigned IPv6 address or the
 	 *  link local IPv6 address */
@@ -584,12 +477,7 @@ int cnic_handle_ipv6_iscsi_path_req(nic_t * nic, int fd,
 	if (rc) {
 		LOG_DEBUG(PFX "Use LL");
 		/* Get link local IPv6 address */
-		if (ndpc_request(&nic_iface->ustack, NULL,
-				 &addr, GET_LINK_LOCAL_ADDR)) {
-			neighbor_retry = MAX_ARP_RETRY;
-			LOG_DEBUG(PFX "Use LL failed");
-			goto done;
-		}
+		addr = (struct in6_addr *)&nic_iface->ustack.linklocal6;
 	} else {
 		LOG_DEBUG(PFX "Use Best matched");
 		if (ndpc_request(&nic_iface->ustack,
@@ -703,20 +591,14 @@ int cnic_handle_ipv6_iscsi_path_req(nic_t * nic, int fd,
 				ts.tv_sec = tp_abs.tv_sec;
 				ts.tv_nsec = tp_abs.tv_usec * 1000;
 
-				pthread_mutex_unlock(&nic_list_mutex);
+				pthread_mutex_lock(&nic->nl_process_mutex);
 				rc = pthread_cond_timedwait
-				    (&nl_process_if_down_cond,
-				     &nl_process_mutex, &ts);
+				    (&nic->nl_process_if_down_cond,
+				     &nic->nl_process_mutex, &ts);
 
 				if (rc == ETIMEDOUT) {
-					pthread_mutex_unlock(&nl_process_mutex);
-
-					if (pthread_mutex_trylock
-					    (&nic_list_mutex) != 0) {
-						neighbor_retry = MAX_ARP_RETRY;
-						goto done;
-
-					}
+					pthread_mutex_unlock
+						(&nic->nl_process_mutex);
 
 					req_ptr.eth = (void *)mac_addr;
 					req_ptr.ipv6 = (void *)&dst_addr;
@@ -730,8 +612,9 @@ int cnic_handle_ipv6_iscsi_path_req(nic_t * nic, int fd,
 					if (rc)
 						goto done;
 				} else {
-					nl_process_if_down = 0;
-					pthread_mutex_unlock(&nl_process_mutex);
+					nic->nl_process_if_down = 0;
+					pthread_mutex_unlock
+						(&nic->nl_process_mutex);
 
 					neighbor_retry = MAX_ARP_RETRY;
 					goto done;
@@ -752,9 +635,6 @@ done:
 
 	cnic_nl_neigh_rsp(nic, fd, ev, path, mac_addr,
 			  nic_iface, status, AF_INET6);
-
-	pthread_mutex_unlock(&nic_list_mutex);
-
 	return rc;
 }
 
@@ -764,11 +644,12 @@ done:
  * @param nic - The nic the message is directed towards
  * @param fd  - The file descriptor to be used to extract the private data
  * @param ev  - The iscsi_uevent
- * @param buf - The private message buffer
- * @param buf_len - The private message buffer length
+ * @param path - The private message buffer
+ * @param nic_iface - The nic_iface to use for this connection request
  */
 int cnic_handle_iscsi_path_req(nic_t * nic, int fd, struct iscsi_uevent *ev,
-			       struct iscsi_path *path)
+			       struct iscsi_path *path,
+			       nic_interface_t *nic_iface)
 {
 
 	LOG_DEBUG(PFX "%s: Netlink message with VLAN ID: %d, path MTU: %d "
@@ -777,9 +658,11 @@ int cnic_handle_iscsi_path_req(nic_t * nic, int fd, struct iscsi_uevent *ev,
 		  path->ip_addr_len);
 
 	if (path->ip_addr_len == 4)
-		return cnic_handle_ipv4_iscsi_path_req(nic, fd, ev, path);
+		return cnic_handle_ipv4_iscsi_path_req(nic, fd, ev, path,
+						       nic_iface);
 	else if (path->ip_addr_len == 16)
-		return cnic_handle_ipv6_iscsi_path_req(nic, fd, ev, path);
+		return cnic_handle_ipv6_iscsi_path_req(nic, fd, ev, path,
+						       nic_iface);
 	else {
 		LOG_DEBUG(PFX "%s: unknown ip_addr_len: %d size dropping ",
 			  nic->log_name, path->ip_addr_len);

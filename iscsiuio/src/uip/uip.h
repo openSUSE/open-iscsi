@@ -1564,6 +1564,7 @@ struct uip_stack {
 				   a new connection. */
 #endif				/* UIP_ACTIVE_OPEN */
 
+#define IP_CONFIG_OFF			0x00
 #define IPV4_CONFIG_OFF			0x01
 #define IPV4_CONFIG_STATIC		0x02
 #define IPV4_CONFIG_DHCP		0x04
@@ -1573,8 +1574,24 @@ struct uip_stack {
 	u8_t ip_config;
 
 	uip_ip4addr_t hostaddr, netmask, default_route_addr;
-	uip_ip6addr_t hostaddr6, netmask6, default_route_addr6;
+	uip_ip6addr_t hostaddr6, netmask6, default_route_addr6,
+		      linklocal6;
 	int prefix_len;
+	u8_t ipv6_autocfg;
+#define IPV6_AUTOCFG_DHCPV6		(1<<0)
+#define IPV6_AUTOCFG_ND			(1<<1)
+#define IPV6_AUTOCFG_NOTSPEC		(1<<6)
+#define IPV6_AUTOCFG_NOTUSED		(1<<7)
+	u8_t linklocal_autocfg;
+#define IPV6_LL_AUTOCFG_ON		(1<<0)
+#define IPV6_LL_AUTOCFG_OFF		(1<<1)
+#define IPV6_LL_AUTOCFG_NOTSPEC		(1<<6)
+#define IPV6_LL_AUTOCFG_NOTUSED		(1<<7)
+	u8_t router_autocfg;
+#define IPV6_RTR_AUTOCFG_ON		(1<<0)
+#define IPV6_RTR_AUTOCFG_OFF		(1<<1)
+#define IPV6_RTR_AUTOCFG_NOTSPEC	(1<<6)
+#define IPV6_RTR_AUTOCFG_NOTUSED	(1<<7)
 
 #define UIP_NEIGHBOR_ENTRIES 8
 	struct neighbor_entry neighbor_entries[UIP_NEIGHBOR_ENTRIES];
@@ -1586,7 +1603,6 @@ struct uip_stack {
 	pthread_mutex_t lock;
 
 	/*  IPv6 support */
-
 #define UIP_SUPPORT_IPv6_ENABLED	0x01
 #define UIP_SUPPORT_IPv6_DISABLED	0x02
 	u8_t enable_IPv6;

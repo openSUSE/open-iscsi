@@ -70,20 +70,28 @@ struct iscsid_options {
 	pthread_t thread;
 };
 
-struct ip_addr_mask {
-	int ip_type;
-	union {
-		struct in_addr addr4;
-		struct in6_addr addr6;
-	} addr;
-	union {
-		struct in_addr nm4;
-		struct in6_addr nm6;
-	} netmask;
-#define addr4		addr.addr4
-#define addr6		addr.addr6
-#define nm4		netmask.nm4
-#define nm6		netmask.nm6
+struct iface_rec_decode {
+	/* General */
+	int32_t			iface_num;
+	uint32_t		ip_type;
+
+	/* IPv4 */
+	struct in_addr		ipv4_addr;
+	struct in_addr		ipv4_subnet_mask;
+	struct in_addr		ipv4_gateway;
+
+	/* IPv6 */
+	struct in6_addr		ipv6_addr;
+	struct in6_addr		ipv6_subnet_mask;
+	uint32_t		prefix_len;
+	struct in6_addr		ipv6_linklocal;
+	struct in6_addr		ipv6_router;
+
+	uint8_t			ipv6_autocfg;
+	uint8_t                 linklocal_autocfg;
+	uint8_t                 router_autocfg;
+
+	uint16_t		vlan_id;
 };
 
 /******************************************************************************
@@ -119,8 +127,7 @@ static void *enable_nic_thread(void *data)
 	pthread_exit(NULL);
 }
 
-static int decode_cidr(char *in_ipaddr_str, struct ip_addr_mask *ipam,
-		       int *prefix_len)
+static int decode_cidr(char *in_ipaddr_str, struct iface_rec_decode *ird)
 {
 	int rc = 0, i;
 	char *tmp, *tok;
@@ -130,7 +137,6 @@ static int decode_cidr(char *in_ipaddr_str, struct ip_addr_mask *ipam,
 	struct in_addr ia;
 	struct in6_addr ia6;
 
-	memset(ipam, 0, sizeof(struct ip_addr_mask));
 	if (strlen(in_ipaddr_str) > NI_MAXHOST)
 		strncpy(ipaddr_str, in_ipaddr_str, NI_MAXHOST);
 	else
@@ -149,16 +155,16 @@ static int decode_cidr(char *in_ipaddr_str, struct ip_addr_mask *ipam,
 
 	/*  Determine if the IP address passed from the iface file is
 	 *  an IPv4 or IPv6 address */
-	rc = inet_pton(AF_INET, ipaddr_str, &ipam->addr6);
+	rc = inet_pton(AF_INET, ipaddr_str, &ird->ipv6_addr);
 	if (rc == 0) {
 		/* Test to determine if the addres is an IPv6 address */
-		rc = inet_pton(AF_INET6, ipaddr_str, &ipam->addr6);
+		rc = inet_pton(AF_INET6, ipaddr_str, &ird->ipv6_addr);
 		if (rc == 0) {
 			LOG_ERR(PFX "Could not parse IP address: '%s'",
 				ipaddr_str);
 			goto out;
 		}
-		ipam->ip_type = AF_INET6;
+		ird->ip_type = AF_INET6;
 		if (keepbits > 128) {
 			LOG_ERR(PFX "CIDR netmask > 128 for IPv6: %d(%s)",
 				keepbits, tmp);
@@ -166,15 +172,14 @@ static int decode_cidr(char *in_ipaddr_str, struct ip_addr_mask *ipam,
 		}
 		if (!keepbits) {
 			/* Default prefix mask to 64 */
-			memcpy(&ipam->nm6.s6_addr, all_zeroes_addr6,
+			memcpy(&ird->ipv6_subnet_mask.s6_addr, all_zeroes_addr6,
 			       sizeof(struct in6_addr));
 			for (i = 0; i < 2; i++)
-				ipam->nm6.s6_addr32[i] = 0xffffffff;
+				ird->ipv6_subnet_mask.s6_addr32[i] = 0xffffffff;
 			goto out;
 		}
-		*prefix_len = keepbits;
-		memcpy(&ia6.s6_addr, all_zeroes_addr6,
-		       sizeof(struct in6_addr));
+		ird->prefix_len = keepbits;
+		memcpy(&ia6.s6_addr, all_zeroes_addr6, sizeof(struct in6_addr));
 		for (i = 0; i < 4; i++) {
 			if (keepbits < 32) {
 				ia6.s6_addr32[i] = keepbits > 0 ?
@@ -184,12 +189,12 @@ static int decode_cidr(char *in_ipaddr_str, struct ip_addr_mask *ipam,
 				ia6.s6_addr32[i] = 0xFFFFFFFF;
 			keepbits -= 32;
 		}
-		ipam->nm6 = ia6;
+		ird->ipv6_subnet_mask = ia6;
 		if (inet_ntop(AF_INET6, &ia6, str, sizeof(str)))
 			LOG_INFO(PFX "Using netmask: %s", str);
 	} else {
-		ipam->ip_type = AF_INET;
-		rc = inet_pton(AF_INET, ipaddr_str, &ipam->addr4);
+		ird->ip_type = AF_INET;
+		rc = inet_pton(AF_INET, ipaddr_str, &ird->ipv4_addr);
 
 		if (keepbits > 32) {
 			LOG_ERR(PFX "CIDR netmask > 32 for IPv4: %d(%s)",
@@ -197,30 +202,126 @@ static int decode_cidr(char *in_ipaddr_str, struct ip_addr_mask *ipam,
 			goto out;
 		}
 		ia.s_addr = keepbits > 0 ? 0x00 - (1 << (32 - keepbits)) : 0;
-		ipam->nm4.s_addr = htonl(ia.s_addr);
-		LOG_INFO(PFX "Using netmask: %s", inet_ntoa(ipam->nm4));
+		ird->ipv4_subnet_mask.s_addr = htonl(ia.s_addr);
+		LOG_INFO(PFX "Using netmask: %s",
+			 inet_ntoa(ird->ipv4_subnet_mask));
 	}
 out:
 	return rc;
 }
 
+static int decode_iface(struct iface_rec_decode *ird, struct iface_rec *rec)
+{
+	int rc = 0;
+	char ipaddr_str[NI_MAXHOST];
+
+	/* Decodes the rec contents */
+	memset(ird, 0, sizeof(struct iface_rec_decode));
+
+	/*  Detect for CIDR notation and strip off the netmask if present */
+	rc = decode_cidr(rec->ipaddress, ird);
+	if (rc && !ird->ip_type) {
+		LOG_ERR(PFX "cidr decode err: rc=%d, ip_type=%d",
+			rc, ird->ip_type)
+		/* Can't decode address, just exit */
+		return rc;
+	}
+	rc = 0;
+
+	ird->iface_num = rec->iface_num;
+	ird->vlan_id = rec->vlan_id;
+	if (rec->iface_num != IFACE_NUM_INVALID) {
+		if (ird->ip_type == AF_INET6) {
+			if (!strcmp(rec->ipv6_autocfg, "dhcpv6"))
+				ird->ipv6_autocfg = IPV6_AUTOCFG_DHCPV6;
+			else if (!strcmp(rec->ipv6_autocfg, "nd"))
+				ird->ipv6_autocfg = IPV6_AUTOCFG_ND;
+			else
+				ird->ipv6_autocfg = IPV6_AUTOCFG_NOTSPEC;
+
+			if (!strcmp(rec->linklocal_autocfg, "auto"))
+				ird->linklocal_autocfg = IPV6_LL_AUTOCFG_ON;
+			else if (!strcmp(rec->linklocal_autocfg, "off"))
+				ird->linklocal_autocfg = IPV6_LL_AUTOCFG_OFF;
+			else /* default */
+				ird->linklocal_autocfg = IPV6_LL_AUTOCFG_ON;
+
+			if (!strcmp(rec->router_autocfg, "auto"))
+				ird->router_autocfg = IPV6_RTR_AUTOCFG_ON;
+			else if (!strcmp(rec->router_autocfg, "off"))
+				ird->router_autocfg = IPV6_RTR_AUTOCFG_OFF;
+			else /* default */
+				ird->router_autocfg = IPV6_RTR_AUTOCFG_ON;
+
+			/* Decode the addresses based on the control flags */
+			/* For DHCP, ignore the IPv6 addr in the iface */
+			if (ird->ipv6_autocfg == IPV6_AUTOCFG_DHCPV6)
+				memcpy(&ird->ipv6_addr, all_zeroes_addr6,
+				       sizeof(struct in6_addr));
+			/* Subnet mask priority: CIDR, then rec */
+			if (!ird->ipv6_subnet_mask.s6_addr)
+				inet_pton(AF_INET, rec->subnet_mask,
+					  &ird->ipv6_subnet_mask);
+
+			/* For LL on, ignore the IPv6 addr in the iface */
+			if (ird->linklocal_autocfg == IPV6_LL_AUTOCFG_OFF) {
+				if (strlen(rec->ipv6_linklocal) > NI_MAXHOST)
+					strncpy(ipaddr_str, rec->ipv6_linklocal,
+						NI_MAXHOST);
+				else
+					strcpy(ipaddr_str, rec->ipv6_linklocal);
+				inet_pton(AF_INET6, ipaddr_str,
+					  &ird->ipv6_linklocal);
+			}
+
+			/* For RTR on, ignore the IPv6 addr in the iface */
+			if (ird->router_autocfg == IPV6_RTR_AUTOCFG_OFF) {
+				if (strlen(rec->ipv6_router) > NI_MAXHOST)
+					strncpy(ipaddr_str, rec->ipv6_router,
+						NI_MAXHOST);
+				else
+					strcpy(ipaddr_str, rec->ipv6_router);
+				inet_pton(AF_INET6, ipaddr_str,
+					  &ird->ipv6_router);
+			}
+		} else {
+			/* Subnet mask priority: CIDR, rec, default */
+			if (!ird->ipv4_subnet_mask.s_addr)
+				inet_pton(AF_INET, rec->subnet_mask,
+					  &ird->ipv4_subnet_mask);
+			if (!ird->ipv4_subnet_mask.s_addr)
+				ird->ipv4_subnet_mask.s_addr =
+					calculate_default_netmask(
+							ird->ipv4_addr.s_addr);
+
+			if (strlen(rec->gateway) > NI_MAXHOST)
+				strncpy(ipaddr_str, rec->gateway, NI_MAXHOST);
+			else
+				strcpy(ipaddr_str, rec->gateway);
+			inet_pton(AF_INET, ipaddr_str, &ird->ipv4_gateway);
+		}
+	} else {
+		ird->ipv6_autocfg = IPV6_AUTOCFG_NOTUSED;
+		ird->linklocal_autocfg = IPV6_LL_AUTOCFG_NOTUSED;
+		ird->router_autocfg = IPV6_RTR_AUTOCFG_NOTUSED;
+	}
+	return rc;
+}
+
 static int parse_iface(void *arg)
 {
-	int rc;
+	int rc, i;
 	nic_t *nic = NULL;
-	nic_interface_t *nic_iface, *vlan_iface, *base_nic_iface;
+	nic_interface_t *nic_iface;
 	char *transport_name;
 	size_t transport_name_size;
 	nic_lib_handle_t *handle;
 	iscsid_uip_broadcast_t *data;
-	short int vlan;
 	char ipv6_buf_str[INET6_ADDRSTRLEN];
 	int request_type = 0;
-	struct in_addr netmask;
-	int i, prefix_len = 64;
-	struct ip_addr_mask ipam;
 	struct iface_rec *rec;
 	void *res;
+	struct iface_rec_decode ird;
 
 	data = (iscsid_uip_broadcast_t *) arg;
 	rec = &data->u.iface_rec.rec;
@@ -231,24 +332,16 @@ static int parse_iface(void *arg)
 		 rec->ipaddress,
 		 rec->vlan_id);
 
-	vlan = rec->vlan_id;
-	if (vlan && valid_vlan(vlan) == 0) { 
-		LOG_ERR(PFX "Invalid VLAN tag: %d",
-			rec->vlan_id)
-		    rc = -EIO;
+	rc = decode_iface(&ird, rec);
+	if (ird.vlan_id && valid_vlan(ird.vlan_id) == 0) {
+		LOG_ERR(PFX "Invalid VLAN tag: %d", ird.vlan_id);
+		rc = -EIO;
 		goto early_exit;
 	}
-
-	/*  Detect for CIDR notation and strip off the netmask if present */
-	rc = decode_cidr(rec->ipaddress, &ipam, &prefix_len);
-	if (rc && !ipam.ip_type) {
-		LOG_ERR(PFX "decode_cidr: rc=%d, ipam.ip_type=%d",
-			rc, ipam.ip_type)
-		    goto early_exit;
+	if (rc && !ird.ip_type) {
+		LOG_ERR(PFX "iface err: rc=%d, ip_type=%d", rc,	ird.ip_type);
+		goto early_exit;
 	}
-	if (ipam.ip_type == AF_INET6)
-		inet_ntop(AF_INET6, &ipam.addr6, ipv6_buf_str,
-			  sizeof(ipv6_buf_str));
 
 	for (i = 0; i < 10; i++) {
 		struct timespec sleep_req, sleep_rem;
@@ -262,11 +355,11 @@ static int parse_iface(void *arg)
 	}
 
 	if (i >= 10) {
-		LOG_WARN(PFX "Could not aquire nic_list_mutex lock");
-
+		LOG_WARN(PFX "Could not acquire nic_list_mutex lock");
 		rc = -EIO;
 		goto early_exit;
 	}
+	/* nic_list_mutex locked */
 
 	/*  Check if we can find the NIC device using the netdev
 	 *  name */
@@ -302,20 +395,21 @@ static int parse_iface(void *arg)
 		LOG_INFO(PFX " %s, using existing NIC", rec->netdev);
 	}
 
+	pthread_mutex_lock(&nic->nic_mutex);
 	if (nic->flags & NIC_GOING_DOWN) {
+		pthread_mutex_unlock(&nic->nic_mutex);
 		rc = -EIO;
 		LOG_INFO(PFX "nic->flags GOING DOWN");
 		goto done;
 	}
 
-	/*  If we retry too many times allow iscsid to to timeout */
+	/*  If we retry too many times allow iscsid to timeout */
 	if (nic->pending_count > 1000) {
-		LOG_WARN(PFX "%s: pending count excceded 1000", nic->log_name);
-
-		pthread_mutex_lock(&nic->nic_mutex);
 		nic->pending_count = 0;
 		nic->flags &= ~NIC_ENABLED_PENDING;
 		pthread_mutex_unlock(&nic->nic_mutex);
+
+		LOG_WARN(PFX "%s: pending count exceeded 1000", nic->log_name);
 
 		rc = 0;
 		goto done;
@@ -324,18 +418,19 @@ static int parse_iface(void *arg)
 	if (nic->flags & NIC_ENABLED_PENDING) {
 		struct timespec sleep_req, sleep_rem;
 
+		nic->pending_count++;
+		pthread_mutex_unlock(&nic->nic_mutex);
+
 		sleep_req.tv_sec = 0;
 		sleep_req.tv_nsec = 100000;
 		nanosleep(&sleep_req, &sleep_rem);
 
-		pthread_mutex_lock(&nic->nic_mutex);
-		nic->pending_count++;
-		pthread_mutex_unlock(&nic->nic_mutex);
-
 		LOG_INFO(PFX "%s: enabled pending", nic->log_name);
+
 		rc = -EAGAIN;
 		goto done;
 	}
+	pthread_mutex_unlock(&nic->nic_mutex);
 
 	prepare_library(nic);
 
@@ -362,66 +457,9 @@ static int parse_iface(void *arg)
 	LOG_INFO(PFX "%s library set using transport_name %s",
 		 nic->log_name, transport_name);
 
-	/*  Create the base network interface if it doesn't exist */
-	nic_iface = nic_find_nic_iface_protocol(nic, 0, ipam.ip_type);
-	if (nic_iface == NULL) {
-		LOG_INFO(PFX "%s couldn't find interface with "
-			 "ip_type: 0x%x creating it",
-			 nic->log_name, ipam.ip_type);
-
-		/*  Create the nic interface */
-		nic_iface = nic_iface_init();
-
-		if (nic_iface == NULL) {
-			LOG_ERR(PFX "Couldn't allocate nic_iface", nic_iface);
-			goto done;
-		}
-
-		nic_iface->protocol = ipam.ip_type;
-		nic_add_nic_iface(nic, nic_iface);
-
-		persist_all_nic_iface(nic);
-
-		LOG_INFO(PFX "%s: created network interface", nic->log_name);
-	} else {
-		LOG_INFO(PFX "%s: using existing network interface",
-			 nic->log_name);
-	}
-
-	set_nic_iface(nic, nic_iface);
-
-	/* Find the vlan nic_interface */
-	if (vlan) {
-		vlan_iface = nic_find_vlan_iface_protocol(nic, nic_iface, vlan,
-							  ipam.ip_type);
-		if (vlan_iface == NULL) {
-			LOG_INFO(PFX "%s couldn't find interface with VLAN = %d"
-				 "ip_type: 0x%x creating it",
-				 nic->log_name, vlan, ipam.ip_type);
-
-			/*  Create the nic interface */
-			vlan_iface = nic_iface_init();
-
-			if (vlan_iface == NULL) {
-				LOG_ERR(PFX "Couldn't allocate nic_iface for VLAN: %d",
-					vlan_iface, vlan);
-				goto done;
-			}
-
-			vlan_iface->protocol = ipam.ip_type;
-			vlan_iface->vlan_id = vlan;
-			nic_add_vlan_iface(nic, nic_iface, vlan_iface);
-		} else {
-			LOG_INFO(PFX "%s: using existing vlan interface",
-				 nic->log_name);
-		}
-		base_nic_iface = nic_iface;
-		nic_iface = vlan_iface;
-	}
-
 	/*  Determine how to configure the IP address */
-	if (ipam.ip_type == AF_INET) {
-		if (memcmp(&ipam.addr4,
+	if (ird.ip_type == AF_INET) {
+		if (memcmp(&ird.ipv4_addr,
 			   all_zeroes_addr4, sizeof(uip_ip4addr_t)) == 0) {
 			LOG_INFO(PFX "%s: requesting configuration using DHCP",
 				 nic->log_name);
@@ -431,51 +469,154 @@ static int parse_iface(void *arg)
 				 "static IP address", nic->log_name);
 			request_type = IPV4_CONFIG_STATIC;
 		}
-	} else if (ipam.ip_type == AF_INET6) {
-		if (memcmp(&ipam.addr6,
-			   all_zeroes_addr6, sizeof(uip_ip6addr_t)) == 0) {
-			LOG_INFO(PFX
-				 "%s: requesting configuration using DHCPv6",
-				 nic->log_name);
+	} else if (ird.ip_type == AF_INET6) {
+		/* For the new 872_22, check ipv6_autocfg for DHCPv6 instead */
+		switch (ird.ipv6_autocfg) {
+		case IPV6_AUTOCFG_DHCPV6:
 			request_type = IPV6_CONFIG_DHCP;
-		} else {
-			LOG_INFO(PFX "%s: request configuration using static "
-				 "IPv6 address: '%s'",
-				 nic->log_name, ipv6_buf_str);
+			break;
+		case IPV6_AUTOCFG_ND:
 			request_type = IPV6_CONFIG_STATIC;
+			break;
+		case IPV6_AUTOCFG_NOTSPEC:
+			/* Treat NOTSPEC the same as NOTUSED for now */
+		case IPV6_AUTOCFG_NOTUSED:
+			/* For 871 */
+		default:
+			/* Just the IP address to determine */
+			if (memcmp(&ird.ipv6_addr,
+				   all_zeroes_addr6,
+				   sizeof(struct in6_addr)) == 0)
+				request_type = IPV6_CONFIG_DHCP;
+			else
+				request_type = IPV6_CONFIG_STATIC;
 		}
 	} else {
 		LOG_ERR(PFX "%s: unknown ip_type to configure: 0x%x",
-			nic->log_name, ipam.ip_type);
+			nic->log_name, ird.ip_type);
 
 		rc = -EIO;
 		goto done;
 	}
 
+	pthread_mutex_lock(&nic->nic_mutex);
+
+	nic_iface = nic_find_nic_iface(nic, ird.ip_type, ird.vlan_id,
+				       ird.iface_num, request_type);
+
+	if (nic->flags & NIC_PATHREQ_WAIT) {
+		if (!nic_iface ||
+		    !(nic_iface->flags & NIC_IFACE_PATHREQ_WAIT)) {
+			int pathreq_wait;
+
+			if (nic_iface &&
+			    (nic_iface->flags & NIC_IFACE_PATHREQ_WAIT2))
+				pathreq_wait = 10000;
+			else
+				pathreq_wait = 1000;
+
+			if (nic->pathreq_pending_count < pathreq_wait) {
+				struct timespec sleep_req, sleep_rem;
+
+				pthread_mutex_unlock(&nic->nic_mutex);
+
+				nic->pathreq_pending_count++;
+				sleep_req.tv_sec = 0;
+				sleep_req.tv_nsec = 100000;
+				nanosleep(&sleep_req, &sleep_rem);
+				/* Somebody else is waiting for PATH_REQ */
+				LOG_INFO(PFX "%s: path req pending",
+					 nic->log_name);
+				rc = -EAGAIN;
+				goto done;
+			} else {
+				nic->pathreq_pending_count = 0;
+				LOG_DEBUG(PFX "%s: path req pending cnt "
+					  "exceeded!", nic->log_name);
+				/* Allow to fall thru */
+			}
+		}
+	}
+
+	nic->flags |= NIC_PATHREQ_WAIT;
+
+	/* Create the network interface if it doesn't exist */
+	if (nic_iface == NULL) {
+		LOG_DEBUG(PFX "%s couldn't find interface with "
+			  "ip_type: 0x%x creating it",
+			  nic->log_name, ird.ip_type);
+		nic_iface = nic_iface_init();
+
+		if (nic_iface == NULL) {
+			pthread_mutex_unlock(&nic->nic_mutex);
+			LOG_ERR(PFX "%s Couldn't allocate "
+				"interface with ip_type: 0x%x",
+				nic->log_name, ird.ip_type);
+			goto done;
+		}
+		nic_iface->protocol = ird.ip_type;
+		nic_iface->vlan_id = ird.vlan_id;
+		nic_iface->iface_num = ird.iface_num;
+		nic_iface->request_type = request_type;
+		nic_add_nic_iface(nic, nic_iface);
+
+		persist_all_nic_iface(nic);
+
+		LOG_INFO(PFX "%s: created network interface",
+			 nic->log_name);
+	} else {
+		/* Move the nic_iface to the front */
+		set_nic_iface(nic, nic_iface);
+		LOG_INFO(PFX "%s: using existing network interface",
+			 nic->log_name);
+	}
+
+	nic_iface->flags |= NIC_IFACE_PATHREQ_WAIT1;
+	if (nic->nl_process_thread == INVALID_THREAD) {
+		rc = pthread_create(&nic->nl_process_thread, NULL,
+				    nl_process_handle_thread, nic);
+		if (rc != 0) {
+			LOG_ERR(PFX "%s: Could not create NIC NL "
+				"processing thread [%s]", nic->log_name,
+				strerror(rc));
+			nic->nl_process_thread = INVALID_THREAD;
+			/* Reset both WAIT flags */
+			nic_iface->flags &= ~NIC_IFACE_PATHREQ_WAIT;
+			nic->flags &= ~NIC_PATHREQ_WAIT;
+		}
+	}
+
+	pthread_mutex_unlock(&nic->nic_mutex);
+
 	if (nic_iface->ustack.ip_config == request_type) {
+		/* Same request_type, check for STATIC address change */
 		if (request_type == IPV4_CONFIG_STATIC) {
-			if (memcmp(nic_iface->ustack.hostaddr, &ipam.addr4,
+			if (memcmp(nic_iface->ustack.hostaddr, &ird.ipv4_addr,
 				   sizeof(struct in_addr)))
-				goto diff;
+				goto reacquire;
 		} else if (request_type == IPV6_CONFIG_STATIC) {
-			if (memcmp(nic_iface->ustack.hostaddr6, &ipam.addr6,
+			if (memcmp(nic_iface->ustack.hostaddr6, &ird.ipv6_addr,
 				   sizeof(struct in6_addr)))
-				goto diff;
+				goto reacquire;
+			else
+				inet_ntop(AF_INET6, &ird.ipv6_addr,
+					  ipv6_buf_str,
+					  sizeof(ipv6_buf_str));
 		}
 		LOG_INFO(PFX "%s: IP configuration didn't change using 0x%x",
 			 nic->log_name, nic_iface->ustack.ip_config);
+		/* No need to acquire the IP address */
 		goto enable_nic;
-diff:
-		/* Disable the NIC */
-		nic_disable(nic, 0);
-	} else {
-		if (request_type == IPV4_CONFIG_DHCP
-		    || request_type == IPV6_CONFIG_DHCP)
-			nic->flags |= NIC_RESET_UIP;
-
-		/* Disable the NIC */
-		nic_disable(nic, 0);
 	}
+reacquire:
+	/* Config needs to re-acquire for this nic_iface */
+	pthread_mutex_lock(&nic->nic_mutex);
+	nic_iface->flags |= NIC_IFACE_ACQUIRE;
+	pthread_mutex_unlock(&nic->nic_mutex);
+
+	/* Disable the nic loop from further processing, upon returned,
+	   the nic_iface should be cleared */
+	nic_disable(nic, 0);
 
 	/*  Check to see if this is using DHCP or if this is
 	 *  a static IPv4 address.  This is done by checking
@@ -488,97 +629,92 @@ diff:
 		memset(nic_iface->ustack.hostaddr, 0, sizeof(struct in_addr));
 		LOG_INFO(PFX "%s: configuring using DHCP", nic->log_name);
 		nic_iface->ustack.ip_config = IPV4_CONFIG_DHCP;
-
 		break;
+
 	case IPV4_CONFIG_STATIC:
-		memcpy(nic_iface->ustack.hostaddr, &ipam.addr4,
+		memcpy(nic_iface->ustack.hostaddr, &ird.ipv4_addr,
 		       sizeof(struct in_addr));
 		LOG_INFO(PFX "%s: configuring using static IP "
 			 "IPv4 address :%s ",
-			 nic->log_name, inet_ntoa(ipam.addr4));
-		netmask.s_addr = ipam.nm4.s_addr;
-		if (!netmask.s_addr)
-			netmask.s_addr =
-			    calculate_default_netmask(ipam.addr4.s_addr);
-		memcpy(nic_iface->ustack.netmask,
-		       &netmask, sizeof(netmask.s_addr));
-		LOG_INFO(PFX "  netmask :%s", inet_ntoa(netmask));
+			 nic->log_name, inet_ntoa(ird.ipv4_addr));
+
+		if (ird.ipv4_subnet_mask.s_addr)
+			memcpy(nic_iface->ustack.netmask,
+			       &ird.ipv4_subnet_mask, sizeof(struct in_addr));
+		LOG_INFO(PFX " netmask: %s", inet_ntoa(ird.ipv4_subnet_mask));
+
+		/* Default route */
+		if (ird.ipv4_gateway.s_addr)
+			memcpy(nic_iface->ustack.default_route_addr,
+			       &ird.ipv4_gateway, sizeof(struct in_addr));
 
 		nic_iface->ustack.ip_config = IPV4_CONFIG_STATIC;
 		break;
+
 	case IPV6_CONFIG_DHCP:
 		memset(nic_iface->ustack.hostaddr6, 0,
 		       sizeof(struct in6_addr));
-		nic_iface->ustack.prefix_len = prefix_len;
-		if (ipam.nm6.s6_addr[0] | ipam.nm6.s6_addr[1] |
-		    ipam.nm6.s6_addr[2] | ipam.nm6.s6_addr[3] |
-		    ipam.nm6.s6_addr[4] | ipam.nm6.s6_addr[5] |
-		    ipam.nm6.s6_addr[6] | ipam.nm6.s6_addr[7])
+		nic_iface->ustack.prefix_len = ird.prefix_len;
+		nic_iface->ustack.ipv6_autocfg = ird.ipv6_autocfg;
+		nic_iface->ustack.linklocal_autocfg = ird.linklocal_autocfg;
+		nic_iface->ustack.router_autocfg = ird.router_autocfg;
+
+		if (memcmp(&ird.ipv6_subnet_mask, all_zeroes_addr6,
+			   sizeof(struct in6_addr)))
 			memcpy(nic_iface->ustack.netmask6,
-			       &ipam.nm6, sizeof(struct in6_addr));
+			       &ird.ipv6_subnet_mask, sizeof(struct in6_addr));
+		/* Do not allow linklocal override
+		if (ird.linklocal_autocfg == IPV6_LL_AUTOCFG_OFF)
+			memcpy(nic_iface->ustack.linklocal6,
+			       &ird.ipv6_linklocal, sizeof(struct in6_addr));
+		*/
+		/* Will get override by NDP if enabled */
+		/* Do not allow RTR override for DHCP
+		if (ird.router_autocfg == IPV6_RTR_AUTOCFG_OFF)
+			memcpy(nic_iface->ustack.default_route_addr6,
+			       &ird.ipv6_router, sizeof(struct in6_addr));
+		*/
 		LOG_INFO(PFX "%s: configuring using DHCPv6",
 			 nic->log_name);
 		nic_iface->ustack.ip_config = IPV6_CONFIG_DHCP;
 		break;
+
 	case IPV6_CONFIG_STATIC:
-		memcpy(nic_iface->ustack.hostaddr6, &ipam.addr6,
+		memcpy(nic_iface->ustack.hostaddr6, &ird.ipv6_addr,
 		       sizeof(struct in6_addr));
+		nic_iface->ustack.prefix_len = ird.prefix_len;
+		nic_iface->ustack.ipv6_autocfg = ird.ipv6_autocfg;
+		nic_iface->ustack.linklocal_autocfg = ird.linklocal_autocfg;
+		nic_iface->ustack.router_autocfg = ird.router_autocfg;
 
-		nic_iface->ustack.prefix_len = prefix_len;
-		if (ipam.nm6.s6_addr[0] | ipam.nm6.s6_addr[1] |
-		    ipam.nm6.s6_addr[2] | ipam.nm6.s6_addr[3] |
-		    ipam.nm6.s6_addr[4] | ipam.nm6.s6_addr[5] |
-		    ipam.nm6.s6_addr[6] | ipam.nm6.s6_addr[7])
+		if (memcmp(&ird.ipv6_subnet_mask, all_zeroes_addr6,
+			   sizeof(struct in6_addr)))
 			memcpy(nic_iface->ustack.netmask6,
-			       &ipam.nm6, sizeof(struct in6_addr));
+			       &ird.ipv6_subnet_mask, sizeof(struct in6_addr));
+		if (ird.linklocal_autocfg == IPV6_LL_AUTOCFG_OFF)
+			memcpy(nic_iface->ustack.linklocal6,
+			       &ird.ipv6_linklocal, sizeof(struct in6_addr));
+		if (ird.router_autocfg == IPV6_RTR_AUTOCFG_OFF)
+			memcpy(nic_iface->ustack.default_route_addr6,
+			       &ird.ipv6_router, sizeof(struct in6_addr));
 
+		inet_ntop(AF_INET6, &ird.ipv6_addr, ipv6_buf_str,
+			  sizeof(ipv6_buf_str));
 		LOG_INFO(PFX "%s: configuring using static IP "
 			 "IPv6 address: '%s'", nic->log_name, ipv6_buf_str);
 
 		nic_iface->ustack.ip_config = IPV6_CONFIG_STATIC;
 		break;
+
 	default:
 		LOG_INFO(PFX "%s: Unknown request type: 0x%x",
 			 nic->log_name, request_type);
 
 	}
 
-	/* Configuration changed, do VLAN WA */
-	vlan_iface = nic_iface->vlan_next;
-	while (vlan_iface) {
-		/* TODO: When VLAN support is placed in the iface file
-		* revisit this code */
-		if (vlan_iface->ustack.ip_config) {
-			vlan_iface->ustack.ip_config =
-				nic_iface->ustack.ip_config;
-			memcpy(vlan_iface->ustack.hostaddr,
-			       nic_iface->ustack.hostaddr,
-			       sizeof(nic_iface->ustack.hostaddr));
-			memcpy(vlan_iface->ustack.netmask,
-			       nic_iface->ustack.netmask,
-			       sizeof(nic_iface->ustack.netmask));
-			memcpy(vlan_iface->ustack.hostaddr6,
-			       nic_iface->ustack.hostaddr6,
-			       sizeof(nic_iface->ustack.hostaddr6));
-			memcpy(vlan_iface->ustack.netmask6,
-			       nic_iface->ustack.netmask6,
-			       sizeof(nic_iface->ustack.netmask6));
-		}
-		vlan_iface = vlan_iface->vlan_next;
-	}
-
 enable_nic:
-	if (nic->state & NIC_STOPPED) {
-		pthread_mutex_lock(&nic->nic_mutex);
-		if (nic->flags & NIC_ENABLED_PENDING) {
-			/* Still waiting */
-			pthread_mutex_unlock(&nic->nic_mutex);
-			rc = 0;
-			goto enable_out;
-		}
-		nic->flags |= NIC_ENABLED_PENDING;
-		pthread_mutex_unlock(&nic->nic_mutex);
-
+	switch (nic->state) {
+	case NIC_STOPPED:
 		/* This thread will be thrown away when completed */
 		if (nic->enable_thread != INVALID_THREAD) {
 			rc = pthread_join(nic->enable_thread, &res);
@@ -595,19 +731,27 @@ enable_nic:
 				 nic->log_name);
 eagain:
 		rc = -EAGAIN;
-	} else {
+		break;
+
+	case NIC_RUNNING:
 		LOG_INFO(PFX "%s: NIC already enabled "
 			 "flags: 0x%x state: 0x%x\n",
 			 nic->log_name, nic->flags, nic->state);
 		rc = 0;
+		break;
+	default:
+		LOG_INFO(PFX "%s: NIC enable still in progress "
+			 "flags: 0x%x state: 0x%x\n",
+			 nic->log_name, nic->flags, nic->state);
+		rc = -EAGAIN;
 	}
-enable_out:
+
 	LOG_INFO(PFX "ISCSID_UIP_IPC_GET_IFACE: command: %x "
 		 "name: %s, netdev: %s ipaddr: %s vlan: %d transport_name:%s",
 		 data->header.command, rec->name, rec->netdev,
-		 (ipam.ip_type == AF_INET) ? inet_ntoa(ipam.addr4) :
+		 (ird.ip_type == AF_INET) ? inet_ntoa(ird.ipv4_addr) :
 					     ipv6_buf_str,
-		 vlan, rec->transport_name);
+		 ird.vlan_id, rec->transport_name);
 
 done:
 	pthread_mutex_unlock(&nic_list_mutex);

@@ -208,6 +208,7 @@ int nic_discover_iscsi_hosts()
 
 	default:
 		/*  There are iSCSI hosts */
+		pthread_mutex_lock(&nic_list_mutex);
 		for (i = 0; i < count; i++) {
 			int host_no;
 			char *raw = NULL;
@@ -267,6 +268,7 @@ int nic_discover_iscsi_hosts()
 
 			free(raw);
 		}
+		pthread_mutex_unlock(&nic_list_mutex);
 
 		/*  Cleanup the scandir() call */
 		for (i = 0; i < count; i++)
@@ -402,6 +404,7 @@ static char *extract_none(struct dirent **files)
 /**
  *  from_host_no_find_nic() - Given the host number
  *      this function will try to find the assoicated nic interface
+ *  Must be called with nic_list_mutex lock
  *  @param host_no - minor number of the UIO device
  *  @param nic - pointer to the NIC will set if successful
  *  @return 0 on success, <0 on error
@@ -431,7 +434,6 @@ int from_host_no_find_associated_eth_device(int host_no, nic_t ** nic)
 
 	rc = -EIO;
 
-	pthread_mutex_lock(&nic_list_mutex);
 	current_nic = nic_list;
 	while (current_nic != NULL) {
 		if (strcmp(raw, current_nic->eth_device_name) == 0) {
@@ -442,7 +444,6 @@ int from_host_no_find_associated_eth_device(int host_no, nic_t ** nic)
 
 		current_nic = current_nic->next;
 	}
-	pthread_mutex_unlock(&nic_list_mutex);
 
 	free(raw);
 
@@ -923,7 +924,7 @@ int nic_enable(nic_t * nic)
 			 nic->log_name, nic->flags, nic->state);
 		return -EINVAL;
 	}
-	if (nic->state & NIC_STOPPED) {
+	if (nic->state == NIC_STOPPED) {
 		struct timespec ts;
 		struct timeval tp;
 		int rc;
@@ -940,48 +941,20 @@ int nic_enable(nic_t * nic)
 		rc = gettimeofday(&tp, NULL);
 		ts.tv_sec = tp.tv_sec;
 		ts.tv_nsec = tp.tv_usec * 1000;
-		ts.tv_sec += 10;
+		ts.tv_sec += 100;
 
 		/*  Wait for the device to be enabled */
 		rc = pthread_cond_timedwait(&nic->enable_done_cond,
 					    &nic->nic_mutex, &ts);
-#if 0
-		if (rc || !nic->flags & NIC_ENABLED) {
-			/* Give it one more shout */
-			pthread_cond_broadcast(&nic->enable_wait_cond);
-			rc = gettimeofday(&tp, NULL);
-			ts.tv_sec = tp.tv_sec;
-			ts.tv_nsec = tp.tv_usec * 1000;
-			ts.tv_sec += 5;
-			rc = pthread_cond_timedwait(&nic->enable_done_cond,
-						    &nic->nic_mutex, &ts);
-		}
-#endif
-		nic->flags &= ~NIC_ENABLED_PENDING;
-
 		if (rc == 0 && nic->flags & NIC_ENABLED) {
 			LOG_DEBUG(PFX "%s: device enabled", nic->log_name);
 		} else {
-			LOG_ERR(PFX "%s: waiting to finish nic_enable err:%s",
+			nic->flags &= ~NIC_ENABLED;
+			nic->flags |= NIC_DISABLED;
+			nic->flags &= ~NIC_ENABLED_PENDING;
+
+			LOG_ERR(PFX "%s: waiting to finish nic_enable err: %s",
 				nic->log_name, strerror(rc));
-			/* Must clean up the ustack */
-			nic_interface_t *nic_iface = nic->nic_iface;
-			nic_interface_t *vlan_iface; 
-			while (nic_iface != NULL) {
-				LOG_INFO(PFX "%s: resetting uIP stack",
-					 nic->log_name);
-				uip_reset(&nic_iface->ustack);
-				vlan_iface = nic_iface->vlan_next;
-				while (vlan_iface != NULL) {
-					LOG_INFO(PFX "%s: resetting "
-						 "vlan uIP stack",
-						 nic->log_name);
-					uip_reset(&vlan_iface->ustack);
-					vlan_iface =
-						vlan_iface->vlan_next;
-				}
-				nic_iface = nic_iface->next;
-			}
 		}
 		pthread_mutex_unlock(&nic->nic_mutex);
 
@@ -1001,7 +974,8 @@ int nic_enable(nic_t * nic)
  */
 int nic_disable(nic_t * nic, int going_down)
 {
-	if (nic->state & (NIC_STARTED_RUNNING | NIC_RUNNING)) {
+	if (nic->state == NIC_STARTED_RUNNING ||
+	    nic->state == NIC_RUNNING) {
 		struct timespec ts;
 		struct timeval tp;
 		int rc;
@@ -1012,8 +986,7 @@ int nic_disable(nic_t * nic, int going_down)
 		nic->flags &= ~NIC_ENABLED;
 		nic->flags |= NIC_DISABLED;
 		nic->flags &= ~NIC_STARTED_RUNNING;
-		nic->state &= ~NIC_RUNNING;
-		nic->state |= NIC_STOPPED;
+		nic->state = NIC_STOPPED;
 
 		if (going_down)
 			nic->flags |= NIC_GOING_DOWN;
@@ -1070,7 +1043,9 @@ void nic_remove_all()
 	nic = nic_list;
 	while (nic != NULL) {
 		nic_next = nic->next;
+		pthread_mutex_lock(&nic->nic_mutex);
 		nic_close(nic, 1, FREE_ALL_STRINGS);
+		pthread_mutex_unlock(&nic->nic_mutex);
 		nic_remove(nic);
 		nic = nic_next;
 	}
@@ -1127,13 +1102,12 @@ error:
  *  nic_set_all_nic_iface_mac_to_parent() - This is a utility function used to 
  *      intialize all the MAC addresses of the network interfaces for a given
  *      CNIC UIO device
+ * Call with nic mutex held
  *  @param dev - CNIC UIO device to initialize
  */
 void nic_set_all_nic_iface_mac_to_parent(nic_t * nic)
 {
 	nic_interface_t *current, *vlan_current;
-
-	pthread_mutex_lock(&nic->nic_mutex);
 
 	current = nic->nic_iface;
 	while (current != NULL) {
@@ -1148,8 +1122,6 @@ void nic_set_all_nic_iface_mac_to_parent(nic_t * nic)
 		}
 		current = current->next;
 	}
-
-	pthread_mutex_unlock(&nic->nic_mutex);
 }
 
 /*******************************************************************************
@@ -1272,143 +1244,135 @@ void nic_fill_ethernet_header(nic_interface_t * nic_iface,
  *  NIC interface management utility functions
  ******************************************************************************/
 /**
- *  nic_find_nic_iface() - This function is used to find an interface from the 
- *                         NIC
- *  @param nic - NIC to look for network interfaces
- *  @param vlan_id - VLAN id to look for
- *  @return nic_iface - if found network interface with the given VLAN ID
- *                      if not found a NULL is returned
- */
-nic_interface_t *nic_find_nic_iface(nic_t * nic, uint16_t vlan_id)
-{
-	nic_interface_t *current;
-
-	pthread_mutex_lock(&nic->nic_mutex);
-
-	current = nic->nic_iface;
-	while (current != NULL) {
-		if (current->vlan_id == vlan_id) {
-			pthread_mutex_unlock(&nic->nic_mutex);
-			return current;
-		}
-
-		current = current->next;
-	}
-
-	pthread_mutex_unlock(&nic->nic_mutex);
-
-	return NULL;
-}
-
-/**
- *  nic_find_nic_iface_protocol() - This function is used to find an interface
- *                                  from the NIC
+ *  nic_find_nic_iface() - This function is used to find an interface
+ *                         from the NIC
  *  @param nic - NIC to look for network interfaces
  *  @param vlan_id - VLAN id to look for
  *  @param protocol - either AF_INET or AF_INET6
+ *  @param iface_num - iface num to use if present
+ *  @param request_type - IPV4/6 DHCP/STATIC
  *  @return nic_iface - if found network interface with the given VLAN ID
  *                      if not found a NULL is returned
  */
-nic_interface_t *nic_find_nic_iface_protocol(nic_t * nic,
-					     uint16_t vlan_id,
-					     uint16_t protocol)
+nic_interface_t *nic_find_nic_iface(nic_t *nic,
+				    uint16_t protocol,
+				    uint16_t vlan_id,
+				    int iface_num,
+				    int request_type)
 {
-	nic_interface_t *current;
+	nic_interface_t *current = nic->nic_iface;
+	nic_interface_t *current_vlan = NULL;
 
-	pthread_mutex_lock(&nic->nic_mutex);
-
-	current = nic->nic_iface;
 	while (current != NULL) {
-		if ((current->vlan_id == vlan_id) &&
-		    (current->protocol == protocol)) {
-			pthread_mutex_unlock(&nic->nic_mutex);
-			return current;
-		}
+		if (current->protocol != protocol)
+			goto next;
 
+		/* Check for iface_num first */
+		if (iface_num != IFACE_NUM_INVALID &&
+		    current->iface_num == iface_num) {
+			/* Exception is when iface_num == 0, need to
+			   check for request_type also if != IP_CONFIG_OFF */
+			if (!iface_num && request_type != IP_CONFIG_OFF) {
+				if (current->request_type == request_type)
+					goto found;
+			} else
+				goto found;
+		}
+		if (vlan_id == NO_VLAN)
+			/* Just return the top of the family */
+			goto found;
+		if ((current->vlan_id == vlan_id) &&
+		    ((request_type == IP_CONFIG_OFF) ||
+		    (current->request_type == request_type)))
+			goto found;
+
+		/* vlan_next loop */
+		current_vlan = current->vlan_next;
+		while (current_vlan != NULL) {
+			if (iface_num != IFACE_NUM_INVALID &&
+			    current_vlan->iface_num == iface_num)
+				if (!iface_num && request_type !=
+				    IP_CONFIG_OFF) {
+					if (current_vlan->request_type ==
+					    request_type)
+						goto vlan_found;
+				} else
+					goto vlan_found;
+			if ((current_vlan->vlan_id == vlan_id) &&
+			    ((request_type == IP_CONFIG_OFF) ||
+			    (current_vlan->request_type == request_type)))
+				goto vlan_found;
+			current_vlan = current_vlan->vlan_next;
+		}
+next:
 		current = current->next;
 	}
-
-	pthread_mutex_unlock(&nic->nic_mutex);
-
-	return NULL;
+vlan_found:
+	current = current_vlan;
+found:
+	return current;
 }
 
+/* Called with nic mutex held */
 void persist_all_nic_iface(nic_t * nic)
 {
-	nic_interface_t *current, *vlan_iface;
-
-	pthread_mutex_lock(&nic->nic_mutex);
+	nic_interface_t *current_vlan, *current;
 
 	current = nic->nic_iface;
 	while (current != NULL) {
 		current->flags |= NIC_IFACE_PERSIST;
-		vlan_iface = current->vlan_next;
-		while (vlan_iface != NULL) {
-			vlan_iface->flags |= NIC_IFACE_PERSIST;
-			vlan_iface = vlan_iface->vlan_next;
+		current_vlan = current->vlan_next;
+		while (current_vlan != NULL) {
+			current_vlan->flags |= NIC_IFACE_PERSIST;
+			current_vlan = current_vlan->vlan_next;
 		}
 		current = current->next;
 	}
-
-	pthread_mutex_unlock(&nic->nic_mutex);
 }
 
-/**
- *  nic_find_vlan_iface_protocol() - This function is used to find an interface
- *                                   from the NIC
- *  @param nic_iface - Base NIC to look for the vlan interfaces
- *  @param vlan_id - VLAN id to look for
- *  @param protocol - either AF_INET or AF_INET6
- *  @return nic_iface - if found network interface with the given VLAN ID
- *                      if not found a NULL is returned
- */
-nic_interface_t *nic_find_vlan_iface_protocol(nic_t *nic,
-					      nic_interface_t *nic_iface,
-					      uint16_t vlan_id,
-					      uint16_t protocol)
-{
-	nic_interface_t *current;
-
-	pthread_mutex_lock(&nic->nic_mutex);
-
-	current = nic_iface->vlan_next;
-	while (current != NULL) {
-		if ((current->vlan_id == vlan_id) &&
-		    (current->protocol == protocol)) {
-			pthread_mutex_unlock(&nic->nic_mutex);
-			return current;
-		}
-		current = current->vlan_next;
-	}
-
-	pthread_mutex_unlock(&nic->nic_mutex);
-	return NULL;
-}
-
+/* Sets the nic_iface to the front of the AF */
 void set_nic_iface(nic_t *nic, nic_interface_t *nic_iface)
 {
 	nic_interface_t *current, *prev;
+	nic_interface_t *current_vlan, *prev_vlan;
 
-	pthread_mutex_lock(&nic->nic_mutex);
-
-	if (nic->nic_iface == nic_iface)
-		goto done;
-
-	prev = nic->nic_iface;
-	current = nic->nic_iface->next;
+	prev = NULL;
+	current = nic->nic_iface;
 	while (current != NULL) {
-		if (current == nic_iface) {
-			prev->next = current->next;
-			current->next = nic->nic_iface;
-			nic->nic_iface = current;
+		if (current->protocol != nic_iface->protocol)
+			goto next;
+		/* If its already on top of the list, exit */
+		if (current == nic_iface)
 			goto done;
+
+		prev_vlan = current;
+		current_vlan = current->vlan_next;
+
+		while (current_vlan != NULL) {
+			if (current_vlan == nic_iface) {
+				/* Found inside the vlan list */
+				/* For vlan == 0, place on top of
+				   the AF list */
+				prev_vlan->vlan_next =
+						current_vlan->vlan_next;
+				current_vlan->vlan_next = current;
+				if (prev)
+					prev->next = current_vlan;
+				else
+					nic->nic_iface = current_vlan;
+				goto done;
+			}
+			prev_vlan = current_vlan;
+			current_vlan = current_vlan->vlan_next;
 		}
+next:
 		prev = current;
 		current = current->next;
 	}
 done:
-	pthread_mutex_unlock(&nic->nic_mutex);
+	return;
 }
+
 /*******************************************************************************
  *  Packet management utility functions
  ******************************************************************************/

@@ -234,6 +234,8 @@ struct iscsi_path {
 		struct in6_addr v6_addr;
 	} dst;
 	uint16_t        vlan_id;
+#define IFACE_NUM_PRESENT (1<<0)
+#define IFACE_NUM_INVALID -1
 	uint16_t        pmtu;
 }  __attribute__ ((aligned (sizeof(uint64_t))));
 

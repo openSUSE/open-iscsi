@@ -67,7 +67,9 @@ void nic_fill_ethernet_header(nic_interface_t * nic_iface,
 			      int *pkt_size, void **start_addr,
 			      uint16_t ether_type);
 
-nic_interface_t *nic_find_nic_iface(nic_t * nic, uint16_t vlan_id);
+struct nic_interface *nic_find_nic_iface(nic_t *nic, uint16_t protocol,
+					 uint16_t vlan_id, int iface_num,
+					 int request_type);
 void set_nic_iface(nic_t *nic, nic_interface_t *nic_iface);
 
 void persist_all_nic_iface(nic_t * nic);

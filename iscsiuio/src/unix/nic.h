@@ -67,6 +67,8 @@ extern struct nic_lib_handle *nic_lib_list;
 extern pthread_mutex_t nic_list_mutex;
 extern struct nic *nic_list;
 
+extern void *nl_process_handle_thread(void *arg);
+
 /*******************************************************************************
  *  Constants
  ******************************************************************************/
@@ -117,20 +119,29 @@ struct nic_stats {
  * NIC interface structure
  ******************************************************************************/
 typedef struct nic_interface {
+	struct nic_interface *vlan_next;
 	struct nic_interface *next;
 	struct nic *parent;
 
 	uint16_t protocol;
 	uint16_t flags;
-#define NIC_IFACE_PERSIST	0x0001
+#define NIC_IFACE_PERSIST	(1<<0)
+#define NIC_IFACE_ACQUIRE	(1<<1)
+#define NIC_IFACE_PATHREQ_WAIT1	(1<<2)
+#define NIC_IFACE_PATHREQ_WAIT2 (1<<3)
+#define NIC_IFACE_PATHREQ_WAIT	(NIC_IFACE_PATHREQ_WAIT1 | \
+				 NIC_IFACE_PATHREQ_WAIT2)
 	uint8_t mac_addr[ETH_ALEN];
 	uint8_t vlan_priority;
 	uint16_t vlan_id;
+#define NO_VLAN		0x8000
 
 	time_t start_time;
 
 	struct uip_stack ustack;
-	struct nic_interface *vlan_next;
+
+	int iface_num;
+	int request_type;
 } nic_interface_t;
 
 /******************************************************************************
@@ -178,8 +189,9 @@ typedef struct nic_ops {
 	int (*clear_tx_intr) (struct nic *);
 	int (*handle_iscsi_path_req) (struct nic *,
 				      int,
-				      struct iscsi_uevent * ev,
-				      struct iscsi_path * path);
+				      struct iscsi_uevent *ev,
+				      struct iscsi_path *path,
+				      nic_interface_t *nic_iface);
 } net_ops_t;
 
 typedef struct nic_lib_handle {
@@ -199,6 +211,9 @@ typedef struct nic {
 #define NIC_DISABLED		0x0008
 #define NIC_IPv6_ENABLED	0x0010
 #define NIC_ADDED_MULICAST	0x0020
+#define NIC_LONG_SLEEP		0x0040
+#define NIC_PATHREQ_WAIT	0x0080
+
 #define NIC_VLAN_STRIP_ENABLED	0x0100
 #define NIC_MSIX_ENABLED	0x0200
 #define NIC_TX_HAS_SENT		0x0400
@@ -214,7 +229,6 @@ typedef struct nic {
 #define NIC_STOPPED		0x0001
 #define NIC_STARTED_RUNNING	0x0002
 #define NIC_RUNNING		0x0004
-#define NIC_LONG_SLEEP		0x0008
 #define NIC_EXIT		0x0010
 
 	int fd;			/* Holds the file descriptor to UIO */
@@ -232,6 +246,7 @@ typedef struct nic {
 
 	uint32_t intr_count;	/* Total UIO interrupt count            */
 
+	/* Held for nic ops manipulation */
 	pthread_mutex_t nic_mutex;
 
 	/*  iSCSI ring ethernet MAC address */
@@ -268,6 +283,7 @@ typedef struct nic {
 
 	/*  Number of retrys from iscsid */
 	uint32_t pending_count;
+	uint32_t pathreq_pending_count;
 
 #define DEFAULT_RX_POLL_USEC	100	/* usec */
 	/* options enabled by the user */
@@ -295,6 +311,19 @@ typedef struct nic {
 	int (*process_intr) (struct nic * nic);
 
 	struct nic_ops *ops;
+
+	/* NL processing parameters */
+	pthread_t nl_process_thread;
+	pthread_cond_t nl_process_cond;
+	pthread_cond_t nl_process_if_down_cond;
+	pthread_mutex_t nl_process_mutex;
+	int nl_process_if_down;
+	int nl_process_head;
+	int nl_process_tail;
+#define NIC_NL_PROCESS_MAX_RING_SIZE        128
+#define NIC_NL_PROCESS_LAST_ENTRY           (NIC_NL_PROCESS_MAX_RING_SIZE - 1)
+#define NIC_NL_PROCESS_NEXT_ENTRY(x) ((x) & NIC_NL_PROCESS_MAX_RING_SIZE)
+	void *nl_process_ring[NIC_NL_PROCESS_MAX_RING_SIZE];
 } nic_t;
 
 /******************************************************************************
@@ -307,8 +336,6 @@ void nic_add(nic_t * nic);
 int nic_remove(nic_t * nic);
 
 int nic_add_nic_iface(nic_t * nic, nic_interface_t * nic_iface);
-int nic_add_vlan_iface(nic_t * nic, nic_interface_t * nic_iface,
-		       nic_interface_t *vlan_iface);
 int nic_process_intr(nic_t * nic, int discard_check);
 
 nic_interface_t *nic_iface_init();
@@ -339,14 +366,6 @@ int enable_multicast(nic_t * nic);
 int disable_multicast(nic_t * nic);
 
 void nic_set_all_nic_iface_mac_to_parent(nic_t * nic);
-struct nic_interface *nic_find_nic_iface(nic_t * nic, uint16_t vlan_id);
-struct nic_interface *nic_find_nic_iface_protocol(nic_t * nic,
-						  uint16_t vlan_id,
-						  uint16_t protocol);
-struct nic_interface *nic_find_vlan_iface_protocol(nic_t *nic,
-						   nic_interface_t *nic_iface,
-						   uint16_t vlan_id,
-						   uint16_t protocol);
 int find_nic_lib_using_pci_id(uint32_t vendor, uint32_t device,
 			      uint32_t subvendor, uint32_t subdevice,
 			      nic_lib_handle_t ** handle,

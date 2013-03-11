@@ -469,7 +469,9 @@ static int bnx2_open(nic_t * nic)
 			manually_trigger_uio_event(nic, nic->uio_minor);
 
 			/*  udev might not have created the file yet */
+			pthread_mutex_unlock(&nic->nic_mutex);
 			sleep(1);
+			pthread_mutex_lock(&nic->nic_mutex);
 		}
 	}
 	if (fstat(nic->fd, &uio_stat) < 0) {
@@ -882,8 +884,8 @@ void bnx2_start_xmit(nic_t * nic, size_t len, u16_t vlan_id)
 	rxbd = (struct rx_bd *)(((__u8 *) bp->tx_ring) + getpagesize());
 
 	if ((rxbd->rx_bd_haddr_hi == 0) && (rxbd->rx_bd_haddr_lo == 0)) {
-		LOG_DEBUG(PFX "%s: trying to transmit when device is closed",
-			  nic->log_name);
+		LOG_PACKET(PFX "%s: trying to transmit when device is closed",
+			   nic->log_name);
 		pthread_mutex_unlock(&nic->xmit_mutex);
 		return;
 	}
@@ -909,8 +911,8 @@ void bnx2_start_xmit(nic_t * nic, size_t len, u16_t vlan_id)
 	bnx2_reg_sync(bp, bp->tx_bidx_io, sizeof(__u16));
 	bnx2_reg_sync(bp, bp->tx_bseq_io, sizeof(__u32));
 
-	LOG_DEBUG(PFX "%s: sent %d bytes using dev->tx_prod: %d",
-		  nic->log_name, len, bp->tx_prod);
+	LOG_PACKET(PFX "%s: sent %d bytes using dev->tx_prod: %d",
+		   nic->log_name, len, bp->tx_prod);
 }
 
 /**
@@ -939,8 +941,8 @@ int bnx2_write(nic_t * nic, nic_interface_t * nic_iface, packet_t * pkt)
 	}
 
 	if (pthread_mutex_trylock(&nic->xmit_mutex) != 0) {
-		LOG_DEBUG(PFX "%s: Dropped previous transmitted packet",
-			  nic->log_name);
+		LOG_PACKET(PFX "%s: Dropped previous transmitted packet",
+			   nic->log_name);
 		return -EINVAL;
 	}
 
@@ -951,10 +953,10 @@ int bnx2_write(nic_t * nic, nic_interface_t * nic_iface, packet_t * pkt)
 	nic->stats.tx.packets++;
 	nic->stats.tx.bytes += uip->uip_len;
 
-	LOG_DEBUG(PFX "%s: transmitted %d bytes "
-		  "dev->tx_cons: %d, dev->tx_prod: %d, dev->tx_bseq:%d",
-		  nic->log_name, pkt->buf_size,
-		  bp->tx_cons, bp->tx_prod, bp->tx_bseq);
+	LOG_PACKET(PFX "%s: transmitted %d bytes "
+		   "dev->tx_cons: %d, dev->tx_prod: %d, dev->tx_bseq:%d",
+		   nic->log_name, pkt->buf_size,
+		   bp->tx_cons, bp->tx_prod, bp->tx_bseq);
 
 	return 0;
 }
@@ -988,8 +990,8 @@ static int bnx2_read(nic_t * nic, packet_t * pkt)
 		int len;
 		uint16_t errors;
 
-		LOG_DEBUG(PFX "%s: clearing rx interrupt: %d %d %d",
-			  nic->log_name, sw_cons, hw_cons, rx_index);
+		LOG_PACKET(PFX "%s: clearing rx interrupt: %d %d %d",
+			   nic->log_name, sw_cons, hw_cons, rx_index);
 
 		msync(rx_hdr, sizeof(struct l2_fhdr), MS_SYNC);
 		errors = ((rx_hdr->l2_fhdr_status & 0xffff0000) >> 16);
@@ -1037,8 +1039,8 @@ static int bnx2_read(nic_t * nic, packet_t * pkt)
 
 				rc = 1;
 
-				LOG_DEBUG(PFX "%s: processing packet "
-					  "length: %d", nic->log_name, len);
+				LOG_PACKET(PFX "%s: processing packet "
+					   "length: %d", nic->log_name, len);
 			} else {
 				/*  If the NIC passes up a packet bigger
 				 *  then the RX buffer, flag it */
@@ -1090,8 +1092,8 @@ static int bnx2_clear_tx_intr(nic_t * nic)
 		bp->flags &= ~BNX2_UIO_TX_HAS_SENT;
 	}
 
-	LOG_DEBUG(PFX "%s: clearing tx interrupt [%d %d]",
-		  nic->log_name, bp->tx_cons, hw_cons);
+	LOG_PACKET(PFX "%s: clearing tx interrupt [%d %d]",
+		   nic->log_name, bp->tx_cons, hw_cons);
 
 	bp->tx_cons = hw_cons;
 
@@ -1101,7 +1103,7 @@ static int bnx2_clear_tx_intr(nic_t * nic)
 	if (nic->tx_packet_queue != NULL) {
 		packet_t *pkt;
 
-		LOG_DEBUG(PFX "%s: sending queued tx packet", nic->log_name);
+		LOG_PACKET(PFX "%s: sending queued tx packet", nic->log_name);
 		pkt = nic_dequeue_tx_packet(nic);
 
 		/*  Got a TX packet buffer of the TX queue and put it onto
@@ -1112,11 +1114,11 @@ static int bnx2_clear_tx_intr(nic_t * nic)
 			bnx2_start_xmit(nic, pkt->buf_size,
 					pkt->nic_iface->vlan_id);
 
-			LOG_DEBUG(PFX "%s: transmitted queued packet %d bytes "
-				  "dev->tx_cons: %d, dev->tx_prod: %d, "
-				  "dev->tx_bseq:%d",
-				  nic->log_name, pkt->buf_size,
-				  bp->tx_cons, bp->tx_prod, bp->tx_bseq);
+			LOG_PACKET(PFX "%s: transmitted queued packet %d bytes "
+				   "dev->tx_cons: %d, dev->tx_prod: %d, "
+				   "dev->tx_bseq:%d",
+				   nic->log_name, pkt->buf_size,
+				   bp->tx_cons, bp->tx_prod, bp->tx_bseq);
 
 			return -EAGAIN;
 		}

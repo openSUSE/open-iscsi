@@ -880,7 +880,7 @@ STATIC void ipv6_icmp_handle_router_adv(pIPV6_CONTEXT ipv6_context)
 			ipv6_context->flags |= IPV6_FLAGS_OTHER_STATEFUL_CONFIG;
 
 		if (icmp->nd_ra_router_lifetime != 0) {
-			/* This is a default router. */
+			/* There is a default router. */
 			memcpy((char __FAR__ *)&ipv6_context->default_router,
 			       (char __FAR__ *)&ipv6->ipv6_src,
 			       sizeof(IPV6_ADDR));
@@ -1126,7 +1126,8 @@ STATIC void ipv6_icmp_handle_echo_request(pIPV6_CONTEXT ipv6_context)
 
 void ipv6_set_ip_params(pIPV6_CONTEXT ipv6_context,
 			pIPV6_ADDR src_ip, u8_t prefix_len,
-			pIPV6_ADDR default_gateway)
+			pIPV6_ADDR default_gateway,
+			pIPV6_ADDR linklocal)
 {
 	if (!(IPV6_IS_ADDR_UNSPECIFIED(src_ip))) {
 		ipv6_add_prefix_entry(ipv6_context, src_ip, prefix_len);
@@ -1146,9 +1147,14 @@ void ipv6_set_ip_params(pIPV6_CONTEXT ipv6_context,
 	}
 
 	if (!(IPV6_IS_ADDR_UNSPECIFIED(default_gateway))) {
-		/* This is a default router. */
-		memcpy((char __FAR__ *)&ipv6_context->default_router,
-		       (char __FAR__ *)default_gateway, sizeof(IPV6_ADDR));
+		/* Override the default gateway addr */
+		memcpy((char __FAR__*)&ipv6_context->default_router,
+		       (char __FAR__*)default_gateway, sizeof(IPV6_ADDR));
+	}
+	if (!(IPV6_IS_ADDR_UNSPECIFIED(linklocal))) {
+		/* Override the linklocal addr */
+		memcpy((char __FAR__*)&ipv6_context->link_local_addr,
+		       (char __FAR__*)linklocal, sizeof(IPV6_ADDR));
 	}
 }
 

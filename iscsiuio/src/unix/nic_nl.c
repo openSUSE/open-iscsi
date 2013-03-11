@@ -83,20 +83,6 @@ const static struct sockaddr_nl dest_addr = {
 /* Netlink */
 int nl_sock = INVALID_FD;
 
-/*  Items used to handle the thread used to send/process ARP's */
-static pthread_t nl_process_thread;
-static pthread_cond_t nl_process_cond;
-pthread_cond_t nl_process_if_down_cond;
-pthread_mutex_t nl_process_mutex;
-int nl_process_if_down = 0;
-
-#define NL_PROCESS_MAX_RING_SIZE	128
-#define NL_PROCESS_LAST_ENTRY		NL_PROCESS_MAX_RING_SIZE - 1
-#define NL_PROCESS_NEXT_ENTRY(x) ((x) & NL_PROCESS_MAX_RING_SIZE)
-static int nl_process_head;
-static int nl_process_tail;
-static void *nl_process_ring[NL_PROCESS_MAX_RING_SIZE];
-
 #define MAX_TX_DESC_CNT (TX_DESC_CNT - 1)
 
 #define NEXT_TX_BD(x) (((x) & (MAX_TX_DESC_CNT - 1)) ==                 \
@@ -272,7 +258,7 @@ static int pull_from_nl(char **buf)
 
 	*buf = data;
 	return 0;
-      error:
+error:
 	if (data != NULL)
 		free(data);
 
@@ -284,9 +270,8 @@ const static struct timespec ctldev_sleep_req = {
 	.tv_nsec = 250000000,
 };
 
-static int ctldev_handle(char *data)
+static int ctldev_handle(char *data, nic_t *nic)
 {
-	nic_t *nic = NULL;
 	int rc;
 	struct iscsi_uevent *ev;
 	uint8_t *payload;
@@ -294,18 +279,12 @@ static int ctldev_handle(char *data)
 	char *msg_type_str;
 	uint32_t host_no;
 	int i;
+	nic_interface_t *nic_iface = NULL;
 
 	ev = (struct iscsi_uevent *)NLMSG_DATA(data);
 	switch (ev->type) {
 	case ISCSI_KEVENT_PATH_REQ:
 		msg_type_str = "path_req";
-
-		host_no = ev->r.req_path.host_no;
-		break;
-	case ISCSI_KEVENT_IF_DOWN:
-		msg_type_str = "if_down";
-
-		host_no = ev->r.notify_if_down.host_no;
 		break;
 	default:
 		/*  We don't care about other iSCSI Netlink messages */
@@ -315,22 +294,16 @@ static int ctldev_handle(char *data)
 	}
 
 	/*  This is a message that drivers should be interested in */
-	LOG_INFO("Received: '%s': host_no: %d", msg_type_str, host_no);
-
-	rc = from_host_no_find_associated_eth_device(host_no, &nic);
-	if (rc != 0) {
-		LOG_ERR(PFX "Dropping msg, couldn't find nic with host no:%d",
-			host_no);
-		goto error;
-	}
+	LOG_INFO(PFX "%s: Processing '%s'", nic->log_name, msg_type_str);
 
 	payload = (uint8_t *) ((uint8_t *) ev) + sizeof(*ev);
 	path = (struct iscsi_path *)payload;
 
 	if (ev->type == ISCSI_KEVENT_PATH_REQ) {
 		struct timespec sleep_rem;
-		nic_interface_t *nic_iface, *vlan_iface;
+		nic_interface_t *vlan_iface;
 		uint16_t ip_type;
+		int iface_num;
 
 		if (path->ip_addr_len == 4)
 			ip_type = AF_INET;
@@ -339,67 +312,107 @@ static int ctldev_handle(char *data)
 		else
 			ip_type = 0;
 
-		/* Find the parent nic_iface */
-		nic_iface = nic_find_nic_iface_protocol(nic, 0,	ip_type);
+		/* Find the nic_iface to use - disabled for now
+		iface_num = path->vlan_id & ~IFACE_NUM_PRESENT;
+		if (!(path->vlan_id & IFACE_NUM_PRESENT))
+		*/
+		iface_num = IFACE_NUM_INVALID;
+
+		pthread_mutex_lock(&nic->nic_mutex);
+
+		nic_iface = nic_find_nic_iface(nic, ip_type, path->vlan_id,
+					       iface_num, IP_CONFIG_OFF);
 		if (nic_iface == NULL) {
-			LOG_ERR(PFX "%s: Couldn't find nic iface "
-				"vlan: %d ip_type: %d "
-				"ip_addr_len: %d to clone",
-				nic->log_name, path->vlan_id, ip_type,
-				path->ip_addr_len);
-			goto error;
-		}
-		if (path->vlan_id) {
-			vlan_iface = nic_find_vlan_iface_protocol(nic,
-					nic_iface, path->vlan_id,ip_type);
-			if (vlan_iface == NULL) {
-				/* Create a vlan_iface */
-				vlan_iface = nic_iface_init();
-				if (vlan_iface == NULL) {
-					LOG_ERR(PFX "%s: Couldn't allocate "
-						"space for vlan: %d ip_type: "
-						"%d ip_addr_len: %d",
-						nic->log_name, path->vlan_id,
-						ip_type, path->ip_addr_len);
-					goto error;
-				}
-
-				vlan_iface->protocol = ip_type;
-				vlan_iface->vlan_id = path->vlan_id;
-				nic_add_vlan_iface(nic, nic_iface, vlan_iface);
-
-				/* TODO: When VLAN support is placed in */
-				/* the iface file revisit this code */
-				vlan_iface->ustack.ip_config =
-					nic_iface->ustack.ip_config;
-				memcpy(vlan_iface->ustack.hostaddr,
-				       nic_iface->ustack.hostaddr,
-				       sizeof(nic_iface->ustack.hostaddr));
-				memcpy(vlan_iface->ustack.netmask,
-				       nic_iface->ustack.netmask,
-				       sizeof(nic_iface->ustack.netmask));
-				memcpy(vlan_iface->ustack.netmask6,
-				       nic_iface->ustack.netmask6,
-				       sizeof(nic_iface->ustack.netmask6));
-				memcpy(vlan_iface->ustack.hostaddr6,
-				       nic_iface->ustack.hostaddr6,
-				       sizeof(nic_iface->ustack.hostaddr6));
-
-				persist_all_nic_iface(nic);
-				nic_disable(nic, 0);
-				nic_iface = vlan_iface;
+			/* Does the parent exist? */
+			nic_iface = nic_find_nic_iface(nic, ip_type,
+						       NO_VLAN,
+						       IFACE_NUM_INVALID,
+						       IP_CONFIG_OFF);
+			if (nic_iface == NULL) {
+				pthread_mutex_unlock(&nic->nic_mutex);
+				LOG_ERR(PFX "%s: Couldn't find nic iface parent"
+					" vlan: %d ip_type: %d "
+					"ip_addr_len: %d to clone",
+					nic->log_name, path->vlan_id, ip_type,
+					path->ip_addr_len);
+				goto error;
 			}
-		}
+			if (nic_iface->iface_num != IFACE_NUM_INVALID) {
+				/* New VLAN support:
+				   Use the nic_iface found from the top
+				   of the protocol family and ignore
+				   the VLAN id from the path_req */
+				pthread_mutex_unlock(&nic->nic_mutex);
+				goto nic_iface_done;
+			} else if (!(nic_iface->iface_num == 0 &&
+				     nic_iface->vlan_id == 0 &&
+				     path->vlan_id)) {
+				/* If iface_num == 0 and vlan_id == 0 but
+				   the vlan_id from path_req is > 0,
+				   then do the legacy support since
+				   this is most likely from an older iscsid
+				   (RHEL6.2/6.3 but has iface_num support)
+				*/
+				pthread_mutex_unlock(&nic->nic_mutex);
+				goto nic_iface_done;
+			}
+			/* Legacy VLAN support:
+			   This newly created nic_iface must inherit the
+			   network parameters from the parent nic_iface
+			*/
+			LOG_DEBUG(PFX "%s: Created the nic_iface for vlan: %d "
+				  "ip_type: %d", nic->log_name, path->vlan_id,
+				  ip_type);
+			vlan_iface = nic_iface_init();
+			if (vlan_iface == NULL) {
+				pthread_mutex_unlock(&nic->nic_mutex);
+				LOG_ERR(PFX "%s: Couldn't allocate "
+					"space for vlan: %d ip_type: "
+					"%d", nic->log_name, path->vlan_id,
+					ip_type);
+				goto error;
+			}
+			vlan_iface->protocol = ip_type;
+			vlan_iface->vlan_id = path->vlan_id;
+			nic_add_nic_iface(nic, vlan_iface);
 
+			vlan_iface->ustack.ip_config =
+				nic_iface->ustack.ip_config;
+			memcpy(vlan_iface->ustack.hostaddr,
+			       nic_iface->ustack.hostaddr,
+			       sizeof(nic_iface->ustack.hostaddr));
+			memcpy(vlan_iface->ustack.netmask,
+			       nic_iface->ustack.netmask,
+			       sizeof(nic_iface->ustack.netmask));
+			memcpy(vlan_iface->ustack.netmask6,
+			       nic_iface->ustack.netmask6,
+			       sizeof(nic_iface->ustack.netmask6));
+			memcpy(vlan_iface->ustack.hostaddr6,
+			       nic_iface->ustack.hostaddr6,
+			       sizeof(nic_iface->ustack.hostaddr6));
+
+			/* Persist so when nic_close won't call uip_reset
+			   to nullify nic_iface->ustack */
+			persist_all_nic_iface(nic);
+
+			nic_iface = vlan_iface;
+
+			pthread_mutex_unlock(&nic->nic_mutex);
+
+			/* nic_disable but not going down */
+			nic_disable(nic, 0);
+		} else {
+			pthread_mutex_unlock(&nic->nic_mutex);
+		}
+nic_iface_done:
 		/*  Force enable the NIC */
-		if ((nic->state & NIC_STOPPED) &&
-		    !(nic->flags & NIC_ENABLED_PENDING))
+		if (nic->state == NIC_STOPPED)
 			nic_enable(nic);
 
 		/*  Ensure that the NIC is RUNNING */
 		rc = -EIO;
 		for (i = 0; i < 10; i++) {
-			if ((nic->state & NIC_RUNNING) == NIC_RUNNING) {
+			if (nic->state == NIC_RUNNING) {
 				rc = 0;
 				break;
 			}
@@ -418,49 +431,25 @@ static int ctldev_handle(char *data)
 	}
 
 	if (nic->ops) {
-		char eth_device_name[IFNAMSIZ];
-
 		switch (ev->type) {
 		case ISCSI_KEVENT_PATH_REQ:
 			/*  pass the request up to the user space
 			 *  library driver */
-			if (nic->ops->handle_iscsi_path_req) {
+			nic_iface->flags |= NIC_IFACE_PATHREQ_WAIT2;
+			nic_iface->flags &= ~NIC_IFACE_PATHREQ_WAIT1;
+			if (nic->ops->handle_iscsi_path_req)
 				nic->ops->handle_iscsi_path_req(nic,
 								nl_sock, ev,
-								path);
-			}
-
+								path,
+								nic_iface);
+			nic_iface->flags &= ~NIC_IFACE_PATHREQ_WAIT;
+			pthread_mutex_lock(&nic->nic_mutex);
+			nic->flags &= ~NIC_PATHREQ_WAIT;
+			pthread_mutex_unlock(&nic->nic_mutex);
 			LOG_INFO(PFX "%s: 'path_req' operation finished",
 				 nic->log_name);
 
 			rc = 0;
-			break;
-		case ISCSI_KEVENT_IF_DOWN:
-			memcpy(eth_device_name, nic->eth_device_name,
-			       sizeof(eth_device_name));
-
-			pthread_mutex_lock(&nic_list_mutex);
-
-			pthread_mutex_lock(&nic->nic_mutex);
-			nic->flags |= NIC_EXIT_MAIN_LOOP;
-			pthread_mutex_unlock(&nic->nic_mutex);
-
-			pthread_cond_broadcast(&nic->enable_done_cond);
-
-			nic_disable(nic, 1);
-
-			nic_remove(nic);
-			pthread_mutex_unlock(&nic_list_mutex);
-
-			pthread_mutex_lock(&nl_process_mutex);
-			nl_process_if_down = 0;
-			pthread_mutex_unlock(&nl_process_mutex);
-
-			rc = 0;
-
-			LOG_INFO(PFX "%s: 'if_down' operation finished",
-				 eth_device_name);
-
 			break;
 		default:
 			rc = -EAGAIN;
@@ -468,55 +457,62 @@ static int ctldev_handle(char *data)
 		}
 	}
 
-      error:
+error:
 
 	return rc;
 }
 
-static void *nl_process_handle_thread(void *arg)
+/* NIC specific nl processing thread */
+void *nl_process_handle_thread(void *arg)
 {
 	int rc;
+	nic_t *nic = (nic_t *)arg;
+
+	if (nic == NULL)
+		goto error;
 
 	while (!event_loop_stop) {
 		char *data = NULL;
 
-		rc = pthread_cond_wait(&nl_process_cond, &nl_process_mutex);
+		rc = pthread_cond_wait(&nic->nl_process_cond,
+				       &nic->nl_process_mutex);
 		if (rc != 0) {
 			LOG_ERR("Fatal error in NL processing thread "
 				"during wait[%s]", strerror(rc));
 			break;
 		}
 
-		data = nl_process_ring[nl_process_head];
-		nl_process_ring[nl_process_head] = NULL;
-		nl_process_tail = NL_PROCESS_NEXT_ENTRY(nl_process_tail);
+		data = nic->nl_process_ring[nic->nl_process_head];
+		nic->nl_process_ring[nic->nl_process_head] = NULL;
+		nic->nl_process_tail =
+				NIC_NL_PROCESS_NEXT_ENTRY(nic->nl_process_tail);
 
-		pthread_mutex_unlock(&nl_process_mutex);
+		pthread_mutex_unlock(&nic->nl_process_mutex);
 
 		if (data) {
-			ctldev_handle(data);
+			ctldev_handle(data, nic);
 			free(data);
 		}
 	}
-
+error:
 	return NULL;
 }
 
-static void flush_nl_process_ring()
+static void flush_nic_nl_process_ring(nic_t *nic)
 {
 	int i;
 
-	for (i = 0; i < NL_PROCESS_MAX_RING_SIZE; i++) {
-		if (nl_process_ring[i] != NULL) {
-			free(nl_process_ring[i]);
-			nl_process_ring[i] = NULL;
+	for (i = 0; i < NIC_NL_PROCESS_MAX_RING_SIZE; i++) {
+		if (nic->nl_process_ring[i] != NULL) {
+			free(nic->nl_process_ring[i]);
+			nic->nl_process_ring[i] = NULL;
 		}
 	}
 
-	nl_process_head = 0;
-	nl_process_tail = 0;
+	nic->nl_process_head = 0;
+	nic->nl_process_tail = 0;
 
-	LOG_DEBUG(PFX "Flushed NL ring");
+	LOG_DEBUG(PFX "%s: Flushed NIC NL ring", nic->log_name);
 }
 
 /**
@@ -528,25 +524,9 @@ static void flush_nl_process_ring()
 int nic_nl_open()
 {
 	int rc;
+	char *msg_type_str;
 
 	/*  Prepare the thread to issue the ARP's */
-	nl_process_head = 0;
-	nl_process_tail = 0;
-	nl_process_if_down = 0;
-	memset(&nl_process_ring, 0, sizeof(nl_process_ring));
-
-	pthread_mutex_init(&nl_process_mutex, NULL);
-	pthread_cond_init(&nl_process_cond, NULL);
-	pthread_cond_init(&nl_process_if_down_cond, NULL);
-
-	rc = pthread_create(&nl_process_thread, NULL,
-			    nl_process_handle_thread, NULL);
-	if (rc != 0) {
-		LOG_ERR("Could not create NL processing thread [%s]",
-			strerror(rc));
-		return -EIO;
-	}
-
 	nl_sock = socket(PF_NETLINK, SOCK_RAW, NETLINK_ISCSI);
 	if (nl_sock < 0) {
 		LOG_ERR(PFX "can not create NETLINK_ISCSI socket [%s]",
@@ -581,36 +561,102 @@ int nic_nl_open()
 	while (!event_loop_stop) {
 		struct iscsi_uevent *ev;
 		char *buf = NULL;
+		uint32_t host_no;
+		nic_t *nic;
 
 		rc = pull_from_nl(&buf);
 		if (rc != 0)
 			continue;
 
-		/*  Try to abort ARP'ing if a if_down was recieved */
+		/*  Try to abort ARP'ing if a if_down was received */
 		ev = (struct iscsi_uevent *)NLMSG_DATA(buf);
-		if (ev->type == ISCSI_KEVENT_IF_DOWN) {
-			LOG_INFO(PFX "Received if_down event");
-
-			pthread_mutex_lock(&nl_process_mutex);
-			nl_process_if_down = 1;
-
-			flush_nl_process_ring();
-			pthread_mutex_unlock(&nl_process_mutex);
+		switch (ev->type) {
+		case ISCSI_KEVENT_IF_DOWN:
+			host_no = ev->r.notify_if_down.host_no;
+			msg_type_str = "if_down";
+			break;
+		case ISCSI_KEVENT_PATH_REQ:
+			host_no = ev->r.req_path.host_no;
+			msg_type_str = "path_req";
+			break;
+		default:
+			/*  We don't care about other iSCSI Netlink messages */
+			continue;
 		}
+		LOG_INFO(PFX "Received %s for host %d", msg_type_str, host_no);
 
-		if ((nl_process_head + 1 == nl_process_tail) ||
-		    (nl_process_tail == 0 &&
-		     nl_process_head == NL_PROCESS_LAST_ENTRY)) {
-			LOG_WARN(PFX "No space on Netlink ring");
+		/* Make sure the nic list doesn't get yanked */
+		pthread_mutex_lock(&nic_list_mutex);
+
+		rc = from_host_no_find_associated_eth_device(host_no, &nic);
+		if (rc != 0) {
+			pthread_mutex_unlock(&nic_list_mutex);
+			LOG_ERR(PFX "Dropping msg, couldn't find nic with host "
+				"no: %d", host_no);
 			continue;
 		}
 
-		pthread_mutex_lock(&nl_process_mutex);
-		nl_process_ring[nl_process_head] = buf;
-		nl_process_head = NL_PROCESS_NEXT_ENTRY(nl_process_head);
+		/* Found the nic */
+		if (nic->nl_process_thread == INVALID_THREAD) {
+			/* If thread is not valid, just drop it */
+			pthread_mutex_unlock(&nic_list_mutex);
+			LOG_ERR(PFX "Dropping msg, nic nl process thread "
+				"not ready for host no: %d", host_no);
+			continue;
+		}
 
-		pthread_cond_signal(&nl_process_cond);
-		pthread_mutex_unlock(&nl_process_mutex);
+		if (ev->type == ISCSI_KEVENT_IF_DOWN) {
+			char eth_device_name[IFNAMSIZ];
+
+			pthread_mutex_lock(&nic->nl_process_mutex);
+			nic->nl_process_if_down = 1;
+			flush_nic_nl_process_ring(nic);
+			pthread_cond_broadcast(&nic->nl_process_if_down_cond);
+			pthread_mutex_unlock(&nic->nl_process_mutex);
+
+			memcpy(eth_device_name, nic->eth_device_name,
+			       sizeof(eth_device_name));
+
+			pthread_mutex_lock(&nic->nic_mutex);
+			nic->flags &= ~NIC_PATHREQ_WAIT;
+			nic->flags |= NIC_EXIT_MAIN_LOOP;
+			pthread_cond_broadcast(&nic->enable_done_cond);
+			pthread_mutex_unlock(&nic->nic_mutex);
+
+			pthread_mutex_lock(&nic->nl_process_mutex);
+			nic->nl_process_if_down = 0;
+			pthread_mutex_unlock(&nic->nl_process_mutex);
+
+			nic_disable(nic, 1);
+
+			nic_remove(nic);
+			pthread_mutex_unlock(&nic_list_mutex);
+
+			LOG_INFO(PFX "%s: 'if_down' operation finished",
+				 eth_device_name);
+			continue;
+		}
+
+		/* Place msg into the nic specific queue */
+		pthread_mutex_lock(&nic->nl_process_mutex);
+		if ((nic->nl_process_head + 1 == nic->nl_process_tail) ||
+		    (nic->nl_process_tail == 0 &&
+		     nic->nl_process_head == NIC_NL_PROCESS_LAST_ENTRY)) {
+			pthread_mutex_unlock(&nic->nl_process_mutex);
+			pthread_mutex_unlock(&nic_list_mutex);
+			LOG_WARN(PFX "%s: No space on Netlink ring",
+				 nic->log_name);
+			continue;
+		}
+
+		nic->nl_process_ring[nic->nl_process_head] = buf;
+		nic->nl_process_head =
+				NIC_NL_PROCESS_NEXT_ENTRY(nic->nl_process_head);
+		pthread_cond_signal(&nic->nl_process_cond);
+
+		pthread_mutex_unlock(&nic->nl_process_mutex);
+
+		pthread_mutex_unlock(&nic_list_mutex);
 
 		LOG_DEBUG(PFX "Pulled nl event");
 	}

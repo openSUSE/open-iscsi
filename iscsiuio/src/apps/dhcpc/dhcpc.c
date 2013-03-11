@@ -334,7 +334,7 @@ static PT_THREAD(handle_dhcp(struct uip_stack *ustack))
 		      (uint8_t *) s->mac_addr);
 
 	/*  Put the stack thread back into a long sleep */
-	s->nic->state |= NIC_LONG_SLEEP;
+	s->nic->flags |= NIC_LONG_SLEEP;
 
 	/*  timer_stop(&s.timer); */
 
@@ -343,7 +343,7 @@ static PT_THREAD(handle_dhcp(struct uip_stack *ustack))
 	timer_set(&s->timer, s->ticks);
 	PT_WAIT_UNTIL(&s->pt, timer_expired(&s->timer));
 	LOG_INFO("Lease expired, re-acquire IP address");
-	s->nic->state &= ~NIC_LONG_SLEEP;
+	s->nic->flags &= ~NIC_LONG_SLEEP;
 	PT_RESTART(&s->pt);
 
 	/*
@@ -397,7 +397,7 @@ int dhcpc_init(nic_t * nic, struct uip_stack *ustack,
 	ustack->dhcpc = s;
 
 	/* Let the RX poll value take over */
-	nic->state &= ~NIC_LONG_SLEEP;
+	nic->flags &= ~NIC_LONG_SLEEP;
 
 	PT_INIT(&s->pt);
 

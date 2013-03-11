@@ -663,7 +663,9 @@ static int bnx2x_open(nic_t * nic)
 	count = 0;
 	while ((nic->fd < 0) && count < 15) {
 		/*  udev might not have created the file yet */
+		pthread_mutex_unlock(&nic->nic_mutex);
 		sleep(1);
+		pthread_mutex_lock(&nic->nic_mutex);
 
 		nic->fd = open(nic->uio_device_name, O_RDWR | O_NONBLOCK);
 		if (nic->fd != INVALID_FD) {
@@ -684,7 +686,9 @@ static int bnx2x_open(nic_t * nic)
 			manually_trigger_uio_event(nic, nic->uio_minor);
 
 			/*  udev might not have created the file yet */
+			pthread_mutex_unlock(&nic->nic_mutex);
 			sleep(1);
+			pthread_mutex_lock(&nic->nic_mutex);
 
 			count++;
 		}
@@ -1233,8 +1237,8 @@ void bnx2x_start_xmit(nic_t * nic, size_t len, u16_t vlan_id)
 	rx_bd = (struct eth_rx_bd *)(((__u8 *) bp->tx_ring) + getpagesize());
 
 	if ((rx_bd->addr_hi == 0) && (rx_bd->addr_lo == 0)) {
-		LOG_DEBUG(PFX "%s: trying to transmit when device is closed",
-			  nic->log_name);
+		LOG_PACKET(PFX "%s: trying to transmit when device is closed",
+			   nic->log_name);
 		pthread_mutex_unlock(&nic->xmit_mutex);
 		return;
 	}
@@ -1257,7 +1261,7 @@ void bnx2x_start_xmit(nic_t * nic, size_t len, u16_t vlan_id)
 	bp->tx_bd_prod = BNX2X_NEXT_TX_BD(bp->tx_bd_prod);
 
 	barrier();
-	if (nl_process_if_down == 0) {
+	if (nic->nl_process_if_down == 0) {
 		bnx2x_doorbell(bp, bp->tx_doorbell, 0x02 |
 			       (bp->tx_bd_prod << 16));
 		bnx2x_flush_doorbell(bp, bp->tx_doorbell);
@@ -1268,8 +1272,8 @@ void bnx2x_start_xmit(nic_t * nic, size_t len, u16_t vlan_id)
 		 */
 		pthread_mutex_unlock(&nic->xmit_mutex);
 	}
-	LOG_DEBUG(PFX "%s: sent %d bytes using bp->tx_prod: %d",
-		  nic->log_name, len, bp->tx_prod);
+	LOG_PACKET(PFX "%s: sent %d bytes using bp->tx_prod: %d",
+		   nic->log_name, len, bp->tx_prod);
 }
 
 /**
@@ -1310,8 +1314,8 @@ int bnx2x_write(nic_t * nic, nic_interface_t * nic_iface, packet_t * pkt)
 	}
 
 	if (pthread_mutex_trylock(&nic->xmit_mutex) != 0) {
-		LOG_DEBUG(PFX "%s: Dropped previous transmitted packet",
-			  nic->log_name);
+		LOG_PACKET(PFX "%s: Dropped previous transmitted packet",
+			   nic->log_name);
 		return -EINVAL;
 	}
 
@@ -1322,10 +1326,10 @@ int bnx2x_write(nic_t * nic, nic_interface_t * nic_iface, packet_t * pkt)
 	nic->stats.tx.packets++;
 	nic->stats.tx.bytes += uip->uip_len;
 
-	LOG_DEBUG(PFX "%s: transmitted %d bytes "
-		  "dev->tx_cons: %d, dev->tx_prod: %d, dev->tx_bd_prod:%d",
-		  nic->log_name, pkt->buf_size,
-		  bp->tx_cons, bp->tx_prod, bp->tx_bd_prod);
+	LOG_PACKET(PFX "%s: transmitted %d bytes "
+		   "dev->tx_cons: %d, dev->tx_prod: %d, dev->tx_bd_prod:%d",
+		   nic->log_name, pkt->buf_size,
+		   bp->tx_cons, bp->tx_prod, bp->tx_bd_prod);
 
 	return 0;
 }
@@ -1389,8 +1393,8 @@ static int bnx2x_read(nic_t * nic, packet_t * pkt)
 		}
 		cqe_fp_flags = cqe->fast_path_cqe.type_error_flags;
 
-		LOG_DEBUG(PFX "%s: clearing rx interrupt: %d %d",
-			  nic->log_name, sw_cons, hw_cons);
+		LOG_PACKET(PFX "%s: clearing rx interrupt: %d %d",
+			   nic->log_name, sw_cons, hw_cons);
 
 		msync(cqe, cqe_size, MS_SYNC);
 
@@ -1422,9 +1426,9 @@ static int bnx2x_read(nic_t * nic, packet_t * pkt)
 					pkt->vlan_tag = 0;
 				}
 
-				LOG_DEBUG(PFX
-					  "%s: processing packet length: %d",
-					  nic->log_name, len);
+				LOG_PACKET(PFX
+					   "%s: processing packet length: %d",
+					   nic->log_name, len);
 
 				/*  bump the cnic dev recv statistics */
 				nic->stats.rx.packets++;
@@ -1479,8 +1483,8 @@ static int bnx2x_clear_tx_intr(nic_t * nic)
 		return -EAGAIN;
 	}
 
-	LOG_DEBUG(PFX "%s: clearing tx interrupt [%d %d]",
-		  nic->log_name, bp->tx_cons, hw_cons);
+	LOG_PACKET(PFX "%s: clearing tx interrupt [%d %d]",
+		   nic->log_name, bp->tx_cons, hw_cons);
 	bp->tx_cons = hw_cons;
 
 	/*  There is a queued TX packet that needs to be sent out.  The usual
@@ -1490,7 +1494,7 @@ static int bnx2x_clear_tx_intr(nic_t * nic)
 		packet_t *pkt;
 		int i;
 
-		LOG_DEBUG(PFX "%s: sending queued tx packet", nic->log_name);
+		LOG_PACKET(PFX "%s: sending queued tx packet", nic->log_name);
 		pkt = nic_dequeue_tx_packet(nic);
 
 		/*  Got a TX packet buffer of the TX queue and put it onto
@@ -1501,11 +1505,11 @@ static int bnx2x_clear_tx_intr(nic_t * nic)
 			bnx2x_start_xmit(nic, pkt->buf_size,
 					 pkt->nic_iface->vlan_id);
 
-			LOG_DEBUG(PFX "%s: transmitted queued packet %d bytes "
-				  "dev->tx_cons: %d, dev->tx_prod: %d, "
-				  "dev->tx_bd_prod:%d",
-				  nic->log_name, pkt->buf_size,
-				  bp->tx_cons, bp->tx_prod, bp->tx_bd_prod);
+			LOG_PACKET(PFX "%s: transmitted queued packet %d bytes "
+				   "dev->tx_cons: %d, dev->tx_prod: %d, "
+				   "dev->tx_bd_prod:%d",
+				   nic->log_name, pkt->buf_size,
+				   bp->tx_cons, bp->tx_prod, bp->tx_bd_prod);
 
 			return 0;
 		}
@@ -1518,9 +1522,9 @@ static int bnx2x_clear_tx_intr(nic_t * nic)
 
 			hw_cons = bp->get_tx_cons(bp);
 			if (bp->tx_cons != hw_cons) {
-				LOG_DEBUG(PFX
-					  "%s: clearing tx interrupt [%d %d]",
-					  nic->log_name, bp->tx_cons, hw_cons);
+				LOG_PACKET(PFX
+					   "%s: clearing tx interrupt [%d %d]",
+					   nic->log_name, bp->tx_cons, hw_cons);
 				bp->tx_cons = hw_cons;
 
 				break;
