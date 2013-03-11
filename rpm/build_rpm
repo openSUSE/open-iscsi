@@ -4,15 +4,18 @@
 #
 
 RPM="open-iscsi"
-#BRANCH="sles11-sp2"
 BRANCH="sles11-sp2"
 VERSION="2.0-873"
+BRANCH_TAG=sles11-sp2-update 
 DESTDIR=
-TMPDIR=
+uncommitted_changes=0
+
+# if using osc ...
 OBS_BRANCH=home:hreinecke:branches
 OBS_PRJ=SUSE:SLE-11-SP2:GA
 OSC="osc -A https://api.suse.de"
-uncommitted_changes=0
+TMPDIR=
+
 
 while [ $# -gt 0 ] ; do
     case "$1" in
@@ -103,22 +106,31 @@ if [ -n "$use_osc" ] ; then
     popd
 fi
 
-git archive --format=tar --prefix=$RPM-$VERSION/ "$VERSION" \
-    | bzip2 > $DESTDIR/$RPM-$VERSION.tar.bz2
+#
+# to be able to convert this git archive into the proper format
+# for package building, we want a spec file, a changes file,
+# a base tar file, and zero or more patch files
+#
 
-## # Changes from upstream
-## git diff $VERSION..sles11-sp2-base | bzip2 > $DESTDIR/$RPM-git-update.diff.bz2
-## # Merge in SUSE specifi changes
-## git diff sles11-sp2-base..sles11-sp2-merge | bzip2 > $DESTDIR/$RPM-git-merge.diff.bz2
-## # Maintenance patches
-## git diff sles11-sp2-merge..$BRANCH | bzip2 > $DESTDIR/$RPM-$BRANCH.diff.bz2
-
+# create the spec and changes files -- Note that this
+# gets the HEAD of these files from the specified branch,
+# not from the current workspace
 git show $BRANCH:rpm/$RPM.spec > $DESTDIR/$RPM.spec
 git show $BRANCH:rpm/$RPM.changes > $DESTDIR/$RPM.changes
 
+# create the base tar file containing the open-iscsi base code
+git archive --format=tar --prefix=$RPM-$VERSION/ "$VERSION" \
+    | bzip2 > $DESTDIR/$RPM-$VERSION.tar.bz2
 
-#
-# if the user specified
+# patch1: create a diff file for changes between the base version
+# and the update tag
+git diff $VERSION..$BRANCH_TAG | bzip2 > $DESTDIR/$RPM-sles11-sp2-update.diff.bz2
+
+# patch2: lastly, create a diff for everything since the update tag
+git diff $BRANCH_TAG..HEAD | bzip2 > $DESTDIR/$RPM-sles11-sp2-latest.diff.bz2
+
+# if the user specified this then get all changes not even checked in
+# and patch them into the spec file as "Patch3" (fragile)
 if (( $uncommitted_changes )) ; then
     echo "WARNING: Including uncommitted changes for testing." >&2
     echo "         Don't submit the package to Autobuild!"     >&2
@@ -126,10 +138,9 @@ if (( $uncommitted_changes )) ; then
     patchname=$RPM-$(date -u +%Y-%M-%d_%T_%Z).diff
     git diff $BRANCH > $DESTDIR/$patchname
 
-    sed -i "/Patch0:.*$/a\
-Patch1:\t\t$patchname" $DESTDIR/rpm/$RPM.spec
-    sed -i "/%patch0 -p1/a\
-%patch1 -p1" $DESTDIR/rpm/$RPM.spec
+    # XXX this assumes the highest existing patch is 2 -- should be cleaned up
+    sed -i "/Patch2:.*$/aPatch3:         $patchname" $DESTDIR/rpm/$RPM.spec
+    sed -i "/%patch2 -p1/a%patch3 -p1" $DESTDIR/rpm/$RPM.spec
 fi
 
 echo "$RPM src rpm copied to $DESTDIR"

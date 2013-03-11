@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Fri Sep  7 10:19:41 PDT 2012 - lduncan@suse.com
+
+- Added iscsiuio patches and other cleanup (bnc#751056)
+
+-------------------------------------------------------------------
 Thu Jun 21 11:12:01 PDT 2012 - lduncan@suse.com
 
 - Updated open-iscsi to version 2.0.873 (bnc#751056)

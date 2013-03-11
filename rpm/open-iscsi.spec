@@ -26,13 +26,15 @@ Group:          Productivity/Networking/Other
 PreReq:         %fillup_prereq %insserv_prereq
 AutoReqProv:    on
 Version:        2.0.873
-Release:        0.<RELEASE26>
+Release:        0.<RELEASE30>
 Provides:       linux-iscsi
 Obsoletes:      linux-iscsi
 Recommends:     logrotate
 %define iscsi_release 873
 Summary:        Linux* Open-iSCSI Software Initiator
 Source:         %{name}-2.0-%{iscsi_release}.tar.bz2
+Patch1:         %{name}-sles11-sp2-update.diff.bz2
+Patch2:         %{name}-sles11-sp2-latest.diff.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -62,6 +64,8 @@ Authors:
 
 %prep
 %setup -n %{name}-2.0-%{iscsi_release}
+%patch1 -p1
+%patch2 -p1
 
 %build
 %{__make} OPTFLAGS="${RPM_OPT_FLAGS} -DLOCK_DIR=\\\"/etc/iscsi\\\" -DOFFLOAD_BOOT_SUPPORTED" user
