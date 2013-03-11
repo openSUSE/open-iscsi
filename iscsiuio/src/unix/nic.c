@@ -1457,6 +1457,10 @@ void *nic_loop(void *arg)
 
 					pthread_mutex_unlock(&nic->nic_mutex);
 
+					if (nic->enable_thread ==
+					    INVALID_THREAD)
+						goto dev_close_free;
+
 					rc = pthread_join(nic->enable_thread,
 							  &res);
 					if (rc != 0)
