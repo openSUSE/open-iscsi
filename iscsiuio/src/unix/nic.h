@@ -322,7 +322,7 @@ typedef struct nic {
 	int nl_process_tail;
 #define NIC_NL_PROCESS_MAX_RING_SIZE        128
 #define NIC_NL_PROCESS_LAST_ENTRY           (NIC_NL_PROCESS_MAX_RING_SIZE - 1)
-#define NIC_NL_PROCESS_NEXT_ENTRY(x) ((x) & NIC_NL_PROCESS_MAX_RING_SIZE)
+#define NIC_NL_PROCESS_NEXT_ENTRY(x) ((x + 1) & NIC_NL_PROCESS_MAX_RING_SIZE)
 	void *nl_process_ring[NIC_NL_PROCESS_MAX_RING_SIZE];
 } nic_t;
 
