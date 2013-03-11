@@ -911,6 +911,8 @@ static int bnx2x_open(nic_t * nic)
 
 	if (bnx2x_is_ver60_plus(bp) && CHIP_IS_E2_PLUS(bp)) {
 		__u32 mf_cfg_addr = 0;
+		__u32 mac_offset;
+		__u8 mac[6];
 
 		val = bnx2x_rd32(bp, (BNX2X_PATH(bp) ? MISC_REG_GENERIC_CR_1 :
 				      MISC_REG_GENERIC_CR_0));
@@ -931,9 +933,6 @@ static int bnx2x_open(nic_t * nic)
 		val = bnx2x_rd32(bp, bp->shmem_base + 0x354);
 		/* SI mode */
 		if ((val & 0x700) == 0x300) {
-			__u32 mac_offset;
-			__u8 mac[6];
-
 			mac_offset = 0xe4 + (bp->func * 0x28) + 4;
 			val = bnx2x_rd32(bp, mf_cfg_addr + mac_offset);
 			mac[0] = (__u8) (val >> 8);
@@ -956,6 +955,40 @@ static int bnx2x_open(nic_t * nic)
 				rc = -ENOTSUP;
 				goto open_error;
 			}
+		} else if ((val & 0x700) == 0) {
+			__u32 proto_offset = 0x24 + (bp->func * 0x18);
+			__u32 ovtag_offset = proto_offset + 0xc;
+
+			rc = -ENOTSUP;
+			val = bnx2x_rd32(bp, mf_cfg_addr + ovtag_offset);
+			val &= 0xffff;
+			/* SD mode, check for valid outer VLAN */
+			if (val == 0xffff)
+				goto open_error;
+
+			/* Check for iSCSI protocol */
+			val = bnx2x_rd32(bp, mf_cfg_addr + proto_offset);
+			if ((val & 6) != 6)
+				goto open_error;
+
+			if (!CHIP_IS_E1(bp)) {
+				LOG_INFO(PFX "%s:  SD mode not supported",
+					 nic->log_name);
+				goto open_error;
+			}
+
+			mac_offset = proto_offset + 0x4;
+			val = bnx2x_rd32(bp, mf_cfg_addr + mac_offset);
+			mac[0] = (__u8) (val >> 8);
+			mac[1] = (__u8) val;
+			mac_offset += 4;
+			val = bnx2x_rd32(bp, mf_cfg_addr + mac_offset);
+			mac[2] = (__u8) (val >> 24);
+			mac[3] = (__u8) (val >> 16);
+			mac[4] = (__u8) (val >> 8);
+			mac[5] = (__u8) val;
+			memcpy(nic->mac_addr, mac, 6);
+
 		}
 	}
 
