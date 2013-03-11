@@ -94,6 +94,10 @@ struct iface_rec_decode {
 	uint8_t			vlan_state;
 	uint8_t			vlan_priority;
 	uint16_t		vlan_id;
+
+#define MIN_MTU_SUPPORT		46
+#define MAX_MTU_SUPPORT		9000
+	uint16_t		mtu;
 };
 
 /******************************************************************************
@@ -232,9 +236,10 @@ static int decode_iface(struct iface_rec_decode *ird, struct iface_rec *rec)
 
 	ird->iface_num = rec->iface_num;
 	if (rec->iface_num != IFACE_NUM_INVALID) {
+		ird->mtu = rec->mtu;
 		if (rec->vlan_id && strcmp(rec->vlan_state, "disable")) {
 			ird->vlan_state = 1;
-			ird->vlan_priority = rec->vlan_priority << 12;
+			ird->vlan_priority = rec->vlan_priority;
 			ird->vlan_id = rec->vlan_id;
 		}
 		if (ird->ip_type == AF_INET6) {
@@ -565,6 +570,8 @@ static int parse_iface(void *arg)
 		nic_iface->protocol = ird.ip_type;
 		nic_iface->vlan_id = ird.vlan_id;
 		nic_iface->vlan_priority = ird.vlan_priority;
+		if (ird.mtu >= MIN_MTU_SUPPORT && ird.mtu <= MAX_MTU_SUPPORT)
+			nic_iface->mtu = ird.mtu;
 		nic_iface->iface_num = ird.iface_num;
 		nic_iface->request_type = request_type;
 		nic_add_nic_iface(nic, nic_iface);

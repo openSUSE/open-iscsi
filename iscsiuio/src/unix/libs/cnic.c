@@ -287,7 +287,7 @@ src_done:
 	memcpy(path_rsp->mac_addr, mac_addr, 6);
 	path_rsp->vlan_id = (nic_iface->vlan_priority << 12) |
 			    nic_iface->vlan_id;
-	path_rsp->pmtu = path_req->pmtu;
+	path_rsp->pmtu = nic_iface->mtu ? nic_iface->mtu : path_req->pmtu;
 
 	rc = __kipc_call(fd, ret_ev, sizeof(*ret_ev) + sizeof(*path_rsp));
 	if (rc > 0) {

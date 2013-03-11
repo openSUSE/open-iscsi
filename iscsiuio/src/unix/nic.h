@@ -136,6 +136,7 @@ typedef struct nic_interface {
 	uint16_t vlan_id;
 #define NO_VLAN		0x8000
 
+	uint16_t mtu;
 	time_t start_time;
 
 	struct uip_stack ustack;
