@@ -332,7 +332,8 @@ int find_vlans_using_phy_interface(struct vlan_handle *handle,
  */
 int valid_vlan(short int vlan)
 {
-	if (vlan > 1 && vlan < 4095)
+	/* Allow vlan 1 to connect */
+	if (vlan > 0 && vlan < 4095)
 		return 1;
 
 	return 0;

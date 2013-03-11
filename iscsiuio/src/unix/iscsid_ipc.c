@@ -91,6 +91,8 @@ struct iface_rec_decode {
 	uint8_t                 linklocal_autocfg;
 	uint8_t                 router_autocfg;
 
+	uint8_t			vlan_state;
+	uint8_t			vlan_priority;
 	uint16_t		vlan_id;
 };
 
@@ -229,8 +231,16 @@ static int decode_iface(struct iface_rec_decode *ird, struct iface_rec *rec)
 	rc = 0;
 
 	ird->iface_num = rec->iface_num;
-	ird->vlan_id = rec->vlan_id;
 	if (rec->iface_num != IFACE_NUM_INVALID) {
+		if (!strcmp(rec->vlan_state, "disable")) {
+			ird->vlan_state = 0;
+			ird->vlan_priority = 0;
+			ird->vlan_id = 0;
+		} else {
+			ird->vlan_state = 1;
+			ird->vlan_priority = rec->vlan_priority << 12;
+			ird->vlan_id = rec->vlan_id;
+		}
 		if (ird->ip_type == AF_INET6) {
 			if (!strcmp(rec->ipv6_autocfg, "dhcpv6"))
 				ird->ipv6_autocfg = IPV6_AUTOCFG_DHCPV6;
@@ -558,6 +568,7 @@ static int parse_iface(void *arg)
 		}
 		nic_iface->protocol = ird.ip_type;
 		nic_iface->vlan_id = ird.vlan_id;
+		nic_iface->vlan_priority = ird.vlan_priority;
 		nic_iface->iface_num = ird.iface_num;
 		nic_iface->request_type = request_type;
 		nic_add_nic_iface(nic, nic_iface);
