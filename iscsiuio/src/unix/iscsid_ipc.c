@@ -511,9 +511,9 @@ static int parse_iface(void *arg)
 
 			if (nic_iface &&
 			    (nic_iface->flags & NIC_IFACE_PATHREQ_WAIT2))
-				pathreq_wait = 10000;
+				pathreq_wait = 12;
 			else
-				pathreq_wait = 1000;
+				pathreq_wait = 10;
 
 			if (nic->pathreq_pending_count < pathreq_wait) {
 				struct timespec sleep_req, sleep_rem;
@@ -525,8 +525,9 @@ static int parse_iface(void *arg)
 				sleep_req.tv_nsec = 100000;
 				nanosleep(&sleep_req, &sleep_rem);
 				/* Somebody else is waiting for PATH_REQ */
-				LOG_INFO(PFX "%s: path req pending",
-					 nic->log_name);
+				LOG_INFO(PFX "%s: path req pending cnt=%d",
+					 nic->log_name,
+					 nic->pathreq_pending_count);
 				rc = -EAGAIN;
 				goto done;
 			} else {

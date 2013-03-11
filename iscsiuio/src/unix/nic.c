@@ -705,15 +705,6 @@ int nic_add_nic_iface(nic_t *nic, nic_interface_t *nic_iface)
 		prev = current;
 		current = current->next;
 	}
-	/* Same parent not found */
-	/*
-	if (nic_iface->vlan_id) {
-		LOG_DEBUG(PFX "%s: nic interface for VLAN: %d, protocol: %d"
-			  " not added", nic->log_name, nic_iface->vlan_id,
-			  nic_iface->protocol);
-		goto error;
-	}
-	*/
 	nic_iface->next = nic->nic_iface;
 	nic->nic_iface = nic_iface;
 done:
@@ -898,7 +889,7 @@ static void prepare_ustack(nic_t * nic,
 	 *  has stripped out the
 	 *  VLAN tag */
 	ustack->network_layer = ustack->data_link_layer +
-	    sizeof(struct uip_eth_hdr);
+				sizeof(struct uip_eth_hdr);
 	/* Init buffer to be IPv6 */
 	if (nic_iface->ustack.ip_config == IPV6_CONFIG_DHCP ||
 	    nic_iface->ustack.ip_config == IPV6_CONFIG_STATIC) {
@@ -1299,8 +1290,9 @@ static int do_acquisition(nic_t *nic, nic_interface_t *nic_iface,
 
 		if (rc) {
 			LOG_ERR(PFX "%s: DHCP failed", nic->log_name);
-			/* For DHCP failure, no longer
-			   marking the nic to be disabled */
+			/* For DHCPv4 failure, the ustack must be cleaned so
+			   it can re-acquire on the next iscsid request */
+			uip_reset(&nic_iface->ustack);
 
 			/*  Signal that the device enable is
 			    done */
@@ -1458,23 +1450,16 @@ void *nic_loop(void *arg)
 		nic_iface = nic->nic_iface;
 		while (nic_iface != NULL) {
 			if (nic_iface->flags & NIC_IFACE_ACQUIRE) {
-				if (do_acquisition(nic, nic_iface,
-						   &periodic_timer,
-						   &arp_timer)) {
-					pthread_mutex_unlock(&nic->nic_mutex);
-					goto dev_close_free;
-				}
+				do_acquisition(nic, nic_iface,
+					       &periodic_timer,
+					       &arp_timer);
 			}
 			vlan_iface = nic_iface->vlan_next;
 			while (vlan_iface != NULL) {
 				if (vlan_iface->flags & NIC_IFACE_ACQUIRE) {
-					if (do_acquisition(nic, vlan_iface,
-							   &periodic_timer,
-							   &arp_timer)) {
-						pthread_mutex_unlock(
-							&nic->nic_mutex);
-						goto dev_close_free;
-					}
+					do_acquisition(nic, vlan_iface,
+						       &periodic_timer,
+						       &arp_timer);
 				}
 				vlan_iface = vlan_iface->next;
 			}

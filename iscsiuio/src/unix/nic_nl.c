@@ -303,7 +303,7 @@ static int ctldev_handle(char *data, nic_t *nic)
 		struct timespec sleep_rem;
 		nic_interface_t *vlan_iface;
 		uint16_t ip_type;
-		int iface_num;
+		int iface_num, vlan_id;
 
 		if (path->ip_addr_len == 4)
 			ip_type = AF_INET;
@@ -312,18 +312,15 @@ static int ctldev_handle(char *data, nic_t *nic)
 		else
 			ip_type = 0;
 
-		/* Find the nic_iface to use - disabled for now
-		iface_num = path->vlan_id & ~IFACE_NUM_PRESENT;
-		if (!(path->vlan_id & IFACE_NUM_PRESENT))
-		*/
+		/* Find the nic_iface to use */
 		iface_num = IFACE_NUM_INVALID;
+		vlan_id = path->vlan_id ? path->vlan_id : NO_VLAN;
 
 		pthread_mutex_lock(&nic->nic_mutex);
 
-		nic_iface = nic_find_nic_iface(nic, ip_type, path->vlan_id,
+		nic_iface = nic_find_nic_iface(nic, ip_type, vlan_id,
 					       iface_num, IP_CONFIG_OFF);
 		if (nic_iface == NULL) {
-			/* Does the parent exist? */
 			nic_iface = nic_find_nic_iface(nic, ip_type,
 						       NO_VLAN,
 						       IFACE_NUM_INVALID,
