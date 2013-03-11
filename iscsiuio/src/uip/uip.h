@@ -1031,6 +1031,7 @@ extern u16_t uip_urglen, uip_surglen;
  */
 struct __attribute__ ((__packed__)) uip_conn {
 	uip_ip4addr_t ripaddr;
+	uip_ip6addr_t ripaddr6;
 			   /**< The IP address of the remote host. */
 
 	u16_t lport;  /**< The local TCP port, in network byte order. */

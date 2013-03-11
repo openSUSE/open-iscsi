@@ -1612,7 +1612,7 @@ int capture_file(char **raw, uint32_t * raw_size, const char *path)
 	}
 
 	read_size = fread(*raw, file_size, 1, fp);
-	if (read_size < 0) {
+	if (!read_size) {
 		LOG_ERR("Could not read capture, path: %s len: %d [%s]",
 			path, file_size, strerror(ferror(fp)));
 		free(*raw);

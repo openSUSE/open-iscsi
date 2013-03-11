@@ -923,8 +923,8 @@ void bnx2_start_xmit(nic_t * nic, size_t len, u16_t vlan_id)
  */
 int bnx2_write(nic_t * nic, nic_interface_t * nic_iface, packet_t * pkt)
 {
-	bnx2_t *bp = (bnx2_t *) nic->priv;
-	struct uip_stack *uip = &nic_iface->ustack;
+	bnx2_t *bp;
+	struct uip_stack *uip;
 
 	/* Sanity Check: validate the parameters */
 	if (nic == NULL || nic_iface == NULL || pkt == NULL) {
@@ -933,6 +933,8 @@ int bnx2_write(nic_t * nic, nic_interface_t * nic_iface, packet_t * pkt)
 			" pkt == 0x%x", nic, nic_iface, pkt);
 		return -EINVAL;
 	}
+	bp = (bnx2_t *)nic->priv;
+	uip = &nic_iface->ustack;
 
 	if (pkt->buf_size == 0) {
 		LOG_ERR(PFX "%s: Trying to transmitted 0 sized packet",
@@ -969,7 +971,7 @@ int bnx2_write(nic_t * nic, nic_interface_t * nic_iface, packet_t * pkt)
  */
 static int bnx2_read(nic_t * nic, packet_t * pkt)
 {
-	bnx2_t *bp = (bnx2_t *) nic->priv;
+	bnx2_t *bp;
 	int rc = 0;
 	uint16_t hw_cons, sw_cons;
 
@@ -979,6 +981,7 @@ static int bnx2_read(nic_t * nic, packet_t * pkt)
 			" pkt == 0x%x", nic, pkt);
 		return -EINVAL;
 	}
+	bp = (bnx2_t *)nic->priv;
 
 	hw_cons = bp->get_rx_cons(bp);
 	sw_cons = bp->rx_cons;
@@ -1079,14 +1082,16 @@ static int bnx2_read(nic_t * nic, packet_t * pkt)
  */
 static int bnx2_clear_tx_intr(nic_t * nic)
 {
-	bnx2_t *bp = (bnx2_t *) nic->priv;
-	uint16_t hw_cons = bp->get_tx_cons(bp);
+	bnx2_t *bp;
+	uint16_t hw_cons;
 
 	/* Sanity check: ensure the parameters passed in are valid */
 	if (unlikely(nic == NULL)) {
 		LOG_ERR(PFX "bnx2_read() nic == NULL");
 		return -EINVAL;
 	}
+	bp = (bnx2_t *) nic->priv;
+	hw_cons = bp->get_tx_cons(bp);
 
 	if (bp->flags & BNX2_UIO_TX_HAS_SENT) {
 		bp->flags &= ~BNX2_UIO_TX_HAS_SENT;

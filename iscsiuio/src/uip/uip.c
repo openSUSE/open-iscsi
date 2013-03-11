@@ -2344,7 +2344,7 @@ tcp_send:
 		uip_ip6addr_copy(IPv6_BUF(ustack)->srcipaddr,
 				 ustack->hostaddr6);
 		uip_ip6addr_copy(IPv6_BUF(ustack)->destipaddr,
-				 uip_connr->ripaddr);
+				 uip_connr->ripaddr6);
 	} else {
 		tcp_ipv4_hdr->proto = UIP_PROTO_TCP;
 		uip_ip4addr_copy(tcp_ipv4_hdr->srcipaddr, ustack->hostaddr);

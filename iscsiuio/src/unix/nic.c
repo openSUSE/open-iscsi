@@ -119,7 +119,7 @@ static void free_nic_library_handle(nic_lib_handle_t * handle)
  *  @param handle - This is the library handle to load
  *  @return 0 = Success; <0 = failure
  */
-static int load_nic_library(nic_lib_handle_t * handle)
+static int load_nic_library(nic_lib_handle_t *handle)
 {
 	int rc;
 	char *library_name;
@@ -173,7 +173,7 @@ static int load_nic_library(nic_lib_handle_t * handle)
 
 	return 0;
 
-      error:
+error:
 	pthread_mutex_unlock(&handle->mutex);
 
 	return rc;
@@ -198,9 +198,10 @@ int load_all_nic_libraries()
 		handle->ops = (*nic_get_ops[i]) ();
 
 		rc = load_nic_library(handle);
-		if (rc != 0)
+		if (rc != 0) {
+			free_nic_library_handle(handle);
 			return rc;
-
+		}
 		/*  Add the CNIC library to the list of library handles */
 		pthread_mutex_lock(&nic_lib_list_mutex);
 

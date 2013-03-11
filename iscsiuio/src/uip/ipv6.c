@@ -150,10 +150,11 @@ void ipv6_init(struct ndpc_state *ndp, int cfg)
 	ipv6_arp_table = &ipv6_context->ipv6_arp_table[0];
 	ipv6_prefix_table = &ipv6_context->ipv6_prefix_table[0];
 
-	memset((char __FAR__ *)ipv6_arp_table, 0, sizeof(ipv6_arp_table));
-	memset((char __FAR__ *)ipv6_prefix_table, 0, sizeof(ipv6_prefix_table));
-	memcpy((char __FAR__ *)&ipv6_context->mac_addr,
-	       (char __FAR__ *)mac_addr, sizeof(MAC_ADDR));
+	memset((char __FAR__*)ipv6_arp_table, 0, sizeof(*ipv6_arp_table));
+	memset((char __FAR__*)ipv6_prefix_table, 0,
+	       sizeof(*ipv6_prefix_table));
+	memcpy((char __FAR__*)&ipv6_context->mac_addr,
+	       (char __FAR__*)mac_addr, sizeof(MAC_ADDR));
 	/* 
 	 * Per RFC 2373.  
 	 * There are two types of local-use unicast addresses defined.  These

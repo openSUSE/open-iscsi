@@ -787,12 +787,13 @@ int process_iscsid_broadcast(int s2)
 	data = (iscsid_uip_broadcast_t *) malloc(sizeof(*data));
 	if (data == NULL) {
 		LOG_ERR(PFX "Couldn't allocate memory for iface data");
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto error;
 	}
 	memset(data, 0, sizeof(*data));
 
 	size = fread(data, sizeof(iscsid_uip_broadcast_header_t), 1, fd);
-	if (size == -1) {
+	if (!size) {
 		LOG_ERR(PFX "Could not read request: %d(%s)",
 			errno, strerror(errno));
 		rc = ferror(fd);
@@ -806,7 +807,7 @@ int process_iscsid_broadcast(int s2)
 		  cmd, payload_len);
 
 	size = fread(&data->u.iface_rec, payload_len, 1, fd);
-	if (size == -1) {
+	if (!size) {
 		LOG_ERR(PFX "Could not read data: %d(%s)",
 			errno, strerror(errno));
 		goto error;

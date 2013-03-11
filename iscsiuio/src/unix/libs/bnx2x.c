@@ -290,9 +290,9 @@ static void bnx2x_set_drv_version_unknown(bnx2x_t * bp)
 
 static int bnx2x_is_drv_version_unknown(struct bnx2x_driver_version *version)
 {
-	if ((version->major == BNX2X_UNKNOWN_MAJOR_VERSION) &&
-	    (version->minor == BNX2X_UNKNOWN_MINOR_VERSION) &&
-	    (version->sub_minor == BNX2X_UNKNOWN_SUB_MINOR_VERSION)) {
+	if ((version->major == (uint16_t)BNX2X_UNKNOWN_MAJOR_VERSION) &&
+	    (version->minor == (uint16_t)BNX2X_UNKNOWN_MINOR_VERSION) &&
+	    (version->sub_minor == (uint16_t)BNX2X_UNKNOWN_SUB_MINOR_VERSION)) {
 		return 1;
 	}
 
@@ -1185,9 +1185,12 @@ static int bnx2x_uio_close_resources(nic_t * nic, NIC_SHUTDOWN_T graceful)
 static int bnx2x_close(nic_t * nic, NIC_SHUTDOWN_T graceful)
 {
 	/*  Sanity Check: validate the parameters */
-	if (nic == NULL || nic->priv == NULL) {
-		LOG_ERR(PFX "bnx2x_close(): nic == %p, bp == %p", nic,
-			nic->priv);
+	if (nic == NULL) {
+		LOG_ERR(PFX "bnx2x_close(): nic == NULL");
+		return -EINVAL;
+	}
+	if (nic->priv == NULL) {
+		LOG_ERR(PFX "bnx2x_close(): nic->priv == NULL");
 		return -EINVAL;
 	}
 
@@ -1294,8 +1297,8 @@ void bnx2x_start_xmit(nic_t * nic, size_t len, u16_t vlan_id)
  */
 int bnx2x_write(nic_t * nic, nic_interface_t * nic_iface, packet_t * pkt)
 {
-	bnx2x_t *bp = (bnx2x_t *) nic->priv;
-	struct uip_stack *uip = &nic_iface->ustack;
+	bnx2x_t *bp;
+	struct uip_stack *uip;
 	int i = 0;
 
 	/* Sanity Check: validate the parameters */
@@ -1305,6 +1308,8 @@ int bnx2x_write(nic_t * nic, nic_interface_t * nic_iface, packet_t * pkt)
 			" pkt == 0x%x", nic, nic_iface, pkt);
 		return -EINVAL;
 	}
+	bp = (bnx2x_t *) nic->priv;
+	uip = &nic_iface->ustack;
 
 	if (pkt->buf_size == 0) {
 		LOG_ERR(PFX "%s: Trying to transmitted 0 sized packet",
@@ -1368,7 +1373,7 @@ static inline int bnx2x_get_rx_pad(bnx2x_t * bp, union eth_rx_cqe *cqe)
  */
 static int bnx2x_read(nic_t * nic, packet_t * pkt)
 {
-	bnx2x_t *bp = (bnx2x_t *) nic->priv;
+	bnx2x_t *bp;
 	int rc = 0;
 	uint16_t hw_cons, sw_cons, bd_cons, bd_prod;
 
@@ -1378,6 +1383,7 @@ static int bnx2x_read(nic_t * nic, packet_t * pkt)
 			" pkt == 0x%x", nic, pkt);
 		return -EINVAL;
 	}
+	bp = (bnx2x_t *) nic->priv;
 
 	hw_cons = bp->get_rx_cons(bp);
 	sw_cons = bp->rx_cons;
@@ -1473,14 +1479,16 @@ static int bnx2x_read(nic_t * nic, packet_t * pkt)
  */
 static int bnx2x_clear_tx_intr(nic_t * nic)
 {
-	bnx2x_t *bp = (bnx2x_t *) nic->priv;
-	uint16_t hw_cons = bp->get_tx_cons(bp);
+	bnx2x_t *bp;
+	uint16_t hw_cons;
 
 	/* Sanity check: ensure the parameters passed in are valid */
 	if (unlikely(nic == NULL)) {
 		LOG_ERR(PFX "bnx2x_read() nic == NULL");
 		return -EINVAL;
 	}
+	bp = (bnx2x_t *) nic->priv;
+	hw_cons = bp->get_tx_cons(bp);
 
 	if (bp->tx_cons == hw_cons) {
 		if (bp->tx_cons == bp->tx_prod) {
