@@ -125,6 +125,7 @@ static int cnic_arp_send(nic_t * nic, nic_interface_t * nic_iface, int fd,
 	memcpy(arp->arp_tpa, &dst_ip, 4);
 
 	(*nic->nic_library->ops->start_xmit) (nic, pkt_size,
+					      (nic_iface->vlan_priority << 12) |
 					      nic_iface->vlan_id);
 
 	memcpy(&addr.s_addr, &dst_ip, sizeof(addr.s_addr));
@@ -196,6 +197,7 @@ static int cnic_neigh_soliciation_send(nic_t * nic,
 		  eth->ether_shost[2], eth->ether_shost[3],
 		  eth->ether_shost[4], eth->ether_shost[5]);
 	(*nic->nic_library->ops->start_xmit) (nic, pkt_size,
+					      (nic_iface->vlan_priority << 12) |
 					      nic_iface->vlan_id);
 
 	LOG_DEBUG(PFX "%s: Sent cnic ICMPv6 neighbor request %s",
@@ -283,7 +285,8 @@ src_done:
 			  addr_dst_str, sizeof(addr_dst_str));
 	}
 	memcpy(path_rsp->mac_addr, mac_addr, 6);
-	path_rsp->vlan_id = nic_iface->vlan_id;
+	path_rsp->vlan_id = (nic_iface->vlan_priority << 12) |
+			    nic_iface->vlan_id;
 	path_rsp->pmtu = path_req->pmtu;
 
 	rc = __kipc_call(fd, ret_ev, sizeof(*ret_ev) + sizeof(*path_rsp));

@@ -1339,7 +1339,8 @@ int bnx2x_write(nic_t * nic, nic_interface_t * nic_iface, packet_t * pkt)
 
 	bnx2x_prepare_xmit_packet(nic, nic_iface, pkt);
 	bnx2x_start_xmit(nic, pkt->buf_size,
-			 nic_iface->vlan_priority | nic_iface->vlan_id);
+			 (nic_iface->vlan_priority << 12) |
+			 nic_iface->vlan_id);
 
 	/*  bump the cnic dev send statistics */
 	nic->stats.tx.packets++;
@@ -1525,7 +1526,7 @@ static int bnx2x_clear_tx_intr(nic_t * nic)
 			bnx2x_prepare_xmit_packet(nic, pkt->nic_iface, pkt);
 
 			bnx2x_start_xmit(nic, pkt->buf_size,
-					 pkt->nic_iface->vlan_priority |
+					 (pkt->nic_iface->vlan_priority << 12) |
 					 pkt->nic_iface->vlan_id);
 
 			LOG_PACKET(PFX "%s: transmitted queued packet %d bytes "
