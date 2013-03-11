@@ -1290,7 +1290,7 @@ nic_interface_t *nic_find_nic_iface(nic_t *nic,
 		current_vlan = current->vlan_next;
 		while (current_vlan != NULL) {
 			if (iface_num != IFACE_NUM_INVALID &&
-			    current_vlan->iface_num == iface_num)
+			    current_vlan->iface_num == iface_num) {
 				if (!iface_num && request_type !=
 				    IP_CONFIG_OFF) {
 					if (current_vlan->request_type ==
@@ -1298,6 +1298,7 @@ nic_interface_t *nic_find_nic_iface(nic_t *nic,
 						goto vlan_found;
 				} else
 					goto vlan_found;
+			}
 			if ((current_vlan->vlan_id == vlan_id) &&
 			    ((request_type == IP_CONFIG_OFF) ||
 			    (current_vlan->request_type == request_type)))

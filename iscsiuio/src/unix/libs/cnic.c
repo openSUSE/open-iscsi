@@ -283,16 +283,17 @@ src_done:
 			  addr_dst_str, sizeof(addr_dst_str));
 	}
 	memcpy(path_rsp->mac_addr, mac_addr, 6);
-	path_rsp->vlan_id = path_req->vlan_id;
+	path_rsp->vlan_id = nic_iface->vlan_id;
 	path_rsp->pmtu = path_req->pmtu;
 
 	rc = __kipc_call(fd, ret_ev, sizeof(*ret_ev) + sizeof(*path_rsp));
 	if (rc > 0) {
 		LOG_DEBUG(PFX "neighbor reply sent back to kernel "
-			  "%s at %02x:%02x:%02x:%02x:%02x:%02x",
+			  "%s at %02x:%02x:%02x:%02x:%02x:%02x with vlan %d",
 			  addr_dst_str,
 			  mac_addr[0], mac_addr[1],
-			  mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+			  mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5],
+			  nic_iface->vlan_id);
 
 	} else {
 		LOG_ERR(PFX "send neighbor reply failed: %d", rc);
