@@ -180,6 +180,7 @@ static int decode_cidr(char *in_ipaddr_str, struct iface_rec_decode *ird)
 			/* Default prefix mask to 64 */
 			memcpy(&ird->ipv6_subnet_mask.s6_addr, all_zeroes_addr6,
 			       sizeof(struct in6_addr));
+			ird->prefix_len = 64;
 			for (i = 0; i < 2; i++)
 				ird->ipv6_subnet_mask.s6_addr32[i] = 0xffffffff;
 			goto out;
