@@ -1,14 +1,49 @@
                               Release Notes
                         Broadcom uIP Linux Driver
-                            Version 0.7.4.3
-                               06/26/2012
+                            Version 0.7.6.2
+                               12/07/2012
 
                           Broadcom Corporation
                          5300 California Avenue,
                             Irvine, CA 92617
 
-               Copyright (c) 2004 - 2011 Broadcom Corporation
+               Copyright (c) 2004 - 2012 Broadcom Corporation
                            All rights reserved
+
+
+uIP v0.7.6.2 (Dec 07, 2012)
+=======================================================
+   Fixes
+   -----
+   1. Problem: Cont00065690 - Vconfig method of connecting over
+               tagged vlan with IPv6 failed
+      Cause:   The new net param support changes has prevented
+               the old vconfig method from execising the IPv6
+               acquisition engine properly
+      Change:  Ensure that this old vconfig method to run the IPv6
+               acquisition engine properly and to its entirety
+      Impact:  IPv6 + VLAN using the network VLAN configuration
+               method
+
+   2. Problem: Cont00065768 - RHEL5.X iscsiuio segfault possible
+               if there is a specific 1024 byte size broadcast
+               packet
+      Cause:   This is a corner case where the packet size is
+               exactly 1024 bytes + padding that exceeded the
+               DMA rx buffer.  This has been there since day 1.
+      Change:  Ensure that the packet size + padding do not
+               exceed this limit.
+      Impact:  10G only.  1G already has the guard against it.
+
+
+   Enhancements
+   ------------
+   1. Change:  Source optimization - backported source code fixes
+               as reported from the upstream submission patch
+      Impact:  ALL
+
+   2. Change:  Added support for 10G 57840 4x10 and 2x20
+      Impact:  10G 57840
 
 
 uIP v0.7.4.3 (Jun 26, 2012)
