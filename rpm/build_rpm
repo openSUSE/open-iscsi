@@ -6,7 +6,7 @@
 RPM="open-iscsi"
 BRANCH="sles11-sp2"
 VERSION="2.0-873"
-BRANCH_TAG=sles11-sp2-update 
+BRANCH_TAG="sles11-sp2-update"
 DESTDIR=
 uncommitted_changes=0
 
@@ -139,8 +139,8 @@ if (( $uncommitted_changes )) ; then
     git diff $BRANCH > $DESTDIR/$patchname
 
     # XXX this assumes the highest existing patch is 2 -- should be cleaned up
-    sed -i "/Patch2:.*$/aPatch3:         $patchname" $DESTDIR/rpm/$RPM.spec
-    sed -i "/%patch2 -p1/a%patch3 -p1" $DESTDIR/rpm/$RPM.spec
+    sed -i "/Patch2:.*$/aPatch3:         $patchname" $DESTDIR/$RPM.spec
+    sed -i "/%patch2 -p1/a%patch3 -p1" $DESTDIR/$RPM.spec
 fi
 
 echo "$RPM src rpm copied to $DESTDIR"
