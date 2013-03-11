@@ -33,12 +33,12 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * ipv6.h -  This file contains macro definitions pertaining to IPv6.   
- *                                                                            
- *     RFC 2460 : IPv6 Specification                                          
- *     RFC 2373 : IPv6 Addressing Architecture.                               
- *     RFC 2462 : IPv6 Stateless Address Autoconfiguration.                   
- *     RFC 2464 : Transmission of IPv6 Packets over Ethernet Networks.        
+ * ipv6.h -  This file contains macro definitions pertaining to IPv6.
+ *
+ *     RFC 2460 : IPv6 Specification.
+ *     RFC 2373 : IPv6 Addressing Architecture.
+ *     RFC 2462 : IPv6 Stateless Address Autoconfiguration.
+ *     RFC 2464 : Transmission of IPv6 Packets over Ethernet Networks.
  *
  */
 #ifndef __IPV6_H__
@@ -46,50 +46,32 @@
 
 #include "ipv6_ndpc.h"
 
-#define PACK_DATA_STRUCTURE 1
-
-#ifdef PACK_DATA_STRUCTURE
-#pragma pack(push,1)
-#endif
-
-#define STATIC static
-
-#define __FAR__
 #define FALSE 0
 #define TRUE  1
 
-#ifdef ROM_DRIVER
-#define memcpy imemcpy
-#define memset imemset
-#define memcmp istrncmp
-#define system_get_ticks iscsiGetTicks
-#endif
+#define LINK_LOCAL_PREFIX_LENGTH	2
+#define LAYER2_HEADER_LENGTH		14
+#define LAYER2_VLAN_HEADER_LENGTH	16
+#define LAYER2_TYPE_IPV6		0x86dd
 
-#define LINK_LOCAL_PREFIX_LENGTH    2
-#define LAYER2_HEADER_LENGTH 14
-#define LAYER2_VLAN_HEADER_LENGTH 16
-#define LAYER2_TYPE_IPV6 0x86dd
-
-typedef struct IPV6_ADDR {
+struct ipv6_addr {
 	union {
 		u8_t addr8[16];
 		u16_t addr16[8];
 		u32_t addr[4];
 	};
-} IPV6_ADDR, *pIPV6_ADDR;
+};
 
-typedef struct UDP_HDR {
+struct udp_hdr {
 	u16_t src_port;
 	u16_t dest_port;
 	u16_t length;
 	u16_t chksum;
-} UDP_HDR, *pUDP_HDR;
+};
 
-typedef struct MAC_ADDRESS {
+struct mac_address {
 	u8_t addr[6];
-} MAC_ADDRESS, *pMAC_ADDRESS;
-
-typedef u8_t MAC_ADDR[6];
+};
 
 #define HOST_TO_NET16(a) htons(a)
 #define HOST_TO_NET32(a) htonl(a)
@@ -97,15 +79,15 @@ typedef u8_t MAC_ADDR[6];
 /*
  * Local definition for masks
  */
-#define IPV6_MASK0        {{{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }}}
-#define IPV6_MASK32       {{{ 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, \
-                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }}}
-#define IPV6_MASK64       {{{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, \
-                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }}}
-#define IPV6_MASK96       {{{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, \
-                            0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 }}}
-#define IPV6_MASK128      {{{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, \
-                            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }}}
+#define IPV6_MASK0   { { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } } }
+#define IPV6_MASK32  { { { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, \
+			   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } } }
+#define IPV6_MASK64  { { { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, \
+			   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } } }
+#define IPV6_MASK96  { { { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, \
+			   0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 } } }
+#define IPV6_MASK128 { { { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, \
+			   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff } } }
 
 #ifdef BIG_ENDIAN
 #define IPV6_ADDR_INT32_ONE     1
@@ -131,54 +113,54 @@ typedef u8_t MAC_ADDR[6];
  * Definition of some useful macros to handle IP6 addresses
  */
 #define IPV6_ADDR_ANY_INIT \
-        {{{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }}}
+	{ { { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+	      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } } }
 #define IPV6_ADDR_LOOPBACK_INIT \
-        {{{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 }}}
+	{ { { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+	      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } } }
 #define IPV6_ADDR_NODELOCAL_ALLNODES_INIT \
-        {{{ 0xff, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 }}}
+	{ { { 0xff, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+	      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } } }
 #define IPV6_ADDR_INTFACELOCAL_ALLNODES_INIT \
-        {{{ 0xff, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 }}}
+	{ { { 0xff, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+	      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } } }
 #define IPV6_ADDR_LINKLOCAL_ALLNODES_INIT \
-        {{{ 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 }}}
+	{ { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+	      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } } }
 #define IPV6_ADDR_LINKLOCAL_ALLROUTERS_INIT \
-        {{{ 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02 }}}
+	{ { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+	      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02 } } }
 
 #define IPV6_ARE_ADDR_EQUAL(a, b) \
-  (memcmp((char __FAR__ *)a,(char  __FAR__ *)b,sizeof(IPV6_ADDR)) == 0)
+	(memcmp((char *)a, (char *)b, sizeof(struct ipv6_addr)) == 0)
 
 /* Unspecified IPv6 address */
-#define IPV6_IS_ADDR_UNSPECIFIED(a)      \
-  ((*(u32_t *)(&(a)->addr8[0]) == 0) &&  \
-   (*(u32_t *)(&(a)->addr8[4]) == 0) &&  \
-   (*(u32_t *)(&(a)->addr8[8]) == 0) &&  \
-   (*(u32_t *)(&(a)->addr8[12]) == 0))
+#define IPV6_IS_ADDR_UNSPECIFIED(a)		\
+	((*(u32_t *)(&(a)->addr8[0]) == 0) &&	\
+	 (*(u32_t *)(&(a)->addr8[4]) == 0) &&	\
+	 (*(u32_t *)(&(a)->addr8[8]) == 0) &&	\
+	 (*(u32_t *)(&(a)->addr8[12]) == 0))
 
 /* Loopback IPv6 address */
-#define IPV6_IS_ADDR_LOOPBACK(a)         \
-  ((*(u32_t *)(&(a)->addr8[0]) == 0) &&  \
-   (*(u32_t *)(&(a)->addr8[4]) == 0) &&  \
-   (*(u32_t *)(&(a)->addr8[8]) == 0) &&  \
-   (*(u32_t *)(&(a)->addr8[12]) == 0x1))
+#define IPV6_IS_ADDR_LOOPBACK(a)		\
+	((*(u32_t *)(&(a)->addr8[0]) == 0) &&	\
+	 (*(u32_t *)(&(a)->addr8[4]) == 0) &&	\
+	 (*(u32_t *)(&(a)->addr8[8]) == 0) &&	\
+	 (*(u32_t *)(&(a)->addr8[12]) == 0x1))
 
 /* IPv4 compatible */
-#define IPV6_IS_ADDR_IPV4_COMPAT(a)         \
-  ((*(u32_t *)(&(a)->addr8[0]) == 0) &&       \
-   (*(u32_t *)(&(a)->addr8[4]) == 0) &&       \
-   (*(u32_t *)(&(a)->addr8[8]) == 0) &&               \
-   (*(u32_t *)(&(a)->addr8[12]) != 0) &&              \
-   (*(u32_t *)(&(a)->addr8[12]) != 0x1))
+#define IPV6_IS_ADDR_IPV4_COMPAT(a)		\
+	((*(u32_t *)(&(a)->addr8[0]) == 0) &&	\
+	 (*(u32_t *)(&(a)->addr8[4]) == 0) &&	\
+	 (*(u32_t *)(&(a)->addr8[8]) == 0) &&	\
+	 (*(u32_t *)(&(a)->addr8[12]) != 0) &&	\
+	 (*(u32_t *)(&(a)->addr8[12]) != 0x1))
 
 /* Mapped IPv4-IPv6 address */
-#define IPV6_IS_ADDR_IPV4_MAPPED(a)               \
-  ((*(u32_t *)(&(a)->addr8[0]) == 0) &&                         \
-   (*(u32_t *)(&(a)->addr8[4]) == 0) &&                         \
-   (*(u32_t *)(&(a)->addr8[8]) == ntohl(0x0000ffff)))
+#define IPV6_IS_ADDR_IPV4_MAPPED(a)		\
+	((*(u32_t *)(&(a)->addr8[0]) == 0) &&	\
+	 (*(u32_t *)(&(a)->addr8[4]) == 0) &&	\
+	 (*(u32_t *)(&(a)->addr8[8]) == ntohl(0x0000ffff)))
 
 /* IPv6 Scope Values */
 #define IPV6_ADDR_SCOPE_INTFACELOCAL    0x01	/* Node-local scope */
@@ -189,26 +171,26 @@ typedef u8_t MAC_ADDR[6];
 
 /* Link-local Unicast : 10-bits much be 1111111010b --> 0xfe80. */
 #define IPV6_IS_ADDR_LINKLOCAL(a)        \
-        (((a)->addr8[0] == 0xfe) && (((a)->addr8[1] & 0xc0) == 0x80))
+	(((a)->addr8[0] == 0xfe) && (((a)->addr8[1] & 0xc0) == 0x80))
 
 /* Site-local Unicast : 10-bits much be 1111111011b --> 0xfec0. */
 #define IPV6_IS_ADDR_SITELOCAL(a)        \
-        (((a)->addr8[0] == 0xfe) && (((a)->addr8[1] & 0xc0) == 0xc0))
+	(((a)->addr8[0] == 0xfe) && (((a)->addr8[1] & 0xc0) == 0xc0))
 
 /* Multicast : 10bits much be 11111111b. Next 4 bits is flags | 4-bit scope  */
-#define IPV6_IS_ADDR_MULTICAST(a)        ((a)->addr8[0] == 0xff)
+#define IPV6_IS_ADDR_MULTICAST(a)	((a)->addr8[0] == 0xff)
 
-#define IPV6_ADDR_MC_SCOPE(a)           ((a)->addr8[1] & 0x0f)
+#define IPV6_ADDR_MC_SCOPE(a)		((a)->addr8[1] & 0x0f)
 
 /* Multicast Scope */
 
-typedef struct ETH_HDR {
-	MAC_ADDR dest_mac;
-	MAC_ADDR src_mac;
+struct eth_hdr {
+	struct mac_address dest_mac;
+	struct mac_address src_mac;
 	u16_t len_type;
-} ETH_HDR, *pETH_HDR;
+};
 
-typedef struct IPV6_HDR {
+struct ipv6_hdr {
 	union {
 		struct {
 			u32_t ipv6_flow;	/* Version (4-bit) |
@@ -222,104 +204,99 @@ typedef struct IPV6_HDR {
 		u8_t ipv6_version_fc;	/* 4 bits version, top 4 bits class */
 	} ipv6_ctrl;
 
-	IPV6_ADDR ipv6_src;	/* Source address */
-	IPV6_ADDR ipv6_dst;	/* Destination address */
-} IPV6_HDR, *pIPV6_HDR;
+	struct ipv6_addr ipv6_src;	/* Source address */
+	struct ipv6_addr ipv6_dst;	/* Destination address */
+};
 
-#define ipv6_version_fc  ipv6_ctrl.ipv6_version_fc
-#define ipv6_flow        ipv6_ctrl.ipv6_dw1.ipv6_flow
-#define ipv6_plen        ipv6_ctrl.ipv6_dw1.ipv6_plen
-#define ipv6_nxt_hdr     ipv6_ctrl.ipv6_dw1.ipv6_nxt_hdr
-#define ipv6_hop_limit   ipv6_ctrl.ipv6_dw1.ipv6_hop_limit
+#define ipv6_version_fc		ipv6_ctrl.ipv6_version_fc
+#define ipv6_flow		ipv6_ctrl.ipv6_dw1.ipv6_flow
+#define ipv6_plen		ipv6_ctrl.ipv6_dw1.ipv6_plen
+#define ipv6_nxt_hdr		ipv6_ctrl.ipv6_dw1.ipv6_nxt_hdr
+#define ipv6_hop_limit		ipv6_ctrl.ipv6_dw1.ipv6_hop_limit
 
-#define IPV6_VERSION            0x60
-#define IPV6_VERSION_MASK       0xf0
-#define IPV6_HOP_LIMIT          64
+#define IPV6_VERSION		0x60
+#define IPV6_VERSION_MASK	0xf0
+#define IPV6_HOP_LIMIT		64
 
 /* Length of the IP header with no next header */
-#define IPV6_HEADER_LEN      sizeof(IPV6_HDR)
+#define IPV6_HEADER_LEN		sizeof(struct ipv6_hdr)
 
 #ifdef BIG_ENDIAN
-#define IPV6_FLOWINFO_MASK      0x0fffffff	/* flow info (28 bits) */
-#define IPV6_FLOWLABEL_MASK     0x000fffff	/* flow label (20 bits) */
+#define IPV6_FLOWINFO_MASK	0x0fffffff	/* flow info (28 bits) */
+#define IPV6_FLOWLABEL_MASK	0x000fffff	/* flow label (20 bits) */
 #else /* LITTLE_ENDIAN */
-#define IPV6_FLOWINFO_MASK      0xffffff0f	/* flow info (28 bits) */
-#define IPV6_FLOWLABEL_MASK     0xffff0f00	/* flow label (20 bits) */
+#define IPV6_FLOWINFO_MASK	0xffffff0f	/* flow info (28 bits) */
+#define IPV6_FLOWLABEL_MASK	0xffff0f00	/* flow label (20 bits) */
 #endif
 
-typedef struct PACKET_IPV6 {
-	MAC_ADDR dest_mac;
-	MAC_ADDR src_mac;
+struct packet_ipv6 {
+	struct mac_address dest_mac;
+	struct mac_address src_mac;
 	u16_t len_type;
-	IPV6_HDR ip;
+	struct ipv6_hdr ipv6;
 	union {
-		UDP_HDR udp;
+		struct udp_hdr udp;
 	} layer4_prot;
-} PACKET_IPV6, *pPACKET_IPV6;
+};
 
-typedef struct PACKET_IPV6_VLAN {
-	MAC_ADDR dest_mac;
-	MAC_ADDR src_mac;
+struct packet_ipv6_vlan {
+	struct mac_address dest_mac;
+	struct mac_address src_mac;
 	u16_t len_type;
 	u16_t vlan_id;
-	IPV6_HDR ip;
+	struct ipv6_hdr ipv6;
 	union {
-		UDP_HDR udp;
+		struct udp_hdr udp;
 	} layer4_prot;
-} PACKET_IPV6_VLAN, *pPACKET_IPV6_VLAN;
+};
 
-#ifdef PACK_DATA_STRUCTURE
-#pragma pack(pop)
-#endif
-
-typedef struct IPV6_ARP_ENTRY {
-	IPV6_ADDR ip_addr;
-	MAC_ADDR mac_addr;
+struct ipv6_arp_entry {
+	struct ipv6_addr ip_addr;
+	struct mac_address mac_addr;
 	u8_t time;
-} IPV6_ARP_ENTRY, *pIPV6_ARP_ENTRY;
+};
 
 #define IPV6_NUM_OF_ADDRESS_ENTRY  4
 
-typedef struct _IPV6_PREFIX_ENTRY {
-	struct _IPV6_PREFIX_ENTRY *next;
-	IPV6_ADDR address;
+struct ipv6_prefix_entry {
+	struct ipv6_prefix_entry *next;
+	struct ipv6_addr ip_addr;
 	u8_t prefix_len;
-} IPV6_PREFIX_ENTRY, *pIPV6_PREFIX_ENTRY;
+};
 
-typedef struct IPV6_ADDR_ENTRY {
-	IPV6_ADDR address;
+struct ipv6_addr_entry {
+	struct ipv6_addr ip_addr;
 	u8_t prefix_len;
-} IPV6_ADDR_ENTRY, *pIPV6_ADDR_ENTRY;
+};
 
-typedef struct IPV6_CONTEXT {
+struct ipv6_context {
 	u16_t flags;
 #define IPV6_FLAGS_MANAGED_ADDR_CONFIG    (1 << 0)
 #define IPV6_FLAGS_OTHER_STATEFUL_CONFIG  (1 << 1)
 #define IPV6_FLAGS_ROUTER_ADV_RECEIVED    (1 << 2)
 #define IPV6_FLAGS_DISABLE_DHCPV6         (1 << 3)
 
-	MAC_ADDRESS mac_addr;
-	IPV6_ADDR link_local_addr;
-	IPV6_ADDR link_local_multi;
-	IPV6_ADDR multi;	/* For Static IPv6 only */
-	IPV6_ADDR multi_dest;	/* For Static IPv6 only */
-	IPV6_ADDR default_router;
-	pIPV6_PREFIX_ENTRY addr_list;
+	struct mac_address mac_addr;
+	struct ipv6_addr link_local_addr;
+	struct ipv6_addr link_local_multi;
+	struct ipv6_addr multi;	/* For Static IPv6 only */
+	struct ipv6_addr multi_dest;	/* For Static IPv6 only */
+	struct ipv6_addr default_router;
+	struct ipv6_prefix_entry *addr_list;
 	u8_t hop_limit;
 #define UIP_ARPTAB_SIZE 8
 
 	struct uip_stack *ustack;
 #define MAX_MCADDR_TABLE 5
-	MAC_ADDR mc_addr[MAX_MCADDR_TABLE];
+	struct mac_address mc_addr[MAX_MCADDR_TABLE];
 	u8_t arptime;
-	IPV6_ARP_ENTRY ipv6_arp_table[UIP_ARPTAB_SIZE];
-	IPV6_PREFIX_ENTRY ipv6_prefix_table[IPV6_NUM_OF_ADDRESS_ENTRY];
+	struct ipv6_arp_entry ipv6_arp_table[UIP_ARPTAB_SIZE];
+	struct ipv6_prefix_entry ipv6_prefix_table[IPV6_NUM_OF_ADDRESS_ENTRY];
 
 	/* VLAN support */
 
 	void *dhcpv6_context;
-
-} IPV6_CONTEXT, *pIPV6_CONTEXT;
+};
 
 #define ISCSI_FLAGS_DHCP_TCPIP_CONFIG (1<<0)
 #define ISCSI_FLAGS_DHCP_ISCSI_CONFIG (1<<1)
@@ -332,36 +309,38 @@ typedef struct IPV6_CONTEXT {
 
 /* Function prototype */
 void ipv6_init(struct ndpc_state *ndp, int cfg);
-int ipv6_autoconfig(pIPV6_CONTEXT ipv6_context);
-int ipv6_discover_address(pIPV6_CONTEXT ipv6_context);
-pIPV6_ADDR ipv6_our_address(pIPV6_CONTEXT ipv6_context);
-int ipv6_ip_in_arp_table(pIPV6_CONTEXT ipv6_context, pIPV6_ADDR ipv6_addr,
-			 MAC_ADDR * mac_addr);
-void ipv6_arp_timer(pIPV6_CONTEXT ipv6_context);
-void ipv6_arp_out(pIPV6_CONTEXT ipv6_context, int *uip_len);
-int ipv6_add_prefix_entry(pIPV6_CONTEXT ipv6_context,
-			  IPV6_ADDR * ipv6_addr, u8_t prefix_len);
-void ipv6_set_ip_params(pIPV6_CONTEXT ipv6_context,
-			pIPV6_ADDR src_ip, u8_t prefix_len,
-			pIPV6_ADDR default_gateway,
-			pIPV6_ADDR linklocal);
-void ipv6_set_host_addr(pIPV6_CONTEXT ipv6_context, pIPV6_ADDR src_ip);
-int ipv6_get_default_router_ip_addrs(pIPV6_CONTEXT ipv6_context,
-				     pIPV6_ADDR ip_addr);
-MAC_ADDRESS *ipv6_get_link_addr(pIPV6_CONTEXT ipv6_context);
-u16_t ipv6_do_stateful_dhcpv6(pIPV6_CONTEXT ipv6_context, u32_t flags);
-void ipv6_add_solit_node_address(pIPV6_CONTEXT ipv6_context,
-				 pIPV6_ADDR ip_addr);
-int ipv6_get_source_ip_addrs(pIPV6_CONTEXT ipv6_context,
-			     pIPV6_ADDR_ENTRY addr_list);
-void ipv6_cfg_link_local_addr(pIPV6_CONTEXT ipv6_context, pIPV6_ADDR ip_addr);
-void ipv6_disable_dhcpv6(pIPV6_CONTEXT ipv6_context);
-int ipv6_send_nd_solicited_packet(pIPV6_CONTEXT ipv6_context, pETH_HDR eth,
-				  pIPV6_HDR ipv6);
-int ipv6_is_it_our_link_local_address(pIPV6_CONTEXT ipv6_context,
-				      IPV6_ADDR __FAR__ * ipv6_addr);
-void ipv6_mc_init_dest_mac(pETH_HDR eth, pIPV6_HDR ipv6);
-pIPV6_ADDR ipv6_find_longest_match(pIPV6_CONTEXT ipv6_context,
-				   pIPV6_ADDR ip_addr);
+int ipv6_autoconfig(struct ipv6_context *context);
+int ipv6_discover_address(struct ipv6_context *context);
+struct ipv6_addr *ipv6_our_address(struct ipv6_context *context);
+int ipv6_ip_in_arp_table(struct ipv6_context *context,
+			 struct ipv6_addr *ipv6_addr,
+			 struct mac_address *mac_addr);
+void ipv6_arp_timer(struct ipv6_context *context);
+void ipv6_arp_out(struct ipv6_context *context, int *uip_len);
+int ipv6_add_prefix_entry(struct ipv6_context *context,
+			  struct ipv6_addr *ip_addr, u8_t prefix_len);
+void ipv6_set_ip_params(struct ipv6_context *context,
+			struct ipv6_addr *src_ip, u8_t prefix_len,
+			struct ipv6_addr *default_gateway,
+			struct ipv6_addr *linklocal);
+void ipv6_set_host_addr(struct ipv6_context *context, struct ipv6_addr *src_ip);
+int ipv6_get_default_router_ip_addrs(struct ipv6_context *context,
+				     struct ipv6_addr *ip_addr);
+struct mac_address *ipv6_get_link_addr(struct ipv6_context *context);
+u16_t ipv6_do_stateful_dhcpv6(struct ipv6_context *context, u32_t flags);
+void ipv6_add_solit_node_address(struct ipv6_context *context,
+				 struct ipv6_addr *ip_addr);
+int ipv6_get_source_ip_addrs(struct ipv6_context *context,
+			     struct ipv6_addr_entry *addr_list);
+void ipv6_cfg_link_local_addr(struct ipv6_context *context,
+			      struct ipv6_addr *ip_addr);
+void ipv6_disable_dhcpv6(struct ipv6_context *context);
+int ipv6_send_nd_solicited_packet(struct ipv6_context *context,
+				  struct eth_hdr *eth, struct ipv6_hdr *ipv6);
+int ipv6_is_it_our_link_local_address(struct ipv6_context *context,
+				      struct ipv6_addr *ip_addr);
+void ipv6_mc_init_dest_mac(struct eth_hdr *eth, struct ipv6_hdr *ipv6);
+struct ipv6_addr *ipv6_find_longest_match(struct ipv6_context *context,
+					  struct ipv6_addr *ip_addr);
 
 #endif /* __IPV6_H__ */

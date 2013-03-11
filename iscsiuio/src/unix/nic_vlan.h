@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -75,7 +75,7 @@ void release_vlan_table(struct vlan_handle *handle);
 
 int find_phy_using_vlan_interface(struct vlan_handle *handle,
 				  char *vlan_iface_name,
-				  char **phy_iface_name, uint16_t * vlan_id);
+				  char **phy_iface_name, uint16_t *vlan_id);
 int find_vlans_using_phy_interface(struct vlan_handle *handle,
 				   struct vlan_found_handle *found_handle,
 				   char *phy_iface_name);

@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,10 +55,10 @@
  ******************************************************************************/
 const char uio_vendor_id_template[] = "/sys/class/uio/uio%d/device/vendor";
 const char uio_subvendor_id_template[] =
-    "/sys/class/uio/uio%d/device/subsystem_vendor";
+	"/sys/class/uio/uio%d/device/subsystem_vendor";
 const char uio_device_id_template[] = "/sys/class/uio/uio%d/device/device";
 const char uio_subdevice_id_template[] =
-    "/sys/class/uio/uio%d/device/subsystem_device";
+	"/sys/class/uio/uio%d/device/subsystem_device";
 const char uio_device_symlink_template[] = "/sys/class/uio/uio%d/device";
 
 /**
@@ -69,9 +69,9 @@ const char uio_device_symlink_template[] = "/sys/class/uio/uio%d/device";
  *  @parm id - this is the value returned from the sysfs entry
  *  @return 0 on success <0 on failure
  */
-static int get_id(nic_t * nic,
+static int get_id(nic_t *nic,
 		  const char *sysfs_template,
-		  const size_t sysfs_template_size, uint32_t * id)
+		  const size_t sysfs_template_size, uint32_t *id)
 {
 	int rc = 0;
 	FILE *fp;
@@ -113,45 +113,45 @@ static int get_id(nic_t * nic,
 		goto error;
 	}
 
-      error:
+error:
 	fclose(fp);
 
-      error_fopen:
+error_fopen:
 	free(path);
 
 	return rc;
 }
 
-static int get_vendor(nic_t * nic, uint32_t * id)
+static int get_vendor(nic_t *nic, uint32_t *id)
 {
 	return get_id(nic,
 		      uio_vendor_id_template, sizeof(uio_vendor_id_template),
 		      id);
 }
 
-static int get_subvendor(nic_t * nic, uint32_t * id)
+static int get_subvendor(nic_t *nic, uint32_t *id)
 {
 	return get_id(nic,
 		      uio_subvendor_id_template,
 		      sizeof(uio_subvendor_id_template), id);
 }
 
-static int get_device(nic_t * nic, uint32_t * id)
+static int get_device(nic_t *nic, uint32_t *id)
 {
 	return get_id(nic,
 		      uio_device_id_template,
 		      sizeof(uio_device_id_template), id);
 }
 
-static int get_subdevice(nic_t * nic, uint32_t * id)
+static int get_subdevice(nic_t *nic, uint32_t *id)
 {
 	return get_id(nic,
 		      uio_subdevice_id_template,
 		      sizeof(uio_subdevice_id_template), id);
 }
 
-int get_bus_slot_func_num(nic_t * nic,
-			  uint32_t * bus, uint32_t * slot, uint32_t * func)
+int get_bus_slot_func_num(nic_t *nic,
+			  uint32_t *bus, uint32_t *slot, uint32_t *func)
 {
 	size_t size;
 	char *path, *tok, *tok2;
@@ -229,9 +229,8 @@ int get_bus_slot_func_num(nic_t * nic,
 	read_pci_bus_slot_func_str[size] = '\0';
 
 	tok = strtok_r(read_pci_bus_slot_func_str, "/", &saveptr);
-	for (i = 0; i < path_tokens - 1; i++) {
+	for (i = 0; i < path_tokens - 1; i++)
 		tok = strtok_r(NULL, "/", &saveptr);
-	}
 	strcpy(pci_bus_slot_func_str, tok);
 
 	tok = strtok_r(pci_bus_slot_func_str, ":", &saveptr);
@@ -296,7 +295,7 @@ error_alloc_path:
  *  @param nic - NIC device to determine which NIC library to use
  *  @return 0 on success <0 on failure
  */
-int find_set_nic_lib(nic_t * nic)
+int find_set_nic_lib(nic_t *nic)
 {
 	uint32_t vendor;
 	uint32_t subvendor;

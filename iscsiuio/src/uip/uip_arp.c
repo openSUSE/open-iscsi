@@ -1,6 +1,4 @@
 #include <errno.h>
-//#include <net/ethernet.h>
-
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -63,7 +61,6 @@
  *
  * This file is part of the uIP TCP/IP stack.
  *
- * $Id: uip_arp.c,v 1.8 2006/06/02 23:36:21 adam Exp $
  *
  */
 
@@ -73,8 +70,8 @@
 #include <pthread.h>
 #include <string.h>
 
-static const struct uip_eth_addr broadcast_ethaddr =
-    { {0xff, 0xff, 0xff, 0xff, 0xff, 0xff} };
+static const struct uip_eth_addr broadcast_ethaddr = {
+			{0xff, 0xff, 0xff, 0xff, 0xff, 0xff} };
 static const u16_t broadcast_ipaddr[2] = { 0xffff, 0xffff };
 
 pthread_mutex_t arp_table_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -86,18 +83,17 @@ static u8_t arptime;
  * Initialize the ARP module.
  *
  */
-/*-----------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
 void uip_arp_init(void)
 {
 	u8_t i;
-	for (i = 0; i < UIP_ARPTAB_SIZE; ++i) {
+	for (i = 0; i < UIP_ARPTAB_SIZE; ++i)
 		memset(&arp_table[i], 0, sizeof(arp_table[i]));
-	}
 
 	pthread_mutex_init(&arp_table_mutex, NULL);
 }
 
-/*-----------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
 /**
  * Periodic ARP processing function.
  *
@@ -106,7 +102,7 @@ void uip_arp_init(void)
  * is 10 seconds between the calls.
  *
  */
-/*-----------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
 void uip_arp_timer(void)
 {
 	u8_t i;
@@ -116,15 +112,14 @@ void uip_arp_timer(void)
 	for (i = 0; i < UIP_ARPTAB_SIZE; ++i) {
 		tabptr = &arp_table[i];
 		if ((tabptr->ipaddr[0] | tabptr->ipaddr[1]) != 0 &&
-		    arptime - tabptr->time >= UIP_ARP_MAXAGE) {
+		    arptime - tabptr->time >= UIP_ARP_MAXAGE)
 			memset(tabptr->ipaddr, 0, 4);
-		}
 	}
 
 }
 
-/*-----------------------------------------------------------------------------------*/
-static void uip_arp_update(u16_t * ipaddr, struct uip_eth_addr *ethaddr)
+/*----------------------------------------------------------------------------*/
+static void uip_arp_update(u16_t *ipaddr, struct uip_eth_addr *ethaddr)
 {
 	u8_t i;
 	struct arp_entry *tabptr;
@@ -158,9 +153,8 @@ static void uip_arp_update(u16_t * ipaddr, struct uip_eth_addr *ethaddr)
 	/* First, we try to find an unused entry in the ARP table. */
 	for (i = 0; i < UIP_ARPTAB_SIZE; ++i) {
 		tabptr = &arp_table[i];
-		if (tabptr->ipaddr[0] == 0 && tabptr->ipaddr[1] == 0) {
+		if (tabptr->ipaddr[0] == 0 && tabptr->ipaddr[1] == 0)
 			break;
-		}
 	}
 
 	/* If no unused entry is found, we try to find the oldest entry and
@@ -210,7 +204,7 @@ static void uip_arp_update(u16_t * ipaddr, struct uip_eth_addr *ethaddr)
  * header in the uip_buf[] buffer, and the length of the packet in the
  * global variable uip_len.
  */
-void uip_arp_ipin(struct uip_stack *ustack, packet_t * pkt)
+void uip_arp_ipin(struct uip_stack *ustack, packet_t *pkt)
 {
 	struct ip_hdr *ip;
 	struct uip_eth_hdr *eth;
@@ -227,8 +221,8 @@ void uip_arp_ipin(struct uip_stack *ustack, packet_t * pkt)
 }
 
 void
-uip_arp_arpin(nic_interface_t * nic_iface,
-	      struct uip_stack *ustack, packet_t * pkt)
+uip_arp_arpin(nic_interface_t *nic_iface,
+	      struct uip_stack *ustack, packet_t *pkt)
 {
 	struct arp_hdr *arp;
 	struct uip_eth_hdr *eth;
@@ -314,7 +308,7 @@ uip_arp_arpin(nic_interface_t * nic_iface,
  */
 
 dest_ipv4_addr_t
-uip_determine_dest_ipv4_addr(struct uip_stack * ustack, u16_t * ipaddr)
+uip_determine_dest_ipv4_addr(struct uip_stack *ustack, u16_t *ipaddr)
 {
 	struct arp_hdr *arp;
 	struct uip_eth_hdr *eth;
@@ -354,7 +348,7 @@ uip_determine_dest_ipv4_addr(struct uip_stack * ustack, u16_t * ipaddr)
 	}
 }
 
-arp_out_t is_in_arp_table(u16_t * ipaddr, struct arp_entry ** tabptr)
+arp_out_t is_in_arp_table(u16_t *ipaddr, struct arp_entry **tabptr)
 {
 	u8_t i;
 
@@ -369,14 +363,13 @@ arp_out_t is_in_arp_table(u16_t * ipaddr, struct arp_entry ** tabptr)
 
 	pthread_mutex_unlock(&arp_table_mutex);
 
-	if (i == UIP_ARPTAB_SIZE) {
+	if (i == UIP_ARPTAB_SIZE)
 		return NOT_IN_ARP_TABLE;
-	} else {
+	else
 		return IS_IN_ARP_TABLE;
-	}
 }
 
-void uip_build_arp_request(struct uip_stack *ustack, u16_t * ipaddr)
+void uip_build_arp_request(struct uip_stack *ustack, u16_t *ipaddr)
 {
 	struct arp_hdr *arp;
 	struct uip_eth_hdr *eth;
@@ -408,7 +401,7 @@ void uip_build_arp_request(struct uip_stack *ustack, u16_t * ipaddr)
 
 void
 uip_build_eth_header(struct uip_stack *ustack,
-		     u16_t * ipaddr,
+		     u16_t *ipaddr,
 		     struct arp_entry *tabptr,
 		     struct packet *pkt, u16_t vlan_id)
 {
@@ -449,7 +442,7 @@ static struct arp_entry *uip_get_arp_entry(int index)
 	return &arp_table[index];
 }
 
-int uip_lookup_arp_entry(uint32_t ip_addr, uint8_t * mac_addr)
+int uip_lookup_arp_entry(uint32_t ip_addr, uint8_t *mac_addr)
 {
 	int i;
 	int rc = -EINVAL;
@@ -482,7 +475,7 @@ int uip_lookup_arp_entry(uint32_t ip_addr, uint8_t * mac_addr)
 	return rc;
 }
 
-/*-----------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
 
 /** @} */
 /** @} */

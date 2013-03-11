@@ -28,7 +28,6 @@
  *
  * This file is part of the uIP TCP/IP stack
  *
- * @(#)$Id: dhcpc.h,v 1.3 2006/06/11 21:46:37 adam Exp $
  */
 #ifndef __DHCPC_H__
 #define __DHCPC_H__
@@ -74,7 +73,7 @@ struct dhcpc_options {
 	u8_t xid[4];
 };
 
-int dhcpc_init(nic_t * nic, struct uip_stack *ustack,
+int dhcpc_init(nic_t *nic, struct uip_stack *ustack,
 	       const void *mac_addr, int mac_len);
 void dhcpc_request(struct uip_stack *ustack);
 
@@ -82,7 +81,6 @@ void dhcpc_appcall(struct uip_stack *ustack);
 
 void dhcpc_configured(const struct dhcpc_state *s);
 
-typedef struct dhcpc_state uip_udp_appstate_t;
 #define UIP_UDP_APPCALL dhcpc_appcall
 
 #endif /* __DHCPC_H__ */

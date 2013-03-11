@@ -1,5 +1,5 @@
 Version 0.4.1 (July 20, 2009)
-  * Fix from Mike Christie to determine page size from getpagesize() 
+  * Fix from Mike Christie to determine page size from getpagesize()
     rather then the constant PAGE_SIZE.  PAGE_SIZE is not defined om
     ia64 and ppc.
   * Update documentation to indicate IPv6 is not supported

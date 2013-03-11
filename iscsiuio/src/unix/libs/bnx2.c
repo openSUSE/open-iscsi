@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -77,12 +77,12 @@ static const char cnic_uio_sysfs_name[] = "bnx2_cnic";
  ******************************************************************************/
 static const char brcm_5706C[] = "Broadcom NetXtreme II BCM5706 1000Base-T";
 static const char hp_NC370T[] =
-    "HP NC370T Multifunction Gigabit Server Adapter";
+	"HP NC370T Multifunction Gigabit Server Adapter";
 static const char hp_NC370I[] =
-    "HP NC370i Multifunction Gigabit Server Adapter";
+	"HP NC370i Multifunction Gigabit Server Adapter";
 static const char brcm_5706S[] = "Broadcom NetXtreme II BCM5706 1000Base-SX";
 static const char hp_NC370F[] =
-    "HP NC370F Multifunction Gigabit Server Adapter";
+	"HP NC370F Multifunction Gigabit Server Adapter";
 static const char brcm_5708C[] = "Broadcom NetXtreme II BCM5708 1000Base-T";
 static const char brcm_5708S[] = "Broadcom NetXtreme II BCM5708 1000Base-SX";
 static const char brcm_5709C[] = "Broadcom NetXtreme II BCM5709 1000Base-T";
@@ -141,7 +141,7 @@ static const struct pci_device_id bnx2_pci_tbl[] = {
  *                library name
  *  @param name_size
  */
-static void bnx2_get_library_name(char **name, size_t * name_size)
+static void bnx2_get_library_name(char **name, size_t *name_size)
 {
 	*name = (char *)library_name;
 	*name_size = sizeof(library_name);
@@ -152,9 +152,9 @@ static void bnx2_get_library_name(char **name, size_t * name_size)
  *                               NIC libary
  *  @param version - This function will return the pointer to this NIC
  *                   library version string
- *  @param version_size - This will be set with the version size 
+ *  @param version_size - This will be set with the version size
  */
-static void bnx2_get_library_version(char **version, size_t * version_size)
+static void bnx2_get_library_version(char **version, size_t *version_size)
 {
 	*version = (char *)library_version;
 	*version_size = sizeof(library_version);
@@ -164,9 +164,9 @@ static void bnx2_get_library_version(char **version, size_t * version_size)
  *  bnx2_get_build_date() - Used to get the build date string of this library
  *  @param version - This function will return the pointer to this NIC
  *                   library build date string
- *  @param version_size - This will be set with the build date string size 
+ *  @param version_size - This will be set with the build date string size
  */
-static void bnx2_get_build_date(char **build, size_t * build_size)
+static void bnx2_get_build_date(char **build, size_t *build_size)
 {
 	*build = (char *)build_date;
 	*build_size = sizeof(build_date);
@@ -180,20 +180,20 @@ static void bnx2_get_build_date(char **build, size_t * build_size)
  *  @param transport_name_size - This will be set with the transport name size
  */
 static void bnx2_get_transport_name(char **transport_name,
-				    size_t * transport_name_size)
+				    size_t *transport_name_size)
 {
 	*transport_name = (char *)bnx2i_library_transport_name;
 	*transport_name_size = bnx2i_library_transport_name_size;
 }
 
 /**
- *  bnx2_get_uio_name() - Used to get the uio name associated with this this 
+ *  bnx2_get_uio_name() - Used to get the uio name associated with this this
  *                        NIC libary
  *  @param uio_name - This function will return the pointer to this NIC
  *                    library's associated uio string
  *  @param transport_name_size - This will be set with the uio name size
  */
-static void bnx2_get_uio_name(char **uio_name, size_t * uio_name_size)
+static void bnx2_get_uio_name(char **uio_name, size_t *uio_name_size)
 {
 	*uio_name = (char *)library_uio_name;
 	*uio_name_size = sizeof(library_uio_name);
@@ -201,13 +201,13 @@ static void bnx2_get_uio_name(char **uio_name, size_t * uio_name_size)
 
 /**
  *  bnx2_get_pci_table() - Used to get the PCI table for this NIC libary
- *  			   to determine which NIC's based off of PCI ID's
- *  			   are supported
+ *			   to determine which NIC's based off of PCI ID's
+ *			   are supported
  *  @param table - This function will return the pointer to the PCI table
  *  @param entries - This function will return the number of entries in the NIC
  *                   library's PCI table
  */
-static void bnx2_get_pci_table(struct pci_device_id **table, uint32_t * entries)
+static void bnx2_get_pci_table(struct pci_device_id **table, uint32_t *entries)
 {
 	*table = (struct pci_device_id *)bnx2_pci_tbl;
 	*entries = (uint32_t) (sizeof(bnx2_pci_tbl) / sizeof(bnx2_pci_tbl[0]));
@@ -228,22 +228,22 @@ struct nic_ops *bnx2_get_ops()
 /*******************************************************************************
  * Utility Functions Used to read register from the bnx2 device
  ******************************************************************************/
-static void bnx2_wr32(bnx2_t * bp, __u32 off, __u32 val)
+static void bnx2_wr32(bnx2_t *bp, __u32 off, __u32 val)
 {
 	*((volatile __u32 *)(bp->reg + off)) = val;
 }
 
-static void bnx2_wr16(bnx2_t * bp, __u32 off, __u16 val)
+static void bnx2_wr16(bnx2_t *bp, __u32 off, __u16 val)
 {
 	*((volatile __u16 *)(bp->reg + off)) = val;
 }
 
-static __u32 bnx2_rd32(bnx2_t * bp, __u32 off)
+static __u32 bnx2_rd32(bnx2_t *bp, __u32 off)
 {
 	return *((volatile __u32 *)(bp->reg + off));
 }
 
-static int bnx2_reg_sync(bnx2_t * bp, __u32 off, __u16 length)
+static int bnx2_reg_sync(bnx2_t *bp, __u32 off, __u16 length)
 {
 	return msync(bp->reg + off, length, MS_SYNC);
 }
@@ -253,7 +253,7 @@ static int bnx2_reg_sync(bnx2_t * bp, __u32 off, __u16 length)
  * @param dev - Device used to determin NIC type
  * @return Chip ID read from the MISC ID register
  */
-static int bnx2_get_chip_id(bnx2_t * bp)
+static int bnx2_get_chip_id(bnx2_t *bp)
 {
 	return bnx2_rd32(bp, BNX2_MISC_ID);
 }
@@ -262,7 +262,7 @@ static int bnx2_get_chip_id(bnx2_t * bp)
  *  bnx2_uio_verify()
  *
  */
-static int bnx2_uio_verify(nic_t * nic)
+static int bnx2_uio_verify(nic_t *nic)
 {
 	char *raw = NULL, *raw_tmp;
 	uint32_t raw_size = 0;
@@ -274,9 +274,8 @@ static int bnx2_uio_verify(nic_t * nic)
 		 cnic_uio_sysfs_name_tempate, nic->uio_minor);
 
 	rc = capture_file(&raw, &raw_size, temp_path);
-	if (rc != 0) {
+	if (rc != 0)
 		goto error;
-	}
 
 	/* sanitize name string by replacing newline with null termination */
 	raw_tmp = raw;
@@ -284,7 +283,8 @@ static int bnx2_uio_verify(nic_t * nic)
 		raw_tmp++;
 	*raw_tmp = '\0';
 
-	if (strncmp(raw, cnic_uio_sysfs_name, sizeof(cnic_uio_sysfs_name)) != 0) {
+	if (strncmp(raw, cnic_uio_sysfs_name, sizeof(cnic_uio_sysfs_name)) !=
+	    0) {
 		LOG_ERR(PFX "%s: uio names not equal: "
 			"expecting %s got %s from %s",
 			nic->log_name, cnic_uio_sysfs_name, raw, temp_path);
@@ -302,7 +302,7 @@ static int bnx2_uio_verify(nic_t * nic)
 /*******************************************************************************
  * bnx2 Utility Functions to get to the hardware consumer indexes
  ******************************************************************************/
-static __u16 bnx2_get_rx_msix(bnx2_t * bp)
+static __u16 bnx2_get_rx_msix(bnx2_t *bp)
 {
 	struct status_block_msix *sblk = bp->status_blk.msix;
 	__u16 rx_cons;
@@ -316,7 +316,7 @@ static __u16 bnx2_get_rx_msix(bnx2_t * bp)
 	return rx_cons;
 }
 
-static __u16 bnx2_get_rx_msi(bnx2_t * bp)
+static __u16 bnx2_get_rx_msi(bnx2_t *bp)
 {
 	struct status_block *sblk = bp->status_blk.msi;
 	__u16 rx_cons;
@@ -330,7 +330,7 @@ static __u16 bnx2_get_rx_msi(bnx2_t * bp)
 	return rx_cons;
 }
 
-static __u16 bnx2_get_tx_msix(bnx2_t * bp)
+static __u16 bnx2_get_tx_msix(bnx2_t *bp)
 {
 	struct status_block_msix *sblk = bp->status_blk.msix;
 	__u16 tx_cons;
@@ -344,7 +344,7 @@ static __u16 bnx2_get_tx_msix(bnx2_t * bp)
 	return tx_cons;
 }
 
-static __u16 bnx2_get_tx_msi(bnx2_t * bp)
+static __u16 bnx2_get_tx_msi(bnx2_t *bp)
 {
 	struct status_block *sblk = bp->status_blk.msi;
 	__u16 tx_cons;
@@ -370,7 +370,7 @@ typedef enum {
  *  @ return CNIC_VLAN_STRIPPING_ENABLED stripping is enabled
  *           CNIC_VLAN_STRIPPING_DISABLED stripping is not enabled
  */
-static CNIC_VLAN_STRIPPING_MODE bnx2_strip_vlan_enabled(bnx2_t * bp)
+static CNIC_VLAN_STRIPPING_MODE bnx2_strip_vlan_enabled(bnx2_t *bp)
 {
 	uint32_t val;
 
@@ -417,11 +417,11 @@ static bnx2_t *bnx2_alloc(nic_t * nic)
 }
 
 /**
- * bnx2_open() - This will initialize all the hardware resources 
+ * bnx2_open() - This will initialize all the hardware resources
  * @param dev - The struct nic device to open
  * @return 0 on success, on failure a errno will be returned
  */
-static int bnx2_open(nic_t * nic)
+static int bnx2_open(nic_t *nic)
 {
 	bnx2_t *bp;
 	struct stat uio_stat;
@@ -668,9 +668,8 @@ static int bnx2_open(nic_t * nic)
 		 nic->mac_addr[3], nic->mac_addr[4], nic->mac_addr[5]);
 
 	/*  Determine if Hardware VLAN tag stripping is enabled or not */
-	if (CNIC_VLAN_STRIPPING_ENABLED == bnx2_strip_vlan_enabled(bp)) {
+	if (CNIC_VLAN_STRIPPING_ENABLED == bnx2_strip_vlan_enabled(bp))
 		nic->flags |= NIC_VLAN_STRIP_ENABLED;
-	}
 
 	/*  Prepare the multicast addresses */
 	val = 4 | BNX2_RPM_SORT_USER2_BC_EN | BNX2_RPM_SORT_USER2_MC_EN;
@@ -724,7 +723,7 @@ error_alloc_rx_ring:
  *  @param graceful - whether to wait to close gracefully
  *  @return 0 on success, <0 on failure
  */
-static int bnx2_uio_close_resources(nic_t * nic, NIC_SHUTDOWN_T graceful)
+static int bnx2_uio_close_resources(nic_t *nic, NIC_SHUTDOWN_T graceful)
 {
 	bnx2_t *bp = (bnx2_t *) nic->priv;
 	int rc = 0;
@@ -820,7 +819,7 @@ static int bnx2_uio_close_resources(nic_t * nic, NIC_SHUTDOWN_T graceful)
  *  @param graceful - whether to wait to close gracefully
  *  @return 0 if successful, <0 if there is an error
  */
-static int bnx2_close(nic_t * nic, NIC_SHUTDOWN_T graceful)
+static int bnx2_close(nic_t *nic, NIC_SHUTDOWN_T graceful)
 {
 	/*  Sanity Check: validate the parameters */
 	if (nic == NULL) {
@@ -836,8 +835,8 @@ static int bnx2_close(nic_t * nic, NIC_SHUTDOWN_T graceful)
 	return 0;
 }
 
-static void bnx2_prepare_xmit_packet(nic_t * nic,
-				     nic_interface_t * nic_iface,
+static void bnx2_prepare_xmit_packet(nic_t *nic,
+				     nic_interface_t *nic_iface,
 				     struct packet *pkt)
 {
 	bnx2_t *bp = (bnx2_t *) nic->priv;
@@ -863,7 +862,7 @@ static void bnx2_prepare_xmit_packet(nic_t * nic,
  *  @param nic - The NIC device to send the packet
  *
  */
-void *bnx2_get_tx_pkt(nic_t * nic)
+void *bnx2_get_tx_pkt(nic_t *nic)
 {
 	bnx2_t *bp = (bnx2_t *) nic->priv;
 	return bp->tx_pkt;
@@ -875,7 +874,7 @@ void *bnx2_get_tx_pkt(nic_t * nic)
  *  @param len - the length of the TX packet
  *
  */
-void bnx2_start_xmit(nic_t * nic, size_t len, u16_t vlan_id)
+void bnx2_start_xmit(nic_t *nic, size_t len, u16_t vlan_id)
 {
 	bnx2_t *bp = (bnx2_t *) nic->priv;
 	uint16_t ring_prod;
@@ -921,7 +920,7 @@ void bnx2_start_xmit(nic_t * nic, size_t len, u16_t vlan_id)
  *  @param pkt - The packet which will hold the data to be sent on the wire
  *  @return 0 if successful, <0 if failed
  */
-int bnx2_write(nic_t * nic, nic_interface_t * nic_iface, packet_t * pkt)
+int bnx2_write(nic_t *nic, nic_interface_t *nic_iface, packet_t *pkt)
 {
 	bnx2_t *bp;
 	struct uip_stack *uip;
@@ -971,7 +970,7 @@ int bnx2_write(nic_t * nic, nic_interface_t * nic_iface, packet_t * pkt)
  *  @param pkt - The packet which will hold the data
  *  @return 0 if successful, <0 if failed
  */
-static int bnx2_read(nic_t * nic, packet_t * pkt)
+static int bnx2_read(nic_t *nic, packet_t *pkt)
 {
 	bnx2_t *bp;
 	int rc = 0;
@@ -1082,7 +1081,7 @@ static int bnx2_read(nic_t * nic, packet_t * pkt)
  *  @param nic - the nic the interrupt occured on
  *  @return  0 on success
  */
-static int bnx2_clear_tx_intr(nic_t * nic)
+static int bnx2_clear_tx_intr(nic_t *nic)
 {
 	bnx2_t *bp;
 	uint16_t hw_cons;
@@ -1095,9 +1094,8 @@ static int bnx2_clear_tx_intr(nic_t * nic)
 	bp = (bnx2_t *) nic->priv;
 	hw_cons = bp->get_tx_cons(bp);
 
-	if (bp->flags & BNX2_UIO_TX_HAS_SENT) {
+	if (bp->flags & BNX2_UIO_TX_HAS_SENT)
 		bp->flags &= ~BNX2_UIO_TX_HAS_SENT;
-	}
 
 	LOG_PACKET(PFX "%s: clearing tx interrupt [%d %d]",
 		   nic->log_name, bp->tx_cons, hw_cons);

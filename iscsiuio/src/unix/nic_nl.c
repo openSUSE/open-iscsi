@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -71,7 +71,7 @@ static u8_t nlm_sendbuf[NLM_BUF_DEFAULT_MAX];
 
 static struct sockaddr_nl src_addr;
 
-const static struct sockaddr_nl dest_addr = {
+static const struct sockaddr_nl dest_addr = {
 	.nl_family = AF_NETLINK,
 	.nl_pid = 0,		/* kernel */
 	.nl_groups = 0,		/* unicast */
@@ -82,11 +82,6 @@ const static struct sockaddr_nl dest_addr = {
 
 /* Netlink */
 int nl_sock = INVALID_FD;
-
-#define MAX_TX_DESC_CNT (TX_DESC_CNT - 1)
-
-#define NEXT_TX_BD(x) (((x) & (MAX_TX_DESC_CNT - 1)) ==                 \
-                (MAX_TX_DESC_CNT - 1)) ?
 
 static int nl_read(int ctrl_fd, char *data, int size, int flags)
 {
@@ -122,9 +117,8 @@ kwritev(int fd, enum iscsi_uevent_e type, struct iovec *iovp, int count)
 	struct iovec iov;
 	int datalen = 0;
 
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < count; i++)
 		datalen += iovp[i].iov_len;
-	}
 
 	nlh = (struct nlmsghdr *)nlm_sendbuf;
 	memset(nlh, 0, NLMSG_SPACE(datalen));
@@ -276,7 +270,7 @@ error:
 	return rc;
 }
 
-const static struct timespec ctldev_sleep_req = {
+static const struct timespec ctldev_sleep_req = {
 	.tv_sec = 0,
 	.tv_nsec = 250000000,
 };
@@ -288,7 +282,6 @@ static int ctldev_handle(char *data, nic_t *nic)
 	uint8_t *payload;
 	struct iscsi_path *path;
 	char *msg_type_str;
-	uint32_t host_no;
 	int i;
 	nic_interface_t *nic_iface = NULL;
 

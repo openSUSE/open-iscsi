@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by: Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -70,22 +70,22 @@
  ******************************************************************************/
 #define PFX "CNIC "
 
-static const uip_ip6addr_t all_ones_addr6 =
-    { 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff };
+static const uip_ip6addr_t all_ones_addr6 = {
+	0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff };
 
 /*******************************************************************************
  * Constants shared between the bnx2 and bnx2x modules
  ******************************************************************************/
 const char bnx2i_library_transport_name[] = "bnx2i";
 const size_t bnx2i_library_transport_name_size =
-    sizeof(bnx2i_library_transport_name);
+			sizeof(bnx2i_library_transport_name);
 
 /******************************************************************************
  * Netlink Functions
  ******************************************************************************/
 
-static int cnic_arp_send(nic_t * nic, nic_interface_t * nic_iface, int fd,
-			 __u8 * mac_addr, __u32 ip_addr, char *addr_str)
+static int cnic_arp_send(nic_t *nic, nic_interface_t *nic_iface, int fd,
+			 __u8 *mac_addr, __u32 ip_addr, char *addr_str)
 {
 	struct ether_header *eth;
 	struct ether_arp *arp;
@@ -93,8 +93,8 @@ static int cnic_arp_send(nic_t * nic, nic_interface_t * nic_iface, int fd,
 	int pkt_size = sizeof(*eth) + sizeof(*arp);
 	int rc;
 	struct in_addr addr;
-	static const uint8_t multicast_mac[] =
-	    { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+	static const uint8_t multicast_mac[] = {
+				0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
 	rc = pthread_mutex_trylock(&nic->xmit_mutex);
 	if (rc != 0) {
@@ -135,9 +135,9 @@ static int cnic_arp_send(nic_t * nic, nic_interface_t * nic_iface, int fd,
 	return 0;
 }
 
-static int cnic_neigh_soliciation_send(nic_t * nic,
-				       nic_interface_t * nic_iface, int fd,
-				       __u8 * mac_addr,
+static int cnic_neigh_soliciation_send(nic_t *nic,
+				       nic_interface_t *nic_iface, int fd,
+				       __u8 *mac_addr,
 				       struct in6_addr *addr6_dst,
 				       char *addr_str)
 {
@@ -145,7 +145,7 @@ static int cnic_neigh_soliciation_send(nic_t * nic,
 	struct ip6_hdr *ipv6_hdr;
 	int rc, pkt_size;
 	char buf[INET6_ADDRSTRLEN];
-	NDPC_REQPTR req_ptr;
+	struct ndpc_reqptr req_ptr;
 
 	rc = pthread_mutex_trylock(&nic->xmit_mutex);
 	if (rc != 0) {
@@ -206,11 +206,11 @@ static int cnic_neigh_soliciation_send(nic_t * nic,
 	return 0;
 }
 
-static int cnic_nl_neigh_rsp(nic_t * nic, int fd,
+static int cnic_nl_neigh_rsp(nic_t *nic, int fd,
 			     struct iscsi_uevent *ev,
 			     struct iscsi_path *path_req,
-			     __u8 * mac_addr,
-			     nic_interface_t * nic_iface, int status, int type)
+			     __u8 *mac_addr,
+			     nic_interface_t *nic_iface, int status, int type)
 {
 	int rc;
 	uint8_t *ret_buf;
@@ -307,20 +307,20 @@ src_done:
 	return rc;
 }
 
-const static struct timeval tp_wait = {
+static const struct timeval tp_wait = {
 	.tv_sec = 0,
 	.tv_usec = 250000,
 };
 
 /**
  * cnic_handle_ipv4_iscsi_path_req() - This function will handle the IPv4
- * 				       path req calls the bnx2i kernel module
+ *				       path req calls the bnx2i kernel module
  * @param nic - The nic the message is directed towards
  * @param fd  - The file descriptor to be used to extract the private data
  * @param ev  - The iscsi_uevent
  * @param buf - The private message buffer
  */
-int cnic_handle_ipv4_iscsi_path_req(nic_t * nic, int fd,
+int cnic_handle_ipv4_iscsi_path_req(nic_t *nic, int fd,
 				    struct iscsi_uevent *ev,
 				    struct iscsi_path *path,
 				    nic_interface_t *nic_iface)
@@ -442,13 +442,13 @@ done:
 
 /**
  * cnic_handle_ipv6_iscsi_path_req() - This function will handle the IPv4
- * 				       path req calls the bnx2i kernel module
+ *				       path req calls the bnx2i kernel module
  * @param nic - The nic the message is directed towards
  * @param fd  - The file descriptor to be used to extract the private data
  * @param ev  - The iscsi_uevent
  * @param buf - The private message buffer
  */
-int cnic_handle_ipv6_iscsi_path_req(nic_t * nic, int fd,
+int cnic_handle_ipv6_iscsi_path_req(nic_t *nic, int fd,
 				    struct iscsi_uevent *ev,
 				    struct iscsi_path *path,
 				    nic_interface_t *nic_iface)
@@ -460,8 +460,8 @@ int cnic_handle_ipv6_iscsi_path_req(nic_t * nic, int fd,
 	char addr_dst_str[INET6_ADDRSTRLEN];
 	struct in6_addr src_addr, dst_addr,
 			src_matching_addr, dst_matching_addr, netmask;
-	struct in6_addr* addr;
-	NDPC_REQPTR req_ptr;
+	struct in6_addr *addr;
+	struct ndpc_reqptr req_ptr;
 
 	memset(mac_addr, 0, sizeof(mac_addr));
 
@@ -643,15 +643,15 @@ done:
 }
 
 /**
- * cnic_handle_iscsi_path_req() - This function will handle the path req calls 
- *                                the bnx2i kernel module
+ * cnic_handle_iscsi_path_req() - This function will handle the path req calls
+ *				  the bnx2i kernel module
  * @param nic - The nic the message is directed towards
  * @param fd  - The file descriptor to be used to extract the private data
  * @param ev  - The iscsi_uevent
  * @param path - The private message buffer
  * @param nic_iface - The nic_iface to use for this connection request
  */
-int cnic_handle_iscsi_path_req(nic_t * nic, int fd, struct iscsi_uevent *ev,
+int cnic_handle_iscsi_path_req(nic_t *nic, int fd, struct iscsi_uevent *ev,
 			       struct iscsi_path *path,
 			       nic_interface_t *nic_iface)
 {

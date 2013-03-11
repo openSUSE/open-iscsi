@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -491,7 +491,7 @@ struct iro {
 	__u16 size;
 };
 
-#define IRO_ENT bp->iro[bp->iro_idx]
+#define IRO_ENT (bp->iro[bp->iro_idx])
 
 #define USTORM_RX_PRODS_E1X_OFFSET(port, client_id) \
 	(IRO_ENT.base + ((port) * IRO_ENT.m1) + ((client_id) * IRO_ENT.m2))
@@ -503,9 +503,9 @@ struct iro {
 #define ETH_MAX_RX_CLIENTS_E2		28
 
 #define BNX2X_CL_QZONE_ID(bp, cli)					\
-		cli + (bp->port * (CHIP_IS_E2(bp) ?			\
+		(cli + (bp->port * (CHIP_IS_E2(bp) ?			\
 				   ETH_MAX_RX_CLIENTS_E2 :		\
-				   ETH_MAX_RX_CLIENTS_E1H))
+				   ETH_MAX_RX_CLIENTS_E1H)))
 
 #define BNX2X_CL_QZONE_ID_64(bp, cli)					\
 		(CHIP_IS_E2_PLUS(bp) ? (cli) :				\
@@ -519,10 +519,12 @@ struct iro {
 #define	SHMEM_P1_ISCSI_MAC_LOWER	0x1e0
 
 #define SHMEM_ISCSI_MAC_UPPER(bp)	\
-	(((bp)->port == 0) ? SHMEM_P0_ISCSI_MAC_UPPER : SHMEM_P1_ISCSI_MAC_UPPER)
+	(((bp)->port == 0) ?		\
+	SHMEM_P0_ISCSI_MAC_UPPER : SHMEM_P1_ISCSI_MAC_UPPER)
 
 #define SHMEM_ISCSI_MAC_LOWER(bp)	\
-	(((bp)->port == 0) ? SHMEM_P0_ISCSI_MAC_LOWER : SHMEM_P1_ISCSI_MAC_LOWER)
+	(((bp)->port == 0) ?		\
+	SHMEM_P0_ISCSI_MAC_LOWER : SHMEM_P1_ISCSI_MAC_LOWER)
 
 #define BNX2X_RCQ_DESC_CNT	(4096 / sizeof(union eth_rx_cqe))
 #define BNX2X_RCQ_DESC_CNT_70	(4096 / sizeof(union eth_rx_cqe_70))
@@ -537,17 +539,18 @@ struct iro {
 #define BNX2X_TX_DESC_CNT	(4096 / sizeof(struct eth_tx_start_bd))
 #define BNX2X_MAX_TX_DESC_CNT		(BNX2X_TX_DESC_CNT - 1)
 
-#define BNX2X_NEXT_RX_IDX(x)	((((x) & (BNX2X_RX_DESC_CNT - 1)) == \
-				  (BNX2X_MAX_RX_DESC_CNT - 1)) ? (x) + 3 : (x) + 1)
+#define BNX2X_NEXT_RX_IDX(x)	((((x) & (BNX2X_RX_DESC_CNT - 1)) ==	\
+				  (BNX2X_MAX_RX_DESC_CNT - 1)) ?	\
+				 (x) + 3 : (x) + 1)
 
 #define BNX2X_NEXT_RCQ_IDX(bp, x)	\
 			((((x) & BNX2X_MAX_RCQ_DESC_CNT(bp)) == \
 			  (BNX2X_MAX_RCQ_DESC_CNT(bp) - 1)) ? (x) + 2 : (x) + 1)
 #define BNX2X_RX_BD(x)		((x) & BNX2X_MAX_RX_BD)
 
-#define BNX2X_NEXT_TX_BD(x) (((x) & (BNX2X_MAX_TX_DESC_CNT - 1)) ==	\
+#define BNX2X_NEXT_TX_BD(x) ((((x) & (BNX2X_MAX_TX_DESC_CNT - 1)) ==	\
 		(BNX2X_MAX_TX_DESC_CNT - 1)) ?				\
-	(x) + 2 : (x) + 1
+		(x) + 2 : (x) + 1)
 
 #define BNX2X_TX_RING_IDX(x) ((x) & BNX2X_MAX_TX_DESC_CNT)
 
@@ -649,10 +652,7 @@ typedef struct bnx2x {
 /******************************************************************************
  *  bnx2x Function Declarations
  ******************************************************************************/
-void bnx2x_start_xmit(nic_t * nic, size_t len, u16_t vlan_id);
-
-//struct nic_interface * bnx2x_find_nic_iface(nic_t * nic,
-//                                           uint16_t vlan_id);
+void bnx2x_start_xmit(nic_t *nic, size_t len, u16_t vlan_id);
 
 struct nic_ops *bnx2x_get_ops();
 #endif /* __BNX2X_H__ */

@@ -44,7 +44,6 @@
  *
  * This file is part of the uIP TCP/IP stack.
  *
- * $Id: uip_arp.h,v 1.5 2006/06/11 21:46:39 adam Exp $
  *
  */
 
@@ -103,7 +102,7 @@ void uip_arp_init(void);
    IP packet with an Ethernet header is present in the uip_buf buffer
    and that the length of the packet is in the uip_len variable. */
 /*void uip_arp_ipin(void);*/
-//#define uip_arp_ipin()
+/* #define uip_arp_ipin() */
 void uip_arp_ipin(struct uip_stack *ustack, struct packet *pkt);
 
 /* The uip_arp_arpin() should be called when an ARP packet is received
@@ -112,7 +111,7 @@ void uip_arp_ipin(struct uip_stack *ustack, struct packet *pkt);
    uip_arp_arpin() function returns, the contents of the uip_buf
    buffer should be sent out on the Ethernet if the uip_len variable
    is > 0. */
-void uip_arp_arpin(nic_interface_t * nic_iface,
+void uip_arp_arpin(nic_interface_t *nic_iface,
 		   struct uip_stack *ustack, struct packet *pkt);
 
 typedef enum {
@@ -131,14 +130,14 @@ typedef enum {
 } arp_table_query_t;
 
 dest_ipv4_addr_t
-uip_determine_dest_ipv4_addr(struct uip_stack *ustack, u16_t * ipaddr);
-arp_out_t is_in_arp_table(u16_t * ipaddr, struct arp_entry **tabptr);
+uip_determine_dest_ipv4_addr(struct uip_stack *ustack, u16_t *ipaddr);
+arp_out_t is_in_arp_table(u16_t *ipaddr, struct arp_entry **tabptr);
 
-void uip_build_arp_request(struct uip_stack *ustack, u16_t * ipaddr);
+void uip_build_arp_request(struct uip_stack *ustack, u16_t *ipaddr);
 
 void
 uip_build_eth_header(struct uip_stack *ustack,
-		     u16_t * ipaddr,
+		     u16_t *ipaddr,
 		     struct arp_entry *tabptr,
 		     struct packet *pkt, u16_t vlan_id);
 
@@ -158,7 +157,7 @@ arp_out_t uip_arp_out(struct uip_stack *ustack);
    is responsible for flushing old entries in the ARP table. */
 void uip_arp_timer(void);
 
-int uip_lookup_arp_entry(uint32_t ip_addr, uint8_t * mac_addr);
+int uip_lookup_arp_entry(uint32_t ip_addr, uint8_t *mac_addr);
 
 /** @} */
 
@@ -183,12 +182,14 @@ int uip_lookup_arp_entry(uint32_t ip_addr, uint8_t * mac_addr);
  *
  * \hideinitializer
  */
-#define uip_setethaddr(eaddr) do {uip_ethaddr.addr[0] = eaddr.addr[0]; \
-                              uip_ethaddr.addr[1] = eaddr.addr[1];\
-                              uip_ethaddr.addr[2] = eaddr.addr[2];\
-                              uip_ethaddr.addr[3] = eaddr.addr[3];\
-                              uip_ethaddr.addr[4] = eaddr.addr[4];\
-                              uip_ethaddr.addr[5] = eaddr.addr[5];} while(0)
+#define uip_setethaddr(eaddr)	do {					     \
+					uip_ethaddr.addr[0] = eaddr.addr[0]; \
+					uip_ethaddr.addr[1] = eaddr.addr[1]; \
+					uip_ethaddr.addr[2] = eaddr.addr[2]; \
+					uip_ethaddr.addr[3] = eaddr.addr[3]; \
+					uip_ethaddr.addr[4] = eaddr.addr[4]; \
+					uip_ethaddr.addr[5] = eaddr.addr[5]; \
+				} while (0)
 
 /** @} */
 /** @} */

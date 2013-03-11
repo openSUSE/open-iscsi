@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,9 +38,9 @@
 #ifndef __NIC_ID_H__
 #define __NIC_ID_H__
 
-int find_set_nic_lib(nic_t * nic);
+int find_set_nic_lib(nic_t *nic);
 
-int get_bus_slot_func_num(nic_t * nic,
-			  uint32_t * bus, uint32_t * slot, uint32_t * func);
+int get_bus_slot_func_num(nic_t *nic,
+			  uint32_t *bus, uint32_t *slot, uint32_t *func);
 
 #endif /* __NIC_ID_H__ */

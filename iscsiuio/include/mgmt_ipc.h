@@ -19,7 +19,6 @@
 #ifndef MGMT_IPC_H
 #define MGMT_IPC_H
 
-//#include "types.h"
 #include "iscsi_if.h"
 #include "config.h"
 
@@ -85,7 +84,6 @@ typedef struct iscsiadm_req {
 		/* messages */
 		struct ipc_msg_session {
 			int sid;
-//			node_rec_t rec;
 		} session;
 		struct ipc_msg_conn {
 			int sid;
@@ -136,7 +134,7 @@ typedef struct iscsiadm_rsp {
 } iscsiadm_rsp_t;
 
 struct queue_task;
-typedef mgmt_ipc_err_e	mgmt_ipc_fn_t(struct queue_task *);
+enum mgmt_ipc_err mgmt_ipc_fn_t(struct queue_task *);
 
 struct queue_task;
 void mgmt_ipc_write_rsp(struct queue_task *qtask, mgmt_ipc_err_e err);

@@ -36,12 +36,12 @@ Directory Structure of this Package:
   |
   +-doc (documentation directory: man pages)
   |
-  +-src 
+  +-src
      |
      +- uip - the uIP stack
      |
      +- unix - iscsiuio source
-     
+
 
 
 Compiling / Installing
@@ -73,7 +73,7 @@ doing the discovery of the targes (in step 2).
 
 2.  Discover the targets associated with the new iface
 
-     iscsiadm -m discovery -t st -p <iSCSI target IP address> -I <iface name> 
+     iscsiadm -m discovery -t st -p <iSCSI target IP address> -I <iface name>
 
 3.  Update the iface file:
 
@@ -230,13 +230,13 @@ For legacy distros, there is no explicit VLAN attributes in the iface file.
 To configure the VLAN offload, the iface.hwaddress attribute or
 physical net_ifacename (without the VLAN identifier) must be used
 to specify the HBA device.  For the proper CNIC routing, the
-corresponding L2 interface which has the associated VLAN interface must 
+corresponding L2 interface which has the associated VLAN interface must
 have an IP address on the same subnet.
 
 The following attributes need to be filled when offloading via the
 VLAN interface:
 
-	iface.iscsi_ifacename = <name of this iface file> 
+	iface.iscsi_ifacename = <name of this iface file>
 	iface.hwaddress = XX:XX:XX:XX:XX:XX
 	iface.ipaddress = XX.XX.XX.XX
 	iface.transport_name = bnx2i

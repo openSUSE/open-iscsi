@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -224,18 +224,18 @@ struct l2_fhdr {
 #define TX_DESC_CNT  (4096 / sizeof(struct tx_bd))
 #define MAX_TX_DESC_CNT (TX_DESC_CNT - 1)
 
-#define NEXT_TX_BD(x) (((x) & (MAX_TX_DESC_CNT - 1)) ==			\
-		(MAX_TX_DESC_CNT - 1)) ?				\
-	(x) + 2 : (x) + 1
+#define NEXT_TX_BD(x)	((((x) & (MAX_TX_DESC_CNT - 1)) ==	\
+			(MAX_TX_DESC_CNT - 1)) ?		\
+			(x) + 2 : (x) + 1)
 
 #define TX_RING_IDX(x) ((x) & MAX_TX_DESC_CNT)
 
 #define RX_DESC_CNT  (4096 / sizeof(struct rx_bd))
 #define MAX_RX_DESC_CNT (RX_DESC_CNT - 1)
 
-#define NEXT_RX_BD(x) (((x) & (MAX_RX_DESC_CNT - 1)) ==			\
-		(MAX_RX_DESC_CNT - 1)) ?				\
-	(x) + 2 : (x) + 1
+#define NEXT_RX_BD(x)	((((x) & (MAX_RX_DESC_CNT - 1)) ==	\
+			(MAX_RX_DESC_CNT - 1)) ?		\
+			(x) + 2 : (x) + 1)
 
 #define MB_KERNEL_CTX_SHIFT         8
 #define MB_KERNEL_CTX_SIZE          (1 << MB_KERNEL_CTX_SHIFT)

@@ -30,7 +30,6 @@
  *
  * Author: Adam Dunkels <adam@sics.se>
  *
- * $Id: psock.h,v 1.3 2006/06/12 08:00:30 adam Exp $
  */
 
 /**
@@ -127,7 +126,7 @@ struct psock {
 };
 
 void psock_init(struct uip_stack *ustack,
-		struct psock *psock, u8_t * buffer, unsigned int buffersize);
+		struct psock *psock, u8_t *buffer, unsigned int buffersize);
 /**
  * Initialize a protosocket.
  *
@@ -146,7 +145,7 @@ void psock_init(struct uip_stack *ustack,
  * \hideinitializer
  */
 #define PSOCK_INIT(psock, buffer, buffersize) \
-  psock_init(psock, buffer, buffersize)
+	psock_init(psock, buffer, buffersize)
 
 /**
  * Start the protosocket protothread in a function.
@@ -162,7 +161,7 @@ void psock_init(struct uip_stack *ustack,
 #define PSOCK_BEGIN(psock) PT_BEGIN(&((psock)->pt))
 
 PT_THREAD(psock_send(struct uip_stack *ustack,
-		     struct psock *psock, const u8_t * buf, unsigned int len));
+		     struct psock *psock, const u8_t *buf, unsigned int len));
 /**
  * Send data.
  *
@@ -181,7 +180,7 @@ PT_THREAD(psock_send(struct uip_stack *ustack,
  * \hideinitializer
  */
 #define PSOCK_SEND(psock, data, datalen)		\
-    PT_WAIT_THREAD(&((psock)->pt), psock_send(psock, data, datalen))
+	PT_WAIT_THREAD(&((psock)->pt), psock_send(psock, data, datalen))
 
 /**
  * \brief      Send a null-terminated string.
@@ -193,8 +192,8 @@ PT_THREAD(psock_send(struct uip_stack *ustack,
  *
  * \hideinitializer
  */
-#define PSOCK_SEND_STR(psock, str)      		\
-    PT_WAIT_THREAD(&((psock)->pt), psock_send(psock, str, strlen(str)))
+#define PSOCK_SEND_STR(psock, str)	\
+	PT_WAIT_THREAD(&((psock)->pt), psock_send(psock, str, strlen(str)))
 
 PT_THREAD(psock_generator_send(struct psock *psock,
 			       unsigned short (*f) (void *), void *arg));
@@ -222,7 +221,7 @@ PT_THREAD(psock_generator_send(struct psock *psock,
  * \hideinitializer
  */
 #define PSOCK_GENERATOR_SEND(psock, generator, arg)     \
-    PT_WAIT_THREAD(&((psock)->pt),					\
+	PT_WAIT_THREAD(&((psock)->pt),			\
 		   psock_generator_send(psock, generator, arg))
 
 /**
@@ -252,7 +251,7 @@ PT_THREAD(psock_readbuf(struct psock *psock));
  * \hideinitializer
  */
 #define PSOCK_READBUF(psock)				\
-  PT_WAIT_THREAD(&((psock)->pt), psock_readbuf(psock))
+	PT_WAIT_THREAD(&((psock)->pt), psock_readbuf(psock))
 
 PT_THREAD(psock_readto(struct psock *psock, unsigned char c));
 /**
@@ -270,7 +269,7 @@ PT_THREAD(psock_readto(struct psock *psock, unsigned char c));
  * \hideinitializer
  */
 #define PSOCK_READTO(psock, c)				\
-  PT_WAIT_THREAD(&((psock)->pt), psock_readto(psock, c))
+	PT_WAIT_THREAD(&((psock)->pt), psock_readto(psock, c))
 
 /**
  * The length of the data that was previously read.
@@ -310,10 +309,10 @@ u16_t psock_datalen(struct psock *psock);
  * \hideinitializer
  */
 #define PSOCK_CLOSE_EXIT(psock)		\
-  do {						\
-    PSOCK_CLOSE(psock);			\
-    PSOCK_EXIT(psock);			\
-  } while(0)
+	do {				\
+		PSOCK_CLOSE(psock);	\
+		PSOCK_EXIT(psock);	\
+	} while (0)
 
 /**
  * Declare the end of a protosocket's protothread.
@@ -357,13 +356,13 @@ char psock_newdata(struct psock *s);
    PSOCK_BEGIN(s);
 
    PSOCK_WAIT_UNTIL(s, PSOCK_NEWADATA(s) || timer_expired(t));
-   
+
    if(PSOCK_NEWDATA(s)) {
      PSOCK_READTO(s, '\n');
    } else {
      handle_timed_out(s);
    }
-   
+
    PSOCK_END(s);
  }
  \endcode
@@ -374,10 +373,10 @@ char psock_newdata(struct psock *s);
  * \hideinitializer
  */
 #define PSOCK_WAIT_UNTIL(psock, condition)    \
-  PT_WAIT_UNTIL(&((psock)->pt), (condition));
+	PT_WAIT_UNTIL(&((psock)->pt), (condition));
 
 #define PSOCK_WAIT_THREAD(psock, condition)   \
-  PT_WAIT_THREAD(&((psock)->pt), (condition))
+	PT_WAIT_THREAD(&((psock)->pt), (condition))
 
 #endif /* __PSOCK_H__ */
 

@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,25 +43,25 @@
 /******************************************************************************
  * Function Prototype
  ******************************************************************************/
-int manually_trigger_uio_event(nic_t * nic, int uio_minor);
+int manually_trigger_uio_event(nic_t *nic, int uio_minor);
 
 int nic_discover_iscsi_hosts();
 
-int enable_mutlicast(nic_t * nic);
-int disable_mutlicast(nic_t * nic);
+int enable_mutlicast(nic_t *nic);
+int disable_mutlicast(nic_t *nic);
 
-int from_netdev_name_find_nic(char *interface_name, nic_t ** nic);
+int from_netdev_name_find_nic(char *interface_name, nic_t **nic);
 
-int from_host_no_find_associated_eth_device(int host_no, nic_t ** nic);
+int from_host_no_find_associated_eth_device(int host_no, nic_t **nic);
 
-int from_phys_name_find_assoicated_uio_device(nic_t * nic);
+int from_phys_name_find_assoicated_uio_device(nic_t *nic);
 
-int nic_queue_tx_packet(nic_t * nic,
-			nic_interface_t * nic_iface, packet_t * pkt);
+int nic_queue_tx_packet(nic_t *nic,
+			nic_interface_t *nic_iface, packet_t *pkt);
 
-packet_t *nic_dequeue_tx_packet(nic_t * nic);
+packet_t *nic_dequeue_tx_packet(nic_t *nic);
 
-void nic_fill_ethernet_header(nic_interface_t * nic_iface,
+void nic_fill_ethernet_header(nic_interface_t *nic_iface,
 			      void *data,
 			      void *src_addr, void *dest_addr,
 			      int *pkt_size, void **start_addr,
@@ -72,30 +72,30 @@ struct nic_interface *nic_find_nic_iface(nic_t *nic, uint16_t protocol,
 					 int request_type);
 void set_nic_iface(nic_t *nic, nic_interface_t *nic_iface);
 
-void persist_all_nic_iface(nic_t * nic);
+void persist_all_nic_iface(nic_t *nic);
 
-int add_vlan_interfaces(nic_t * nic);
+int add_vlan_interfaces(nic_t *nic);
 
-int nic_verify_uio_sysfs_name(nic_t * nic);
+int nic_verify_uio_sysfs_name(nic_t *nic);
 void cnic_get_sysfs_pci_resource_path(nic_t *nic, int resc_no,
 				      char *sys_path, size_t size);
 void nic_close_all();
 void nic_remove_all();
 
-int detemine_initial_uio_events(nic_t * nic, uint32_t * num_of_events);
+int detemine_initial_uio_events(nic_t *nic, uint32_t *num_of_events);
 
 uint32_t calculate_default_netmask(uint32_t ip_addr);
 
-void prepare_nic_thread(nic_t * nic);
-void prepare_library(nic_t * nic);
+void prepare_nic_thread(nic_t *nic);
+void prepare_library(nic_t *nic);
 
-int nic_enable(nic_t * nic);
-int nic_disable(nic_t * nic, int going_down);
+int nic_enable(nic_t *nic);
+int nic_disable(nic_t *nic, int going_down);
 
 void dump_packet_to_log(struct nic_interface *iface,
-			uint8_t * buf, uint16_t buf_len);
+			uint8_t *buf, uint16_t buf_len);
 
 int determine_file_size_read(const char *filepath);
-int capture_file(char **raw, uint32_t * raw_size, const char *path);
+int capture_file(char **raw, uint32_t *raw_size, const char *path);
 
 #endif /* __NIC_UTILS_H__ */

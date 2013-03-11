@@ -37,7 +37,7 @@
 #define ISCSI_MAX_STR_LEN 80
 
 /* General iface_rec struct of pointers for local mapping */
-typedef struct iface_rec {
+struct iface_rec {
 	struct list_head	list;
 	/* iscsi iface record name */
 	char			name[ISCSI_MAX_IFACE_LEN];
@@ -65,7 +65,7 @@ typedef struct iface_rec {
 	char                    port_speed[ISCSI_MAX_STR_LEN];
 	/*
 	 * TODO: we may have to make this bigger and interconnect
-	 * specific for infinniband 
+	 * specific for infinniband
 	 */
 	char			hwaddress[ISCSI_HWADDRESS_BUF_SIZE];
 	char			transport_name[ISCSI_TRANSPORT_NAME_MAXLEN];

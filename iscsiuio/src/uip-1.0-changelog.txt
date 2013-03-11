@@ -1,5 +1,5 @@
 * A new API: protosockets that are similar to BSD sockets but does not
-  require any underlying multithreading system. 
+  require any underlying multithreading system.
 
 * Very rudimentary IPv6 support
 
@@ -12,7 +12,7 @@
 * Checksum computation is now part of uip.c, but it still is possible
   to implement them in assembly code by specifying a configuration
   option. Checksum code now runs on architectures with 2-byte alignment.
-  
+
 * Added TCP persistent timer.
 
 * Made all IP address representations use the new uip_ipaddr_ip
@@ -30,7 +30,7 @@
 * Moved Ethernet address into main uIP module from ARP module.
 
 * Made constants explicit #defines and moved them out of the code
-  (header sizes, TCP options, TCP header length field). 
+  (header sizes, TCP options, TCP header length field).
 
 * If uip_len is less than that reported by the IP header, the packet
   is discarded. If uip_len is greater than the length reported by the
@@ -55,13 +55,13 @@
   than typedefs.
 
 * Prefixed TCP state names with UIP_ to avoid name space
-  contamination. 
+  contamination.
 
 * Changed declarations of uip_appdatap and friends to void * to avoid
-  explicit typecasts. 
+  explicit typecasts.
 
 * Bugfixes
- 
+
   o TCP: Fixed bug with high byte of peer window size.
 
   o TCP: Fixed bug that in some cases prevented concurrent reception and

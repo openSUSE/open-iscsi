@@ -39,11 +39,11 @@
 #ifndef __IPV6_PKT_H__
 #define __IPV6_PKT_H__
 
-u16_t ipv6_process_rx(pIPV6_HDR ipv6);
-void ipv6_rx_packet(pIPV6_CONTEXT ipv6_context, u16_t len);
-void ipv6_setup_hdrs(pIPV6_CONTEXT ipv6_context, pETH_HDR eth, pIPV6_HDR ipv6,
-		     u16_t packet_len);
-int ipv6_send(pIPV6_CONTEXT ipv6_context, u16_t packet_len);
-void ipv6_send_udp_packet(pIPV6_CONTEXT ipv6_context, u16_t packet_len);
+u16_t ipv6_process_rx(struct ipv6_hdr *ipv6);
+void ipv6_rx_packet(struct ipv6_context *context, u16_t len);
+void ipv6_setup_hdrs(struct ipv6_context *context, struct eth_hdr *eth,
+		     struct ipv6_hdr *ipv6, u16_t packet_len);
+int ipv6_send(struct ipv6_context *context, u16_t packet_len);
+void ipv6_send_udp_packet(struct ipv6_context *context, u16_t packet_len);
 
 #endif /* __IPV6_PKT_H__ */

@@ -30,7 +30,6 @@
  *
  * Author: Adam Dunkels <adam@sics.se>
  *
- * $Id: lc-switch.h,v 1.2 2006/06/12 08:00:30 adam Exp $
  */
 
 /**
@@ -61,11 +60,9 @@
    LC_SET() is done within another switch() statement! */
 
 /** \hideinitializer */
-typedef unsigned short lc_t;
-
 #define LC_INIT(s) s = 0;
 
-#define LC_RESUME(s) switch(s) { case 0:
+#define LC_RESUME(s) switch (s) { case 0:
 
 #define LC_SET(s) s = __LINE__; case __LINE__:
 

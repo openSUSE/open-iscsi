@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -89,7 +89,7 @@ static const char cnic_uio_sysfs_resc_template[] =
  *  @param uio_minor - UIO the minor number to use
  *  @return 0 on success
  */
-int manually_trigger_uio_event(nic_t * nic, int uio_minor)
+int manually_trigger_uio_event(nic_t *nic, int uio_minor)
 {
 	int fd;
 	char uio_uevent_path[sizeof(uio_uevent_path_template) + 10];
@@ -126,7 +126,7 @@ int manually_trigger_uio_event(nic_t * nic, int uio_minor)
 	return rc;
 }
 
-static int wait_for_file_node_timed(nic_t * nic, char *filepath, int seconds)
+static int wait_for_file_node_timed(nic_t *nic, char *filepath, int seconds)
 {
 	struct timeval start_time;
 	struct timeval wait_time;
@@ -285,7 +285,7 @@ int nic_discover_iscsi_hosts()
 /******************************************************************************
  *  Enable/Disable Multicast on physical interface
  *****************************************************************************/
-static int nic_util_enable_disable_multicast(nic_t * nic, uint32_t cmd)
+static int nic_util_enable_disable_multicast(nic_t *nic, uint32_t cmd)
 {
 	int rc = 0;
 	struct uip_eth_addr multicast_addr;
@@ -338,11 +338,10 @@ static int nic_util_enable_disable_multicast(nic_t * nic, uint32_t cmd)
 		 multicast_addr.addr[2], multicast_addr.addr[3],
 		 multicast_addr.addr[4], multicast_addr.addr[5]);
 
-	if (cmd == SIOCADDMULTI) {
+	if (cmd == SIOCADDMULTI)
 		nic->flags |= NIC_ADDED_MULICAST;
-	} else {
+	else
 		nic->flags &= ~NIC_ADDED_MULICAST;
-	}
 
 error:
 	close(fd);
@@ -351,23 +350,23 @@ error:
 }
 
 /**
- *  enable_multicast() - This fuction is used to enable 
- *  	the listening of multicast addresses for a given network interface
+ *  enable_multicast() - This fuction is used to enable
+ *	the listening of multicast addresses for a given network interface
  *  @param nic - NIC device to enable multicast on
  *  @return 0 for success or <0 for failure
  */
-int enable_multicast(nic_t * nic)
+int enable_multicast(nic_t *nic)
 {
 	return nic_util_enable_disable_multicast(nic, SIOCADDMULTI);
 }
 
 /**
  *  disable_multicast() - This fuction is used to disable
- *  	the listening of multicast addresses for a given network interface
+ *	the listening of multicast addresses for a given network interface
  *  @param dev - NIC  device to disable multicast on
  *  @return 0 for success or <0 for failure
  */
-int disable_multicast(nic_t * nic)
+int disable_multicast(nic_t *nic)
 {
 	return nic_util_enable_disable_multicast(nic, SIOCDELMULTI);
 }
@@ -398,7 +397,7 @@ static int filter_dot_out(const struct dirent *entry)
 
 static char *extract_none(struct dirent **files)
 {
-	return (files[0]->d_name);
+	return files[0]->d_name;
 }
 
 /**
@@ -409,7 +408,7 @@ static char *extract_none(struct dirent **files)
  *  @param nic - pointer to the NIC will set if successful
  *  @return 0 on success, <0 on error
  */
-int from_host_no_find_associated_eth_device(int host_no, nic_t ** nic)
+int from_host_no_find_associated_eth_device(int host_no, nic_t **nic)
 {
 	nic_t *current_nic = nic_list;
 	char *raw = NULL, *raw_tmp;
@@ -463,7 +462,7 @@ error:
  *  @param name_size - size of the name buffer
  *  @return >0 minor number <0 an error
  */
-static int from_uio_find_associated_eth_device(nic_t * nic,
+static int from_uio_find_associated_eth_device(nic_t *nic,
 					       int uio_minor,
 					       char *name, size_t name_size)
 {
@@ -480,7 +479,7 @@ static int from_uio_find_associated_eth_device(nic_t * nic,
 	int path_to[] = { 5, 1 };
 	int (*search_filters[]) (const struct dirent *) = {
 	filter_net_name, filter_dot_out,};
-	char *(*extract_name[]) (struct dirent ** files) = {
+	char *(*extract_name[]) (struct dirent **files) = {
 	extract_net_name, extract_none,};
 	int extract_name_offset[] = { 1, 0 };
 
@@ -576,7 +575,7 @@ static int filter_uio_name(const struct dirent *entry)
  * @param nic - pointer of the pointer to the NIC
  * @return 0 on success, <0 on failure
  */
-int from_netdev_name_find_nic(char *interface_name, nic_t ** nic)
+int from_netdev_name_find_nic(char *interface_name, nic_t **nic)
 {
 	nic_t *current_nic;
 
@@ -597,12 +596,12 @@ int from_netdev_name_find_nic(char *interface_name, nic_t ** nic)
 
 /**
  *  from_phys_name_find_assoicated_uio_device() - This is used to find the
- *  						  uio minor
+ *						  uio minor
  *      when given a network interface name
  *  @param interface_name - network interface name to search for
  *  @return >0 minor number <0 an error
  */
-int from_phys_name_find_assoicated_uio_device(nic_t * nic)
+int from_phys_name_find_assoicated_uio_device(nic_t *nic)
 {
 	char *path = NULL;
 	int count;
@@ -689,12 +688,12 @@ done:
 }
 
 /**
- *  nic_verify_uio_sysfs_name() - Using the name entry in sysfs it will try to 
+ *  nic_verify_uio_sysfs_name() - Using the name entry in sysfs it will try to
  *      match the NIC library name
  *  @param nic - The NIC hardware to check
  *
  */
-int nic_verify_uio_sysfs_name(nic_t * nic)
+int nic_verify_uio_sysfs_name(nic_t *nic)
 {
 	char *raw = NULL, *raw_tmp;
 	uint32_t raw_size = 0;
@@ -756,7 +755,7 @@ error:
  * @param nic - The nic device to attach the hardware with
  * @return 0 on success, on failure a errno will be returned
  */
-int nic_fill_name(nic_t * nic)
+int nic_fill_name(nic_t *nic)
 {
 	int rc;
 
@@ -840,7 +839,7 @@ void cnic_get_sysfs_pci_resource_path(nic_t *nic, int resc_no,
 
 }
 
-void prepare_library(nic_t * nic)
+void prepare_library(nic_t *nic)
 {
 	int rc;
 	NIC_LIBRARY_EXIST_T exist;
@@ -870,7 +869,7 @@ error:
 	return;
 }
 
-void prepare_nic_thread(nic_t * nic)
+void prepare_nic_thread(nic_t *nic)
 {
 	int rc;
 
@@ -916,7 +915,7 @@ error:
  *  @param nic - NIC to enable
  *  @return 0 on success, <0 on failure
  */
-int nic_enable(nic_t * nic)
+int nic_enable(nic_t *nic)
 {
 	if (nic->flags & NIC_GOING_DOWN) {
 		LOG_INFO(PFX "%s: NIC device is going down, "
@@ -972,7 +971,7 @@ int nic_enable(nic_t * nic)
  *  @param nic - NIC to disble
  *  @return 0 on success, <0 on failure
  */
-int nic_disable(nic_t * nic, int going_down)
+int nic_disable(nic_t *nic, int going_down)
 {
 	if (nic->state == NIC_STARTED_RUNNING ||
 	    nic->state == NIC_RUNNING) {
@@ -1060,13 +1059,13 @@ void nic_remove_all()
  *****************************************************************************/
 /**
  * determine_initial_uio_events() - This utility function will
- *    determine the number of uio events that have occured on the 
+ *    determine the number of uio events that have occured on the
  *    given device.  This value is read from the UIO sysfs entry
  * @param dev - device to read from
  * @param num_of_event - number of UIO events
  * @return 0 is success, <0 failure
  */
-int detemine_initial_uio_events(nic_t * nic, uint32_t * num_of_events)
+int detemine_initial_uio_events(nic_t *nic, uint32_t *num_of_events)
 {
 	char *raw = NULL;
 	uint32_t raw_size = 0;
@@ -1099,7 +1098,7 @@ error:
 }
 
 /**
- *  nic_set_all_nic_iface_mac_to_parent() - This is a utility function used to 
+ *  nic_set_all_nic_iface_mac_to_parent() - This is a utility function used to
  *      intialize all the MAC addresses of the network interfaces for a given
  *      CNIC UIO device
  * Call with nic mutex held
@@ -1137,9 +1136,9 @@ void nic_set_all_nic_iface_mac_to_parent(nic_t * nic)
  *  @return pointer to the allocated packet buffer
  *          NULL if memory could not be allocated
  */
-static packet_t *nic_alloc_packet_buffer(nic_t * nic,
-					 nic_interface_t * nic_iface,
-					 uint8_t * buf, size_t buf_size)
+static packet_t *nic_alloc_packet_buffer(nic_t *nic,
+					 nic_interface_t *nic_iface,
+					 uint8_t *buf, size_t buf_size)
 {
 	packet_t *pkt;
 
@@ -1166,8 +1165,8 @@ static packet_t *nic_alloc_packet_buffer(nic_t * nic,
  *  @param pkt - packet to queue
  *  @return 0 if successful or <0 if unsuccessful
  */
-int nic_queue_tx_packet(nic_t * nic,
-			nic_interface_t * nic_iface, packet_t * pkt)
+int nic_queue_tx_packet(nic_t *nic,
+			nic_interface_t *nic_iface, packet_t *pkt)
 {
 	packet_t *queued_pkt;
 
@@ -1197,20 +1196,20 @@ int nic_queue_tx_packet(nic_t * nic,
 }
 
 /**
- *  nic_dequeue_tx_packet() - Used pop a TX packet buffer of the TX 
+ *  nic_dequeue_tx_packet() - Used pop a TX packet buffer of the TX
  *  @param dev - cnic_uio device to send the packet on
  *  @param buf - pointer to the buffer to send
  *  @param buf_size - size in bytes of the buffer to send
  *  @return NULL if there are no more TX packet buffers to send
- *  	    pointer to the packet buffer which is detached from the device
+ *	    pointer to the packet buffer which is detached from the device
  */
-packet_t *nic_dequeue_tx_packet(nic_t * nic)
+packet_t *nic_dequeue_tx_packet(nic_t *nic)
 {
 	packet_t *pkt;
 
 	pkt = nic->tx_packet_queue;
 
-	/* There is a packet buffer to send, time to detach it from the 
+	/* There is a packet buffer to send, time to detach it from the
 	 * cnic_uio device */
 	if (pkt != NULL) {
 		nic->tx_packet_queue = pkt->next;
@@ -1220,7 +1219,7 @@ packet_t *nic_dequeue_tx_packet(nic_t * nic)
 	return pkt;
 }
 
-void nic_fill_ethernet_header(nic_interface_t * nic_iface,
+void nic_fill_ethernet_header(nic_interface_t *nic_iface,
 			      void *data,
 			      void *src_addr, void *dest_addr,
 			      int *pkt_size, void **start_addr,
@@ -1323,7 +1322,7 @@ found:
 }
 
 /* Called with nic mutex held */
-void persist_all_nic_iface(nic_t * nic)
+void persist_all_nic_iface(nic_t *nic)
 {
 	nic_interface_t *current_vlan, *current;
 
@@ -1386,12 +1385,12 @@ done:
  *  Packet management utility functions
  ******************************************************************************/
 /**
- *  get_next_packet_in_queue() - This function will return the next packet in 
+ *  get_next_packet_in_queue() - This function will return the next packet in
  *    the queue
  *  @param queue - the queue to pull the packet from
  *  @return the packet in the queue
  */
-static packet_t *get_next_packet_in_queue(packet_t ** queue)
+static packet_t *get_next_packet_in_queue(packet_t **queue)
 {
 	packet_t *pkt;
 
@@ -1405,23 +1404,23 @@ static packet_t *get_next_packet_in_queue(packet_t ** queue)
 }
 
 /**
- *  get_next_tx_packet() - This function will return the next packet in 
+ *  get_next_tx_packet() - This function will return the next packet in
  *    the TX queue
  *  @param nic - NIC to pull the TX packet from
  *  @return the packet in hte queue
  */
-packet_t *get_next_tx_packet(nic_t * nic)
+packet_t *get_next_tx_packet(nic_t *nic)
 {
 	return get_next_packet_in_queue(&nic->tx_packet_queue);
 }
 
 /**
- *  get_next_free_packet() - This function will return the next packet in 
+ *  get_next_free_packet() - This function will return the next packet in
  *    the free queue
  *  @param nic - NIC to pull the RX packet from
  *  @return the packet in hte queue
  */
-packet_t *get_next_free_packet(nic_t * nic)
+packet_t *get_next_free_packet(nic_t *nic)
 {
 	packet_t *pkt;
 	pthread_mutex_lock(&nic->free_packet_queue_mutex);
@@ -1441,7 +1440,7 @@ packet_t *get_next_free_packet(nic_t * nic)
  *  @param queue - the queue to place the packet
  *  @return the packet in the queue
  */
-static void put_packet_in_queue(packet_t * pkt, packet_t ** queue)
+static void put_packet_in_queue(packet_t *pkt, packet_t **queue)
 {
 	if (*queue == NULL)
 		*queue = pkt;
@@ -1458,19 +1457,19 @@ static void put_packet_in_queue(packet_t * pkt, packet_t ** queue)
  *  @param nic - NIC to pull the TX packet from
  *  @return the packet in hte queue
  */
-void put_packet_in_tx_queue(packet_t * pkt, nic_t * nic)
+void put_packet_in_tx_queue(packet_t *pkt, nic_t *nic)
 {
 	return put_packet_in_queue(pkt, &nic->tx_packet_queue);
 }
 
 /**
- *  put_packet_in_free_queue() - This function will place the packet in 
+ *  put_packet_in_free_queue() - This function will place the packet in
  *    the RX queue
  *  @param pkt - packet to place
  *  @param nic - NIC to pull the RX packet from
  *  @return the packet in hte queue
  */
-void put_packet_in_free_queue(packet_t * pkt, nic_t * nic)
+void put_packet_in_free_queue(packet_t *pkt, nic_t *nic)
 {
 	pthread_mutex_lock(&nic->free_packet_queue_mutex);
 	put_packet_in_queue(pkt, &nic->free_packet_queue);
@@ -1496,7 +1495,7 @@ uint32_t calculate_default_netmask(uint32_t ip_addr)
 }
 
 void dump_packet_to_log(struct nic_interface *iface,
-			uint8_t * buf, uint16_t buf_len)
+			uint8_t *buf, uint16_t buf_len)
 {
 
 	FILE *file;
@@ -1517,9 +1516,8 @@ void dump_packet_to_log(struct nic_interface *iface,
 		rewind(file);
 		fprintf(file, "%03x:  ", i);
 
-		for (count = 0; (count < 8) && i < buf_len; count++, i++) {
+		for (count = 0; (count < 8) && i < buf_len; count++, i++)
 			fprintf(file, " %02x", buf[i]);
-		}
 		fflush(file);
 
 		LOG_PACKET(PFX "%s: %s", iface->parent->log_name, str);
@@ -1537,7 +1535,7 @@ void dump_packet_to_log(struct nic_interface *iface,
   * determine_file_size_read() - when fstat doesn't work on filepath
   *     within the /proc filesytem, we need to read/count the size of the file
   *     until we hit a EOF
-  * @parm filepath - path of the file in which to determine the filesize in 
+  * @parm filepath - path of the file in which to determine the filesize in
   *                  bytes
   * @return file size in bytes, <0 on failure
   */
@@ -1579,13 +1577,13 @@ int determine_file_size_read(const char *filepath)
 
 /**
  *  capture_file() - Used to capture a file into a buffer
- *  @param raw - This pointer will be set to the buffer which will hold the 
+ *  @param raw - This pointer will be set to the buffer which will hold the
  *         file contents
  *  @param raw_size - This is the size of the buffer returned
  *  @param path - The file path to capture the data from
  *  @return 0 is returned on success, <0 is returned on failure
  */
-int capture_file(char **raw, uint32_t * raw_size, const char *path)
+int capture_file(char **raw, uint32_t *raw_size, const char *path)
 {
 	FILE *fp;
 	size_t read_size;

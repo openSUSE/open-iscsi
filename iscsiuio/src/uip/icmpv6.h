@@ -3,7 +3,7 @@
  *
  * Written by: Eddie Wai  (eddie.wai@broadcom.com)
  *             Based on Kevin Tran's iSCSI boot code
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,12 +41,6 @@
  */
 #ifndef __ICMPV6_H__
 #define __ICMPV6_H__
-
-#define __FAR__
-
-#ifdef PACK_DATA_STRUCTURE
-#pragma pack(push,1)
-#endif
 
 /* Base ICMP Header sizes */
 #define IPV6_RTR_SOL_HDR_SIZE           8
@@ -250,7 +244,7 @@
 						   Neighbor Advertisement */
 
 /* ICMPV6 Header */
-typedef struct ICMPV6_HDR {
+struct icmpv6_hdr {
 	u8_t icmpv6_type;	/* type field */
 	u8_t icmpv6_code;	/* code field */
 	u16_t icmpv6_cksum;	/* checksum field */
@@ -259,22 +253,22 @@ typedef struct ICMPV6_HDR {
 		u16_t icmpv6_un_data16[2];	/* type-specific field */
 		u8_t icmpv6_un_data8[4];	/* type-specific field */
 	} data;
-} ICMPV6_HDR, __FAR__ * pICMPV6_HDR;
+};
 
 #define icmpv6_data  data.icmpv6_un_data32[0]
 
-typedef struct ICMPV6_OPT_HDR {
+struct icmpv6_opt_hdr {
 	u8_t type;
 	u8_t len;
-} ICMPV6_OPT_HDR, __FAR__ * pICMPV6_OPT_HDR;
+};
 
-typedef struct ICMPV6_OPT_LINK_ADDR {
-	ICMPV6_OPT_HDR hdr;
+struct icmpv6_opt_link_addr {
+	struct icmpv6_opt_hdr hdr;
 	u8_t link_addr[6];
-} ICMPV6_OPT_LINK_ADDR, *pICMPV6_OPT_LINK_ADDR;
+};
 
-typedef struct ICMPV6_OPT_PREFIX {
-	ICMPV6_OPT_HDR hdr;
+struct icmpv6_opt_prefix {
+	struct icmpv6_opt_hdr hdr;
 	u8_t prefix_len;
 	u8_t flags;
 #define ICMPV6_OPT_PREFIX_FLAG_ON_LINK  (1 << 7)
@@ -282,21 +276,20 @@ typedef struct ICMPV6_OPT_PREFIX {
 	u32_t valid_lifetime;
 	u32_t preferred_lifetime;
 	u32_t reserved;
-	IPV6_ADDR prefix;
-} ICMPV6_OPT_PREFIX, __FAR__ * pICMPV6_OPT_PREFIX;
+	struct ipv6_addr prefix;
+};
 
 /* Neighbor Solicitation */
-typedef struct ICMPV6_ND_SOLICIT {
-	ICMPV6_HDR nd_ns_hdr;
-	//struct id_struct    nd_ns_target;   /*target address */
-} ICMPV6_ND_SOLICIT, *pICMPV6_ND_SOLICIT;
+struct icmpv6_nd_solicit {
+	struct icmpv6_hdr nd_ns_hdr;
+};
 
 /* Router Advertisement */
-typedef struct ICMPV6_ROUTER_ADVERT {
-	ICMPV6_HDR header;
+struct icmpv6_router_advert {
+	struct icmpv6_hdr header;
 	u32_t reachable_time;
 	u32_t retransmit_timer;
-} ICMPV6_ROUTER_ADVERT, __FAR__ * pICMPV6_ROUTER_ADVERT;
+};
 
 #define nd_ra_type              header.icmpv6_type
 #define nd_ra_code              header.icmpv6_code
@@ -304,9 +297,5 @@ typedef struct ICMPV6_ROUTER_ADVERT {
 #define nd_ra_curhoplimit       header.data.icmpv6_un_data8[0]
 #define nd_ra_flags_reserved    header.data.icmpv6_un_data8[1]
 #define nd_ra_router_lifetime   header.data.icmpv6_un_data16[1]
-
-#ifdef PACK_DATA_STRUCTURE
-#pragma pack(pop)
-#endif
 
 #endif /*  __ICMPV6_H__ */

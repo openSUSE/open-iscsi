@@ -42,9 +42,8 @@
 int is_vlan_packet(struct uip_vlan_eth_hdr *hdr)
 {
 	/*  The TPID field in a 802.1Q Header must be 0x8100 */
-	if (hdr->tpid == const_htons(UIP_ETHTYPE_8021Q)) {
+	if (hdr->tpid == const_htons(UIP_ETHTYPE_8021Q))
 		return 1;
-	}
 
 	return 0;
 }

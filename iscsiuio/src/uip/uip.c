@@ -57,7 +57,6 @@
  *
  * This file is part of the uIP TCP/IP stack.
  *
- * $Id: uip.c,v 1.65 2006/06/11 21:46:39 adam Exp $
  *
  */
 
@@ -102,21 +101,23 @@
  ******************************************************************************/
 #define PFX "uip "
 
-static const uip_ip6addr_t all_ones_addr6 =
-    { 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff };
+static const uip_ip6addr_t all_ones_addr6 = {
+	0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff
+};
 static const uip_ip4addr_t all_ones_addr4 = { 0xffff, 0xffff };
 
-const uip_ip6addr_t all_zeroes_addr6 =
-    { 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000 };
+const uip_ip6addr_t all_zeroes_addr6 = {
+	0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000
+};
 const uip_ip4addr_t all_zeroes_addr4 = { 0x0000, 0x0000 };
 
-const uint8_t mutlicast_ipv6_prefix[16] =
-    { 0xfc, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+const uint8_t mutlicast_ipv6_prefix[16] = {
+	0xfc, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-const uint8_t link_local_addres_prefix[16] =
-    { 0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+const uint8_t link_local_addres_prefix[16] = {
+	0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 const uint32_t link_local_address_prefix_length = 10;
@@ -170,7 +171,7 @@ static int is_ipv6(struct uip_stack *ustack)
 	return (type == UIP_ETHTYPE_IPv6);
 }
 
-int is_ipv6_link_local_address(uip_ip6addr_t * addr)
+int is_ipv6_link_local_address(uip_ip6addr_t *addr)
 {
 	u8_t *test_adddr = (u8_t *) addr;
 	u8_t test_remainder;
@@ -185,28 +186,28 @@ int is_ipv6_link_local_address(uip_ip6addr_t * addr)
 	return 1;
 }
 
-void uip_sethostaddr4(struct uip_stack *ustack, uip_ip4addr_t * addr)
+void uip_sethostaddr4(struct uip_stack *ustack, uip_ip4addr_t *addr)
 {
 	pthread_mutex_lock(&ustack->lock);
 	uip_ip4addr_copy(ustack->hostaddr, (addr));
 	pthread_mutex_unlock(&ustack->lock);
 }
 
-void uip_setdraddr4(struct uip_stack *ustack, uip_ip4addr_t * addr)
+void uip_setdraddr4(struct uip_stack *ustack, uip_ip4addr_t *addr)
 {
 	pthread_mutex_lock(&ustack->lock);
 	uip_ip4addr_copy(ustack->default_route_addr, (addr));
 	pthread_mutex_unlock(&ustack->lock);
 }
 
-void uip_setnetmask4(struct uip_stack *ustack, uip_ip4addr_t * addr)
+void uip_setnetmask4(struct uip_stack *ustack, uip_ip4addr_t *addr)
 {
 	pthread_mutex_lock(&ustack->lock);
 	uip_ip4addr_copy(ustack->netmask, (addr));
 	pthread_mutex_unlock(&ustack->lock);
 }
 
-void uip_setethernetmac(struct uip_stack *ustack, uint8_t * mac)
+void uip_setethernetmac(struct uip_stack *ustack, uint8_t *mac)
 {
 	pthread_mutex_lock(&ustack->lock);
 	memcpy(ustack->uip_ethaddr.addr, (mac), 6);
@@ -214,9 +215,9 @@ void uip_setethernetmac(struct uip_stack *ustack, uint8_t * mac)
 }
 
 void set_uip_stack(struct uip_stack *ustack,
-		   uip_ip4addr_t * ip,
-		   uip_ip4addr_t * netmask,
-		   uip_ip4addr_t * default_route, uint8_t * mac_addr)
+		   uip_ip4addr_t *ip,
+		   uip_ip4addr_t *netmask,
+		   uip_ip4addr_t *default_route, uint8_t *mac_addr)
 {
 	uip_sethostaddr4(ustack, ip);
 	uip_setnetmask4(ustack, netmask);
@@ -224,8 +225,8 @@ void set_uip_stack(struct uip_stack *ustack,
 	uip_setethernetmac(ustack, mac_addr);
 }
 
-#if ! UIP_ARCH_ADD32
-void uip_add32(u8_t * op32, u16_t op16, u8_t * uip_acc32)
+#if !UIP_ARCH_ADD32
+void uip_add32(u8_t *op32, u16_t op16, u8_t *uip_acc32)
 {
 	uip_acc32[3] = op32[3] + (op16 & 0xff);
 	uip_acc32[2] = op32[2] + (op16 >> 8);
@@ -234,27 +235,25 @@ void uip_add32(u8_t * op32, u16_t op16, u8_t * uip_acc32)
 
 	if (uip_acc32[2] < (op16 >> 8)) {
 		++uip_acc32[1];
-		if (uip_acc32[1] == 0) {
+		if (uip_acc32[1] == 0)
 			++uip_acc32[0];
-		}
 	}
 
 	if (uip_acc32[3] < (op16 & 0xff)) {
 		++uip_acc32[2];
 		if (uip_acc32[2] == 0) {
 			++uip_acc32[1];
-			if (uip_acc32[1] == 0) {
+			if (uip_acc32[1] == 0)
 				++uip_acc32[0];
-			}
 		}
 	}
 }
 
 #endif /* UIP_ARCH_ADD32 */
 
-#if ! UIP_ARCH_CHKSUM
+#if !UIP_ARCH_CHKSUM
 /*---------------------------------------------------------------------------*/
-static u16_t chksum(u16_t sum, const u8_t * data, u16_t len)
+static u16_t chksum(u16_t sum, const u8_t *data, u16_t len)
 {
 	u16_t t;
 	const u8_t *dataptr;
@@ -266,18 +265,16 @@ static u16_t chksum(u16_t sum, const u8_t * data, u16_t len)
 	while (dataptr < last_byte) {	/* At least two more bytes */
 		t = (dataptr[0] << 8) + dataptr[1];
 		sum += t;
-		if (sum < t) {
+		if (sum < t)
 			sum++;	/* carry */
-		}
 		dataptr += 2;
 	}
 
 	if (dataptr == last_byte) {
 		t = (dataptr[0] << 8) + 0;
 		sum += t;
-		if (sum < t) {
+		if (sum < t)
 			sum++;	/* carry */
-		}
 	}
 
 	/* Return sum in host byte order. */
@@ -285,14 +282,14 @@ static u16_t chksum(u16_t sum, const u8_t * data, u16_t len)
 }
 
 /*---------------------------------------------------------------------------*/
-u16_t uip_chksum(u16_t * data, u16_t len)
+u16_t uip_chksum(u16_t *data, u16_t len)
 {
-	return htons(chksum(0, (u8_t *) data, len));
+	return htons(chksum(0, (u8_t *)data, len));
 }
 
 /*---------------------------------------------------------------------------*/
 #ifndef UIP_ARCH_IPCHKSUM
-u16_t uip_ipchksum(struct uip_stack * ustack)
+u16_t uip_ipchksum(struct uip_stack *ustack)
 {
 	u16_t sum;
 	u16_t uip_iph_len;
@@ -324,7 +321,7 @@ static u16_t upper_layer_chksum_ipv4(struct uip_stack *ustack, u8_t proto)
 	sum = upper_layer_len + proto;
 
 	sum =
-	    chksum(sum, (u8_t *) & tcp_ipv4_hdr->srcipaddr[0],
+	    chksum(sum, (u8_t *)&tcp_ipv4_hdr->srcipaddr[0],
 		   2 * sizeof(uip_ip4addr_t));
 	/* Sum TCP header and data. */
 	sum = chksum(sum, ustack->network_layer + UIP_IPv4_H_LEN,
@@ -334,7 +331,7 @@ static u16_t upper_layer_chksum_ipv4(struct uip_stack *ustack, u8_t proto)
 }
 
 /*---------------------------------------------------------------------------*/
-static uint16_t upper_layer_checksum_ipv6(uint8_t * data, uint8_t proto)
+static uint16_t upper_layer_checksum_ipv6(uint8_t *data, uint8_t proto)
 {
 	uint16_t upper_layer_len;
 	uint16_t sum;
@@ -354,12 +351,12 @@ static uint16_t upper_layer_checksum_ipv6(uint8_t * data, uint8_t proto)
 		     sizeof(ipv6_hdr->ip6_dst));
 
 	val = htons(upper_layer_len);
-	sum = chksum(sum, (u8_t *) & val, sizeof(val));
+	sum = chksum(sum, (u8_t *)&val, sizeof(val));
 
 	val = htons(proto);
-	sum = chksum(sum, (u8_t *) & val, sizeof(val));
+	sum = chksum(sum, (u8_t *)&val, sizeof(val));
 
-	upper_layer = (uint8_t *) (ipv6_hdr + 1);
+	upper_layer = (uint8_t *)(ipv6_hdr + 1);
 	sum = chksum(sum, upper_layer, upper_layer_len);
 
 	return (sum == 0) ? 0xffff : htons(sum);
@@ -367,20 +364,20 @@ static uint16_t upper_layer_checksum_ipv6(uint8_t * data, uint8_t proto)
 
 /*---------------------------------------------------------------------------*/
 
-u16_t uip_icmp6chksum(struct uip_stack * ustack)
+u16_t uip_icmp6chksum(struct uip_stack *ustack)
 {
 	uint8_t *data = ustack->network_layer;
 
 	return upper_layer_checksum_ipv6(data, UIP_PROTO_ICMP6);
 }
 
-uint16_t icmpv6_checksum(uint8_t * data)
+uint16_t icmpv6_checksum(uint8_t *data)
 {
 	return upper_layer_checksum_ipv6(data, IPPROTO_ICMPV6);
 }
 
 /*---------------------------------------------------------------------------*/
-u16_t uip_tcpchksum(struct uip_stack * ustack)
+u16_t uip_tcpchksum(struct uip_stack *ustack)
 {
 	return upper_layer_chksum_ipv4(ustack, UIP_PROTO_TCP);
 }
@@ -399,7 +396,7 @@ static u16_t uip_udpchksum_ipv6(struct uip_stack *ustack)
 	return upper_layer_checksum_ipv6(data, UIP_PROTO_UDP);
 }
 
-u16_t uip_udpchksum(struct uip_stack * ustack)
+u16_t uip_udpchksum(struct uip_stack *ustack)
 {
 	if (is_ipv6(ustack))
 		return uip_udpchksum_ipv6(ustack);
@@ -413,20 +410,17 @@ void uip_init(struct uip_stack *ustack, uint8_t ipv6_enabled)
 {
 	u8_t c;
 
-	for (c = 0; c < UIP_LISTENPORTS; ++c) {
+	for (c = 0; c < UIP_LISTENPORTS; ++c)
 		ustack->uip_listenports[c] = 0;
-	}
-	for (c = 0; c < UIP_CONNS; ++c) {
+	for (c = 0; c < UIP_CONNS; ++c)
 		ustack->uip_conns[c].tcpstateflags = UIP_CLOSED;
-	}
 #if UIP_ACTIVE_OPEN
 	ustack->lastport = 1024;
 #endif /* UIP_ACTIVE_OPEN */
 
 #if UIP_UDP
-	for (c = 0; c < UIP_UDP_CONNS; ++c) {
+	for (c = 0; c < UIP_UDP_CONNS; ++c)
 		ustack->uip_udp_conns[c].lport = 0;
-	}
 #endif /* UIP_UDP */
 
 	/* IPv4 initialization. */
@@ -440,9 +434,9 @@ void uip_init(struct uip_stack *ustack, uint8_t ipv6_enabled)
 	/*  prepare the uIP lock */
 	pthread_mutex_init(&ustack->lock, NULL);
 
-	if (ipv6_enabled) {
+	if (ipv6_enabled)
 		ustack->enable_IPv6 = UIP_SUPPORT_IPv6_ENABLED;
-	} else
+	else
 		ustack->enable_IPv6 = UIP_SUPPORT_IPv6_DISABLED;
 
 	ustack->dhcpc = NULL;
@@ -462,7 +456,7 @@ void uip_reset(struct uip_stack *ustack)
 
 /*---------------------------------------------------------------------------*/
 #if UIP_ACTIVE_OPEN
-struct uip_conn *uip_connect(struct uip_stack *ustack, uip_ip4addr_t * ripaddr,
+struct uip_conn *uip_connect(struct uip_stack *ustack, uip_ip4addr_t *ripaddr,
 			     u16_t rport)
 {
 	u8_t c;
@@ -472,9 +466,8 @@ struct uip_conn *uip_connect(struct uip_stack *ustack, uip_ip4addr_t * ripaddr,
 again:
 	++ustack->lastport;
 
-	if (ustack->lastport >= 32000) {
+	if (ustack->lastport >= 32000)
 		ustack->lastport = 4096;
-	}
 
 	/* Check if this port is already in use, and if so try to find
 	   another one. */
@@ -494,15 +487,13 @@ again:
 			break;
 		}
 		if (cconn->tcpstateflags == UIP_TIME_WAIT) {
-			if (conn == 0 || cconn->timer > conn->timer) {
+			if (conn == 0 || cconn->timer > conn->timer)
 				conn = cconn;
-			}
 		}
 	}
 
-	if (conn == 0) {
+	if (conn == 0)
 		return 0;
-	}
 
 	conn->tcpstateflags = UIP_SYN_SENT;
 
@@ -529,7 +520,7 @@ again:
 /*---------------------------------------------------------------------------*/
 #if UIP_UDP
 struct uip_udp_conn *uip_udp_new(struct uip_stack *ustack,
-				 uip_ip4addr_t * ripaddr, u16_t rport)
+				 uip_ip4addr_t *ripaddr, u16_t rport)
 {
 	u8_t c;
 	register struct uip_udp_conn *conn;
@@ -538,14 +529,12 @@ struct uip_udp_conn *uip_udp_new(struct uip_stack *ustack,
 again:
 	++ustack->lastport;
 
-	if (ustack->lastport >= 32000) {
+	if (ustack->lastport >= 32000)
 		ustack->lastport = 4096;
-	}
 
 	for (c = 0; c < UIP_UDP_CONNS; ++c) {
-		if (ustack->uip_udp_conns[c].lport == htons(ustack->lastport)) {
+		if (ustack->uip_udp_conns[c].lport == htons(ustack->lastport))
 			goto again;
-		}
 	}
 
 	conn = 0;
@@ -556,17 +545,15 @@ again:
 		}
 	}
 
-	if (conn == 0) {
+	if (conn == 0)
 		return 0;
-	}
 
 	conn->lport = htons(ustack->lastport);
 	conn->rport = rport;
-	if (ripaddr == NULL) {
+	if (ripaddr == NULL)
 		memset(conn->ripaddr, 0, sizeof(uip_ip4addr_t));
-	} else {
+	else
 		uip_ip4addr_copy(&conn->ripaddr, ripaddr);
-	}
 	conn->ttl = UIP_TTL;
 
 	return conn;
@@ -822,16 +809,14 @@ static u8_t uip_reass(void)
 			/* Check all bytes up to and including all but the last
 			   byte in the bitmap. */
 			for (i = 0; i < uip_reasslen / (8 * 8) - 1; ++i) {
-				if (uip_reassbitmap[i] != 0xff) {
+				if (uip_reassbitmap[i] != 0xff)
 					goto nullreturn;
-				}
 			}
 			/* Check the last byte in the bitmap. It should contain
 			   just the right amount of bits. */
 			if (uip_reassbitmap[uip_reasslen / (8 * 8)] !=
-			    (u8_t) ~ bitmap_bits[uip_reasslen / 8 & 7]) {
+			    (u8_t) ~bitmap_bits[uip_reasslen / 8 & 7])
 				goto nullreturn;
-			}
 
 			/* If we have come this far, we have a full packet in
 			   the buffer, so we allocate a pbuf and copy the
@@ -895,13 +880,13 @@ static void uip_add_rcv_nxt(struct uip_stack *ustack, u16_t n)
  * The usual way of calling the function is presented by the source
  * code below.
  \code
-  uip_len = devicedriver_poll();
-  if(uip_len > 0) {
-    uip_input();
-    if(uip_len > 0) {
-      devicedriver_send();
-    }
-  }
+	uip_len = devicedriver_poll();
+	if(uip_len > 0) {
+		uip_input();
+		if(uip_len > 0) {
+			devicedriver_send();
+		}
+	}
  \endcode
  *
  * \note If you are writing a uIP device driver that needs ARP
@@ -912,19 +897,18 @@ static void uip_add_rcv_nxt(struct uip_stack *ustack, u16_t n)
   #define BUF ((struct uip_eth_hdr *)&uip_buf[0])
   uip_len = ethernet_devicedrver_poll();
   if(uip_len > 0) {
-    if(BUF(ustack)->type == HTONS(UIP_ETHTYPE_IP)) {
-      uip_arp_ipin();
-      uip_input();
-      if(uip_len > 0) {
-        uip_arp_out();
-        ethernet_devicedriver_send();
-      }
-    } else if(BUF(ustack)->type == HTONS(UIP_ETHTYPE_ARP)) {
-      uip_arp_arpin();
-      if(uip_len > 0) {
-        ethernet_devicedriver_send();
-      }
-    }
+	if (BUF(ustack)->type == HTONS(UIP_ETHTYPE_IP)) {
+		uip_arp_ipin();
+		uip_input();
+		if (uip_len > 0) {
+			uip_arp_out();
+			ethernet_devicedriver_send();
+		}
+	} else if (BUF(ustack)->type == HTONS(UIP_ETHTYPE_ARP)) {
+		uip_arp_arpin();
+		if (uip_len > 0)
+			ethernet_devicedriver_send();
+	}
  \endcode
  *
  * \hideinitializer
@@ -950,12 +934,12 @@ void uip_input(struct uip_stack *ustack)
  * The ususal way of calling the function is through a for() loop like
  * this:
  \code
-  for(i = 0; i < UIP_CONNS; ++i) {
-    uip_periodic(i);
-    if(uip_len > 0) {
-      devicedriver_send();
-    }
-  }
+	for(i = 0; i < UIP_CONNS; ++i) {
+		uip_periodic(i);
+		if(uip_len > 0) {
+			devicedriver_send();
+		}
+	}
  \endcode
  *
  * \note If you are writing a uIP device driver that needs ARP
@@ -963,13 +947,13 @@ void uip_input(struct uip_stack *ustack)
  * Ethernet, you will need to call the uip_arp_out() function before
  * calling the device driver:
  \code
-  for(i = 0; i < UIP_CONNS; ++i) {
-    uip_periodic(i);
-    if(uip_len > 0) {
-      uip_arp_out();
-      ethernet_devicedriver_send();
-    }
-  }
+	for(i = 0; i < UIP_CONNS; ++i) {
+		uip_periodic(i);
+		if(uip_len > 0) {
+			uip_arp_out();
+			ethernet_devicedriver_send();
+		}
+	}
  \endcode
  *
  * \param conn The number of the connection which is to be periodically polled.
@@ -1090,9 +1074,8 @@ void uip_process(struct uip_stack *ustack, u8_t flag)
 	}			/* End of ipv6 */
 
 #if UIP_UDP
-	if (flag == UIP_UDP_SEND_CONN) {
+	if (flag == UIP_UDP_SEND_CONN)
 		goto udp_send;
-	}
 #endif /* UIP_UDP */
 	ustack->uip_sappdata = ustack->uip_appdata = ustack->network_layer +
 	    uip_ip_tcph_len;
@@ -1112,16 +1095,14 @@ void uip_process(struct uip_stack *ustack, u8_t flag)
 		   firing. */
 	} else if (flag == UIP_TIMER) {
 #if UIP_REASSEMBLY
-		if (uip_reasstmr != 0) {
+		if (uip_reasstmr != 0)
 			--uip_reasstmr;
-		}
 #endif /* UIP_REASSEMBLY */
 		/* Increase the initial sequence number. */
 		if (++ustack->iss[3] == 0) {
 			if (++ustack->iss[2] == 0) {
-				if (++ustack->iss[1] == 0) {
+				if (++ustack->iss[1] == 0)
 					++ustack->iss[0];
-				}
 			}
 		}
 
@@ -1136,9 +1117,8 @@ void uip_process(struct uip_stack *ustack, u8_t flag)
 		if (uip_connr->tcpstateflags == UIP_TIME_WAIT ||
 		    uip_connr->tcpstateflags == UIP_FIN_WAIT_2) {
 			++(uip_connr->timer);
-			if (uip_connr->timer == UIP_TIME_WAIT_TIMEOUT) {
+			if (uip_connr->timer == UIP_TIME_WAIT_TIMEOUT)
 				uip_connr->tcpstateflags = UIP_CLOSED;
-			}
 		} else if (uip_connr->tcpstateflags != UIP_CLOSED) {
 			/* If the connection has outstanding data, we increase
 			   the connection's timer and see if it has reached the
@@ -1298,8 +1278,7 @@ void uip_process(struct uip_stack *ustack, u8_t flag)
 
 	if (is_ipv6(ustack)) {
 		u16_t len = ntohs(ipv6_hdr->ip6_plen);
-		if (len <= ustack->uip_len) {
-		} else {
+		if (len > ustack->uip_len) {
 			LOG_DEBUG(PFX
 				 "ip: packet shorter than reported in IP header"
 				 ":IPv6_BUF(ustack)->len: %d ustack->uip_len: "
@@ -1327,9 +1306,8 @@ void uip_process(struct uip_stack *ustack, u8_t flag)
 		    tcp_ipv4_hdr->ipoffset[1] != 0) {
 #if UIP_REASSEMBLY
 			uip_len = uip_reass();
-			if (uip_len == 0) {
+			if (uip_len == 0)
 				goto drop;
-			}
 #else /* UIP_REASSEMBLY */
 			++ustack->stats.ip.drop;
 			++ustack->stats.ip.fragerr;
@@ -1339,8 +1317,7 @@ void uip_process(struct uip_stack *ustack, u8_t flag)
 		}
 	}
 
-	if (is_ipv6(ustack)) {
-	} else {
+	if (!is_ipv6(ustack)) {
 		/* ipv4 */
 		if (uip_ip4addr_cmp(ustack->hostaddr, all_zeroes_addr4)) {
 			/* If we are configured to use ping IP address
@@ -1397,9 +1374,8 @@ void uip_process(struct uip_stack *ustack, u8_t flag)
 			goto ndp_newdata;
 		}
 #if UIP_UDP
-		if (ipv6_hdr->ip6_nxt == UIP_PROTO_UDP) {
+		if (ipv6_hdr->ip6_nxt == UIP_PROTO_UDP)
 			goto ndp_newdata;
-		}
 #endif /* UIP_UDP */
 
 		/* This is IPv6 ICMPv6 processing code. */
@@ -1432,9 +1408,8 @@ ndp_send:
 			goto tcp_input;
 		}
 #if UIP_UDP
-		if (tcp_ipv4_hdr->proto == UIP_PROTO_UDP) {
+		if (tcp_ipv4_hdr->proto == UIP_PROTO_UDP)
 			goto udp_input;
-		}
 #endif /* UIP_UDP */
 
 		/* ICMPv4 processing code follows. */
@@ -1492,7 +1467,7 @@ icmp_input:
 
 #if UIP_UDP
 	/* UDP input processing. */
-      udp_input:
+udp_input:
 	/* UDP processing is really just a hack. We don't do anything to the
 	   UDP/IP headers, but let the UDP application do all the hard
 	   work. If the application sets uip_slen, it has a packet to
@@ -1555,9 +1530,8 @@ udp_found:
 	else
 		UIP_UDP_APPCALL(ustack);
 udp_send:
-	if (ustack->uip_slen == 0) {
+	if (ustack->uip_slen == 0)
 		goto drop;
-	}
 
 	ustack->uip_len = ustack->uip_slen + uip_ip_udph_len;
 
@@ -1589,9 +1563,8 @@ udp_send:
 #if UIP_UDP_CHECKSUMS
 	/* Calculate UDP checksum. */
 	udp_hdr->udpchksum = ~(uip_udpchksum(ustack));
-	if (udp_hdr->udpchksum == 0) {
+	if (udp_hdr->udpchksum == 0)
 		udp_hdr->udpchksum = 0xffff;
-	}
 #endif /* UIP_UDP_CHECKSUMS */
 
 	goto ip_send_nolen;
@@ -1645,9 +1618,8 @@ tcp_input:
 	   either this packet is an old duplicate, or this is a SYN packet
 	   destined for a connection in LISTEN. If the SYN flag isn't set,
 	   it is an old packet and we send a RST. */
-	if ((tcp_hdr->flags & TCP_CTL) != TCP_SYN) {
+	if ((tcp_hdr->flags & TCP_CTL) != TCP_SYN)
 		goto reset;
-	}
 
 	tmp16 = tcp_hdr->destport;
 	/* Next, check listening connections. */
@@ -1661,9 +1633,8 @@ tcp_input:
 reset:
 
 	/* We do not send resets in response to resets. */
-	if (tcp_hdr->flags & TCP_RST) {
+	if (tcp_hdr->flags & TCP_RST)
 		goto drop;
-	}
 
 	++ustack->stats.tcp.rst;
 
@@ -1693,9 +1664,8 @@ reset:
 	   to propagate the carry to the other bytes as well. */
 	if (++tcp_hdr->ackno[3] == 0) {
 		if (++tcp_hdr->ackno[2] == 0) {
-			if (++tcp_hdr->ackno[1] == 0) {
+			if (++tcp_hdr->ackno[1] == 0)
 				++tcp_hdr->ackno[0];
-			}
 		}
 	}
 
@@ -1888,9 +1858,9 @@ found:
 	{
 		u8_t uip_acc32[4];
 
-		/* Next, check if the incoming segment acknowledges any outstanding
-		   data. If so, we update the sequence number, reset the length of
-		   the outstanding data, calculate RTT estimations, and reset the
+		/* Next, check if the incoming segment acks any outstanding
+		   data. If so, we update the sequence number, reset the len of
+		   the outstanding data, calc RTT estimations, and reset the
 		   retransmission timer. */
 		if ((tcp_hdr->flags & TCP_ACK) && uip_outstanding(uip_connr)) {
 			uip_add32(uip_connr->snd_nxt, uip_connr->len,
@@ -1915,9 +1885,8 @@ found:
 					   original code in his paper */
 					m = m - (uip_connr->sa >> 3);
 					uip_connr->sa += m;
-					if (m < 0) {
+					if (m < 0)
 						m = -m;
-					}
 					m = m - (uip_connr->sv >> 2);
 					uip_connr->sv += m;
 					uip_connr->rto =
@@ -2070,19 +2039,17 @@ found:
 
 		if (tcp_hdr->flags & TCP_FIN
 		    && !(uip_connr->tcpstateflags & UIP_STOPPED)) {
-			if (uip_outstanding(uip_connr)) {
+			if (uip_outstanding(uip_connr))
 				goto drop;
-			}
 			uip_add_rcv_nxt(ustack, 1 + ustack->uip_len);
 			ustack->uip_flags |= UIP_CLOSE;
-			if (ustack->uip_len > 0) {
+			if (ustack->uip_len > 0)
 				ustack->uip_flags |= UIP_NEWDATA;
-			}
 			UIP_APPCALL(ustack);
 			uip_connr->len = 1;
 			uip_connr->tcpstateflags = UIP_LAST_ACK;
 			uip_connr->nrtx = 0;
-		      tcp_send_finack:
+tcp_send_finack:
 			tcp_hdr->flags = TCP_FIN | TCP_ACK;
 			goto tcp_send_nodata;
 		}
@@ -2138,9 +2105,8 @@ found:
 		 */
 		tmp16 =
 		    ((u16_t) tcp_hdr->wnd[0] << 8) + (u16_t) tcp_hdr->wnd[1];
-		if (tmp16 > uip_connr->initialmss || tmp16 == 0) {
+		if (tmp16 > uip_connr->initialmss || tmp16 == 0)
 			tmp16 = uip_connr->initialmss;
-		}
 		uip_connr->mss = tmp16;
 
 		/* If this packet constitutes an ACK for outstanding data
@@ -2164,7 +2130,7 @@ found:
 			ustack->uip_slen = 0;
 			UIP_APPCALL(ustack);
 
-		      appsend:
+appsend:
 
 			if (ustack->uip_flags & UIP_ABORT) {
 				ustack->uip_slen = 0;
@@ -2189,9 +2155,8 @@ found:
 				/* If the connection has acknowledged data, the
 				   contents of the ->len variable should be
 				   discarded. */
-				if ((ustack->uip_flags & UIP_ACKDATA) != 0) {
+				if ((ustack->uip_flags & UIP_ACKDATA) != 0)
 					uip_connr->len = 0;
-				}
 
 				/* If the ->len variable is non-zero the
 				   connection has already data in transit and
@@ -2261,9 +2226,8 @@ apprexmit:
 		/* The application has closed the connection, but the remote
 		   host hasn't closed its end yet. Thus we do nothing but wait
 		   for a FIN from the other side. */
-		if (ustack->uip_len > 0) {
+		if (ustack->uip_len > 0)
 			uip_add_rcv_nxt(ustack, ustack->uip_len);
-		}
 		if (tcp_hdr->flags & TCP_FIN) {
 			if (ustack->uip_flags & UIP_ACKDATA) {
 				uip_connr->tcpstateflags = UIP_TIME_WAIT;
@@ -2281,15 +2245,13 @@ apprexmit:
 			uip_connr->len = 0;
 			goto drop;
 		}
-		if (ustack->uip_len > 0) {
+		if (ustack->uip_len > 0)
 			goto tcp_send_ack;
-		}
 		goto drop;
 
 	case UIP_FIN_WAIT_2:
-		if (ustack->uip_len > 0) {
+		if (ustack->uip_len > 0)
 			uip_add_rcv_nxt(ustack, ustack->uip_len);
-		}
 		if (tcp_hdr->flags & TCP_FIN) {
 			uip_connr->tcpstateflags = UIP_TIME_WAIT;
 			uip_connr->timer = 0;
@@ -2298,9 +2260,8 @@ apprexmit:
 			UIP_APPCALL(ustack);
 			goto tcp_send_ack;
 		}
-		if (ustack->uip_len > 0) {
+		if (ustack->uip_len > 0)
 			goto tcp_send_ack;
-		}
 		goto drop;
 
 	case UIP_TIME_WAIT:
@@ -2385,8 +2346,7 @@ tcp_send_noconn:
 
 ip_send_nolen:
 
-	if (is_ipv6(ustack)) {
-	} else {
+	if (!is_ipv6(ustack)) {
 		tcp_ipv4_hdr->vhl = 0x45;
 		tcp_ipv4_hdr->tos = 0;
 		tcp_ipv4_hdr->ipoffset[0] = tcp_ipv4_hdr->ipoffset[1] = 0;
@@ -2408,7 +2368,6 @@ send:
 			  ustack->uip_len,
 			  (tcp_ipv4_hdr->len[0] << 8) | tcp_ipv4_hdr->len[1]);
 	}
-
 	++ustack->stats.ip.sent;
 	/* Return and let the caller do the actual transmission. */
 	ustack->uip_flags = 0;
@@ -2424,9 +2383,8 @@ void uip_send(struct uip_stack *ustack, const void *data, int len)
 {
 	if (len > 0) {
 		ustack->uip_slen = len;
-		if (data != ustack->uip_buf) {
+		if (data != ustack->uip_buf)
 			memcpy(ustack->uip_buf, (data), ustack->uip_slen);
-		}
 	}
 }
 
@@ -2434,9 +2392,8 @@ void uip_appsend(struct uip_stack *ustack, const void *data, int len)
 {
 	if (len > 0) {
 		ustack->uip_slen = len;
-		if (data != ustack->uip_sappdata) {
+		if (data != ustack->uip_sappdata)
 			memcpy(ustack->uip_sappdata, (data), ustack->uip_slen);
-		}
 	}
 }
 

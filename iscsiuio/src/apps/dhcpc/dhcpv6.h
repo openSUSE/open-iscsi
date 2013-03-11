@@ -3,7 +3,7 @@
  *
  * Written by:  Eddie Wai <eddie.wai@broadcom.com>
  *              Based on code from Kevin Tran's iSCSI boot code
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,10 +41,6 @@
 
 #include "ipv6_ndpc.h"
 #include "ipv6.h"
-
-#ifdef PACK_DATA_STRUCTURE
-#pragma pack(push,1)
-#endif
 
 #define ISCSI_MAX_ISCSI_NAME_LENGTH 128
 /* DHCPv6 Message types. */
@@ -104,7 +100,7 @@
 #define DHCPV6_OPT_DOMAIN_LIST    24	/* Domain Search List option - not
 					   supported */
 #define DHCPV6_MAX_OPT_CODES      25	/* This will be the count + 1 since
-					   the parsing array starts 
+					   the parsing array starts
 					   at [1] instead of [0] */
 
 /* Authentication protocol types. */
@@ -112,10 +108,10 @@
 #define DHCPV6_RECON_KEY_AUTH_PROT   3	/* Reconfigure Key Authentication
 					   protocol. */
 
-typedef struct DHCPV6_CONTEXT {
+struct dhcpv6_context {
 #define DHCP_VENDOR_ID_LEN 128
 	char dhcp_vendor_id[DHCP_VENDOR_ID_LEN];
-	MAC_ADDRESS *our_mac_addr;
+	struct mac_address *our_mac_addr;
 	u32_t dhcpv6_transaction_id;
 	u16_t seconds;
 	int timeout;
@@ -128,36 +124,36 @@ typedef struct DHCPV6_CONTEXT {
 #define DHCPV6_STATE_CONFIRM_SENT  4
 	int dhcpv6_state;
 	u16_t dhcpv6_task;
-	pIPV6_CONTEXT ipv6_context;
-	pETH_HDR eth;
-	pIPV6_HDR ipv6;
-	pUDP_HDR udp;
+	struct ipv6_context *ipv6_context;
+	struct eth_hdr *eth;
+	struct ipv6_hdr *ipv6;
+	struct udp_hdr *udp;
 
 	char initiatorName[ISCSI_MAX_ISCSI_NAME_LENGTH];
-	IPV6_ADDR dhcp_server;
-	IPV6_ADDR primary_dns_server;
-	IPV6_ADDR secondary_dns_server;
+	struct ipv6_addr dhcp_server;
+	struct ipv6_addr primary_dns_server;
+	struct ipv6_addr secondary_dns_server;
 
-} DHCPV6_CONTEXT, *pDHCPV6_CONTEXT;
+};
 
-typedef union DHCPV6_HDR {
+union dhcpv6_hdr {
 	struct {
 		u32_t type:8;
 		u32_t trans_id:24;
 	} field;
 
 	u32_t type_transaction;
-} DHCPV6_HDR, *pDHCPV6_HDR;
+};
 
 #define dhcpv6_type      field.type
 #define dhcpv6_trans_id  field.trans_id
 
-typedef struct DHCPV6_OPT_HDR {
+struct dhcpv6_opt_hdr {
 	u16_t type;
 	u16_t length;
-} DHCPV6_OPT_HDR, *pDHCPV6_OPT_HDR;
+};
 
-typedef struct DHCPV6_OPT_CLIENT_ID {
+struct dhcpv6_opt_client_id {
 	u16_t duid_type;
 #define DHCPV6_DUID_TYPE_LINK_LAYER_AND_TIME 1
 #define DHCPV6_DUID_TYPE_VENDOR_BASED        2
@@ -165,70 +161,65 @@ typedef struct DHCPV6_OPT_CLIENT_ID {
 	u16_t hw_type;
 #define DHCPV6_HW_TYPE_ETHERNET              1
 	u32_t time;
-	MAC_ADDR link_layer_addr;
-} DHCPV6_OPT_CLIENT_ID, *pDHCPV6_OPT_CLIENT_ID;
+	struct mac_address link_layer_addr;
+};
 
-typedef struct DHCPV6_OPT_ID_ASSOC_NA {
+struct dhcpv6_opt_id_assoc_na {
 	u32_t iaid;
 #define DHCPV6_OPT_IA_NA_IAID  0x306373L
 	u32_t t1;
 	u32_t t2;
-} DHCPV6_OPT_ID_ASSOC_NA, *pDHCPV6_OPT_ID_ASSOC_NA;
+};
 
-typedef struct DHCPV6_OPT_ELAPSE_TIME {
+struct dhcpv6_opt_elapse_time {
 	u16_t time;
-} DHCPV6_OPT_ELAPSE_TIME, *pDHCPV6_OPT_ELAPSE_TIME;
+};
 
-typedef struct DHCPV6_OPT_IAA_ADDR {
-	IPV6_ADDR addr;
+struct dhcpv6_opt_iaa_addr {
+	struct ipv6_addr addr;
 	u32_t preferred_lifetime;
 	u32_t valid_lifetime;
-} DHCPV6_OPT_IAA_ADDR, *pDHCPV6_OPT_IAA_ADDR;
+};
 
-typedef struct DHCPV6_OPT_STATUS {
+struct dhcpv6_opt_status {
 	u16_t status;
-} DHCPV6_OPT_STATUS, *pDHCPV6_OPT_STATUS;
+};
 
-typedef struct DHCPV6_OPT_REQUEST_LIST {
+struct dhcpv6_opt_request_list {
 	u16_t request_code[1];
-} DHCPV6_OPT_REQUEST_LIST, *pDHCPV6_OPT_REQUEST_LIST;
+};
 
-typedef struct DHCPV6_OPT_DNS {
-	IPV6_ADDR primary_addr;
-	IPV6_ADDR secondary_addr;
-} DHCPV6_OPT_DNS, *pDHCPV6_OPT_DNS;
+struct dhcpv6_opt_dns {
+	struct ipv6_addr primary_addr;
+	struct ipv6_addr secondary_addr;
+};
 
-typedef struct DHCPV6_VENDOR_CLASS {
+struct dhcpv6_vendor_class {
 	u32_t enterprise_number;
 	u16_t vendor_class_length;
 	u8_t vendor_class_data[1];
-} DHCPV6_VENDOR_CLASS, *pDHCPV6_VENDOR_CLASS;
+};
 
-typedef struct DHCPV6_VENDOR_OPTS {
+struct dhcpv6_vendor_opts {
 	u32_t enterprise_number;
 	u8_t vendor_opt_data[1];
-} DHCPV6_VENDOR_OPTS, *pDHCPV6_VENDOR_OPTS;
+};
 
-typedef struct DHCPV6_OPTION {
-	DHCPV6_OPT_HDR hdr;
+struct dhcpv6_option {
+	struct dhcpv6_opt_hdr hdr;
 	union {
-		DHCPV6_VENDOR_OPTS vendor_opts;
-		DHCPV6_VENDOR_CLASS vendor_class;
-		DHCPV6_OPT_CLIENT_ID client_id;
-		DHCPV6_OPT_ID_ASSOC_NA ida_na;
-		DHCPV6_OPT_ELAPSE_TIME elapsed_time;
-		DHCPV6_OPT_IAA_ADDR iaa_addr;
-		DHCPV6_OPT_STATUS sts;
-		DHCPV6_OPT_REQUEST_LIST list;
-		DHCPV6_OPT_DNS dns;
+		struct dhcpv6_vendor_opts vendor_opts;
+		struct dhcpv6_vendor_class vendor_class;
+		struct dhcpv6_opt_client_id client_id;
+		struct dhcpv6_opt_id_assoc_na ida_na;
+		struct dhcpv6_opt_elapse_time elapsed_time;
+		struct dhcpv6_opt_iaa_addr iaa_addr;
+		struct dhcpv6_opt_status sts;
+		struct dhcpv6_opt_request_list list;
+		struct dhcpv6_opt_dns dns;
 		u8_t data[1];
 	} type;
-
-} DHCPV6_OPTION, *pDHCPV6_OPTION;
-
-#ifdef PACK_DATA_STRUCTURE
-#pragma pack(pop)
-#endif
+};
 
 #define DHCPV6_NUM_OF_RETRY      4
 
@@ -253,11 +244,9 @@ enum {
 	ISCSI_SUCCESS
 };
 
-//const int dhcpv6_retry_timeout[DHCPV6_NUM_OF_RETRY] = {1,2,4,8};
-
 /* Function prototypes */
-int dhcpv6_do_discovery(pDHCPV6_CONTEXT dhcpv6_context);
-void ipv6_udp_handle_dhcp(pDHCPV6_CONTEXT dhcpv6_context);
-void dhcpv6_init(pDHCPV6_CONTEXT dhcpv6_context);
+int dhcpv6_do_discovery(struct dhcpv6_context *context);
+void ipv6_udp_handle_dhcp(struct dhcpv6_context *context);
+void dhcpv6_init(struct dhcpv6_context *context);
 
 #endif /* __IDHCPV6_H__ */

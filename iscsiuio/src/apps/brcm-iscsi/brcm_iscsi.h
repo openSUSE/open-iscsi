@@ -3,7 +3,7 @@
  *
  * Written by:  Benjamin Li <benli@broadcom.com>
  *              Based on code example from Adam Dunkels
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -65,17 +65,17 @@
 #include "uip.h"
 #include "psock.h"
 
-/* Next, we define the uip_tcp_appstate_t datatype. This is the state
+/* Next, we define the hello_world_state structure. This is the state
    of our application, and the memory required for this state is
    allocated together with each TCP connection. One application state
    for each TCP connection. */
-typedef struct hello_world_state {
+struct hello_world_state {
 	struct psock p;
 	u8_t inputbuffer[32];
 	u8_t name[40];
 
 	struct uip_udp_conn *conn;
-} uip_tcp_appstate_t;
+};
 
 /* Finally we define the application function to be called by uIP. */
 void brcm_iscsi_appcall(struct uip_stack *ustack);

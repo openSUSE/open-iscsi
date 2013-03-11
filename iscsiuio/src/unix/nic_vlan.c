@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -149,7 +149,7 @@ int parse_vlan_table(struct vlan_handle *handle, char *raw, uint32_t raw_size)
 		token++;
 	}
 
-	/*  There are 2 lines which describe the vlan table 
+	/*  There are 2 lines which describe the vlan table
 	 *  This lines need to be skipped with counting */
 	handle->num_of_entries -= 2;
 
@@ -214,10 +214,10 @@ int parse_vlan_table(struct vlan_handle *handle, char *raw, uint32_t raw_size)
 
 	return 0;
 
-      error:
+error:
 	fclose(fp);
 
-      fmemopen_error:
+fmemopen_error:
 	if (handle->entries != NULL)
 		free(handle->entries);
 
@@ -237,16 +237,14 @@ int capture_vlan_table(struct vlan_handle *handle)
 	int rc;
 
 	rc = capture_file(&raw, &raw_size, proc_vlan_config_path);
-	if (rc != 0) {
+	if (rc != 0)
 		goto error;
-	}
 
 	rc = parse_vlan_table(handle, raw, raw_size);
-	if (rc != 0) {
+	if (rc != 0)
 		goto error;
-	}
 
-      error:
+error:
 	if (raw != NULL)
 		free(raw);
 
@@ -272,7 +270,7 @@ void release_vlan_table(struct vlan_handle *handle)
  *  find_phy_using_vlan_interface() - Given the interface name determine VLAN
  *      tag ID to match either the physical or VLAN interface name
  *  @param vlan_iface_name - VLAN interface used to find the physical
- *                           interface 
+ *                           interface
  *  @param phy_iface_name - returned value is the physical interface name
  *  @param vlan_id - returned value is the VLAN id
  *  @return 1 is returned if the interface is a VLAN, 0 if the interface is not
@@ -280,7 +278,7 @@ void release_vlan_table(struct vlan_handle *handle)
  */
 int find_phy_using_vlan_interface(struct vlan_handle *handle,
 				  char *vlan_iface_name,
-				  char **phy_iface_name, uint16_t * vlan_id)
+				  char **phy_iface_name, uint16_t *vlan_id)
 {
 	int i, rc = 0;
 
@@ -300,9 +298,9 @@ int find_phy_using_vlan_interface(struct vlan_handle *handle,
 }
 
 /**
- *  find_vlans_using_phy_interface() - Given the physical interface name this 
+ *  find_vlans_using_phy_interface() - Given the physical interface name this
  *      function will determine the VLAN interface name and VLAN ID
- *  @param iface_name - physical interface used to find the vlan interface 
+ *  @param iface_name - physical interface used to find the vlan interface
  *  @param vlan_iface_name - returned value is the VLAN interface name
  *  @return The number of VLAN interfaces found
  */

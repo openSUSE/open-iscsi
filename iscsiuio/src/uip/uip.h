@@ -45,7 +45,6 @@
  *
  * This file is part of the uIP TCP/IP stack.
  *
- * $Id: uip.h,v 1.40 2006/06/08 07:12:07 adam Exp $
  *
  */
 
@@ -99,7 +98,7 @@ const uip_ip4addr_t all_zeroes_addr4;
 
  uip_ipaddr(&addr, 192,168,1,2);
  uip_sethostaddr(&addr);
- 
+
  \endcode
  * \param addr A pointer to an IP address of type uip_ipaddr_t;
  *
@@ -107,7 +106,7 @@ const uip_ip4addr_t all_zeroes_addr4;
  *
  * \hideinitializer
  */
-void uip_sethostaddr4(struct uip_stack *ustack, uip_ip4addr_t * addr);
+void uip_sethostaddr4(struct uip_stack *ustack, uip_ip4addr_t *addr);
 
 /**
  * Set the default router's IP address.
@@ -119,7 +118,7 @@ void uip_sethostaddr4(struct uip_stack *ustack, uip_ip4addr_t * addr);
  *
  * \hideinitializer
  */
-void uip_setdraddr4(struct uip_stack *ustack, uip_ip4addr_t * addr);
+void uip_setdraddr4(struct uip_stack *ustack, uip_ip4addr_t *addr);
 
 /**
  * Set the netmask.
@@ -131,7 +130,7 @@ void uip_setdraddr4(struct uip_stack *ustack, uip_ip4addr_t * addr);
  *
  * \hideinitializer
  */
-void uip_setnetmask4(struct uip_stack *ustack, uip_ip4addr_t * addr);
+void uip_setnetmask4(struct uip_stack *ustack, uip_ip4addr_t *addr);
 
 /**
  * Set the ethernet MAC address.
@@ -143,7 +142,7 @@ void uip_setnetmask4(struct uip_stack *ustack, uip_ip4addr_t * addr);
  *
  * \hideinitializer
  */
-void uip_setethernetmac(struct uip_stack *ustack, uint8_t * mac);
+void uip_setethernetmac(struct uip_stack *ustack, uint8_t *mac);
 
 /**
  * Get the default router's IP address.
@@ -166,9 +165,9 @@ void uip_setethernetmac(struct uip_stack *ustack, uint8_t * mac);
 #define uip_getnetmask(addr) uip_ipaddr_copy((addr), uip_netmask)
 
 void set_uip_stack(struct uip_stack *ustack,
-		   uip_ip4addr_t * ip,
-		   uip_ip4addr_t * netmask,
-		   uip_ip4addr_t * default_route, uint8_t * mac_addr);
+		   uip_ip4addr_t *ip,
+		   uip_ip4addr_t *netmask,
+		   uip_ip4addr_t *default_route, uint8_t *mac_addr);
 
 /** @} */
 
@@ -208,61 +207,6 @@ void uip_setipid(u16_t id);
 #define uip_conn_active(conn) (uip_conns[conn].tcpstateflags != UIP_CLOSED)
 
 #if UIP_UDP
-
-#if 0
-/**
- * Periodic processing for a UDP connection identified by its number.
- *
- * This function is essentially the same as uip_periodic(), but for
- * UDP connections. It is called in a similar fashion as the
- * uip_periodic() function:
- \code
-  for(i = 0; i < UIP_UDP_CONNS; i++) {
-    uip_udp_periodic(i);
-    if(uip_len > 0) {
-      devicedriver_send();
-    }
-  }
- \endcode
- *
- * \note As for the uip_periodic() function, special care has to be
- * taken when using uIP together with ARP and Ethernet:
- \code
-  for(i = 0; i < UIP_UDP_CONNS; i++) {
-    uip_udp_periodic(i);
-    if(uip_len > 0) {
-      uip_arp_out();
-      ethernet_devicedriver_send();
-    }
-  }
- \endcode
- *
- * \param conn The number of the UDP connection to be processed.
- *
- * \hideinitializer
- */
-#define uip_udp_periodic(conn) do { uip_udp_conn = &uip_udp_conns[conn]; \
-                                uip_process(UIP_UDP_TIMER); } while (0)
-
-/**
- * Periodic processing for a UDP connection identified by a pointer to
- * its structure.
- *
- * Same as uip_udp_periodic() but takes a pointer to the actual
- * uip_conn struct instead of an integer as its argument. This
- * function can be used to force periodic processing of a specific
- * connection.
- *
- * \param conn A pointer to the uip_udp_conn struct for the connection
- * to be processed.
- *
- * \hideinitializer
- */
-#define uip_udp_periodic_conn(conn) do { uip_udp_conn = conn; \
-                                         uip_process(UIP_UDP_TIMER); } while (0)
-
-#endif
-
 void uip_udp_periodic(struct uip_stack *ustack, int conn);
 #endif /* UIP_UDP */
 
@@ -294,7 +238,7 @@ void uip_ndp_periodic(struct uip_stack *ustack);
  }
  \endcode
  */
-//extern u8_t uip_buf[UIP_BUFSIZE+2];
+/*extern u8_t uip_buf[UIP_BUFSIZE+2]; */
 
 /** @} */
 
@@ -371,7 +315,7 @@ void uip_unlisten(struct uip_stack *ustack, u16_t port);
  *
  */
 struct uip_conn *uip_connect(struct uip_stack *ustack,
-			     uip_ip4addr_t * ripaddr, u16_t port);
+			     uip_ip4addr_t *ripaddr, u16_t port);
 
 /**
  * \internal
@@ -482,9 +426,9 @@ u16_t uip_datalen(struct uip_stack *ustack);
  *
  * \hideinitializer
  */
-#define uip_restart()         do { uip_flags |= UIP_NEWDATA; \
-                                   uip_conn->tcpstateflags &= ~UIP_STOPPED; \
-                              } while(0)
+#define uip_restart()	do { uip_flags |= UIP_NEWDATA; \
+				uip_conn->tcpstateflags &= ~UIP_STOPPED; \
+			} while (0)
 
 /* uIP tests that can be made to determine in what state the current
    connection is, and what the application function should do. */
@@ -499,8 +443,8 @@ u16_t uip_datalen(struct uip_stack *ustack);
  */
 #define uip_udpconnection() (uip_conn == NULL)
 
-/** 
- *  Function declarations for hte uip_flags 
+/**
+ *  Function declarations for hte uip_flags
  */
 /**
  * Is new incoming data available?
@@ -626,7 +570,7 @@ int uip_mss(struct uip_stack *ustack);
  \code
  uip_ipaddr_t addr;
  struct uip_udp_conn *c;
- 
+
  uip_ipaddr(&addr, 192,168,2,1);
  c = uip_udp_new(&addr, HTONS(12345));
  if(c != NULL) {
@@ -641,7 +585,7 @@ int uip_mss(struct uip_stack *ustack);
  * if no connection could be allocated.
  */
 struct uip_udp_conn *uip_udp_new(struct uip_stack *ustack,
-				 uip_ip4addr_t * ripaddr, u16_t rport);
+				 uip_ip4addr_t *ripaddr, u16_t rport);
 
 /**
  * Removed a UDP connection.
@@ -650,7 +594,7 @@ struct uip_udp_conn *uip_udp_new(struct uip_stack *ustack,
  *
  * \hideinitializer
  */
-#define uip_udp_remove(conn) (conn)->lport = 0
+#define uip_udp_remove(conn) ((conn)->lport = 0)
 
 /**
  * Bind a UDP connection to a local port.
@@ -662,7 +606,7 @@ struct uip_udp_conn *uip_udp_new(struct uip_stack *ustack,
  *
  * \hideinitializer
  */
-#define uip_udp_bind(conn, port) (conn)->lport = port
+#define uip_udp_bind(conn, port) ((conn)->lport = port)
 
 /**
  * Send a UDP datagram of length len on the current connection.
@@ -700,7 +644,7 @@ struct uip_udp_conn *uip_udp_new(struct uip_stack *ustack,
  \code
  uip_ipaddr_t ipaddr;
  struct uip_conn *c;
- 
+
  uip_ipaddr(&ipaddr, 192,168,1,2);
  c = uip_connect(&ipaddr, HTONS(80));
  \endcode
@@ -715,10 +659,10 @@ struct uip_udp_conn *uip_udp_new(struct uip_stack *ustack,
  *
  * \hideinitializer
  */
-#define uip_ipaddr(addr, addr0,addr1,addr2,addr3) do { \
-                 ((u16_t *)(addr))[0] = const_htons(((addr0) << 8) | (addr1)); \
-                 ((u16_t *)(addr))[1] = const_htons(((addr2) << 8) | (addr3)); \
-        } while(0)
+#define uip_ipaddr(addr, addr0, addr1, addr2, addr3) do { \
+		((u16_t *)(addr))[0] = const_htons(((addr0) << 8) | (addr1)); \
+		((u16_t *)(addr))[1] = const_htons(((addr2) << 8) | (addr3)); \
+	} while (0)
 
 /**
  * Construct an IPv6 address from eight 16-bit words.
@@ -727,16 +671,18 @@ struct uip_udp_conn *uip_udp_new(struct uip_stack *ustack,
  *
  * \hideinitializer
  */
-#define uip_ip6addr(addr, addr0,addr1,addr2,addr3,addr4,addr5,addr6,addr7) do {\
-                     ((u16_t *)(addr))[0] = HTONS((addr0)); \
-                     ((u16_t *)(addr))[1] = HTONS((addr1)); \
-                     ((u16_t *)(addr))[2] = HTONS((addr2)); \
-                     ((u16_t *)(addr))[3] = HTONS((addr3)); \
-                     ((u16_t *)(addr))[4] = HTONS((addr4)); \
-                     ((u16_t *)(addr))[5] = HTONS((addr5)); \
-                     ((u16_t *)(addr))[6] = HTONS((addr6)); \
-                     ((u16_t *)(addr))[7] = HTONS((addr7)); \
-                  } while(0)
+#define uip_ip6addr(addr, addr0, addr1, addr2, addr3, addr4, addr5, addr6, \
+		    addr7)				\
+	do {						\
+		((u16_t *)(addr))[0] = HTONS((addr0));	\
+		((u16_t *)(addr))[1] = HTONS((addr1));	\
+		((u16_t *)(addr))[2] = HTONS((addr2));	\
+		((u16_t *)(addr))[3] = HTONS((addr3));	\
+		((u16_t *)(addr))[4] = HTONS((addr4));	\
+		((u16_t *)(addr))[5] = HTONS((addr5));	\
+		((u16_t *)(addr))[6] = HTONS((addr6));	\
+		((u16_t *)(addr))[7] = HTONS((addr7));	\
+	} while (0)
 
 /**
  * Copy an IP address to another IP address.
@@ -809,10 +755,10 @@ struct uip_udp_conn *uip_udp_new(struct uip_stack *ustack,
  * \hideinitializer
  */
 #define uip_ip4addr_maskcmp(addr1, addr2, mask) \
-                          (((((u16_t *)addr1)[0] & ((u16_t *)mask)[0]) == \
-                            (((u16_t *)addr2)[0] & ((u16_t *)mask)[0])) && \
-                           ((((u16_t *)addr1)[1] & ((u16_t *)mask)[1]) == \
-                            (((u16_t *)addr2)[1] & ((u16_t *)mask)[1])))
+			(((((u16_t *)addr1)[0] & ((u16_t *)mask)[0]) == \
+			(((u16_t *)addr2)[0] & ((u16_t *)mask)[0])) && \
+			((((u16_t *)addr1)[1] & ((u16_t *)mask)[1]) == \
+			(((u16_t *)addr2)[1] & ((u16_t *)mask)[1])))
 
 /**
  * Mask out the network part of an IP address.
@@ -839,9 +785,9 @@ struct uip_udp_conn *uip_udp_new(struct uip_stack *ustack,
  * \hideinitializer
  */
 #define uip_ip4addr_mask(dest, src, mask) do { \
-                 ((u16_t *)dest)[0] = ((u16_t *)src)[0] & ((u16_t *)mask)[0]; \
-                 ((u16_t *)dest)[1] = ((u16_t *)src)[1] & ((u16_t *)mask)[1]; \
-              } while(0)
+		((u16_t *)dest)[0] = ((u16_t *)src)[0] & ((u16_t *)mask)[0]; \
+		((u16_t *)dest)[1] = ((u16_t *)src)[1] & ((u16_t *)mask)[1]; \
+	} while (0)
 
 /**
  * Pick the first octet of an IP address.
@@ -977,7 +923,7 @@ u16_t htons(u16_t val);
  * called. If the application wishes to send data, the application may
  * use this space to write the data into before calling uip_send().
  */
-//extern void *uip_appdata;
+/* extern void *uip_appdata; */
 
 #if UIP_URGDATA > 0
 /* u8_t *uip_urgdata:
@@ -1011,7 +957,7 @@ extern void *uip_urgdata;
  * packet.
  *
  */
-//extern u16_t uip_len;
+/* extern u16_t uip_len; */
 
 /** @} */
 
@@ -1043,7 +989,7 @@ struct __attribute__ ((__packed__)) uip_conn {
 			 receive next. */
 	u8_t snd_nxt[4];
 		      /**< The sequence number that was last sent by
-                         us. */
+			 us. */
 	u16_t len;    /**< Length of the data that was previously sent. */
 	u16_t mss;    /**< Current maximum segment size for the
 			 connection. */
@@ -1060,10 +1006,6 @@ struct __attribute__ ((__packed__)) uip_conn {
 	u8_t timer;   /**< The retransmission timer. */
 	u8_t nrtx;    /**< The number of retransmissions for the last
 			 segment sent. */
-
-  /** The application state. */
-/* BWL */
-//  uip_tcp_appstate_t appstate;
 };
 
 /**
@@ -1090,7 +1032,7 @@ struct uip_udp_conn {
 	u8_t ttl;     /**< Default time-to-live. */
 
   /** The application state. */
-//  uip_udp_appstate_t appstate;
+/* uip_udp_appstate_t appstate; */
 };
 
 #endif /* UIP_UDP */
@@ -1191,7 +1133,7 @@ struct uip_stats {
  * that are defined in this file. Please read below for more
  * infomation.
  */
-//extern u8_t uip_flags;
+/* extern u8_t uip_flags; */
 
 /* The following flags may be set in the global variable uip_flags
    before calling the application callback. The UIP_ACKDATA,
@@ -1296,7 +1238,6 @@ struct __attribute__ ((__packed__)) uip_ipv6_hdr {
 	/* IPv6 header. */
 	u8_t vtc, tcflow;
 	u16_t flow;
-//  u8_t len[2];
 	u16_t len;
 	u8_t proto, ttl;
 	uip_ip6addr_t srcipaddr, destipaddr;
@@ -1470,7 +1411,7 @@ struct __attribute__ ((__packed__)) uip_udpip_hdr {
  *
  * \return The Internet checksum of the buffer.
  */
-u16_t uip_chksum(u16_t * buf, u16_t len);
+u16_t uip_chksum(u16_t *buf, u16_t len);
 
 /**
  * Calculate the IP header checksum of the packet header in uip_buf.
@@ -1506,7 +1447,7 @@ u16_t uip_tcpchksum(struct uip_stack *ustack);
 u16_t uip_udpchksum(struct uip_stack *ustack);
 
 /*  IPv6 checksum */
-uint16_t icmpv6_checksum(uint8_t * data);
+uint16_t icmpv6_checksum(uint8_t *data);
 
 struct neighbor_entry {
 	struct in6_addr ipaddr;
@@ -1619,7 +1560,7 @@ struct uip_stack {
  * IPv6 Support
  ******************************************************************************/
 int set_ipv6_link_local_address(struct uip_stack *ustack);
-int is_ipv6_link_local_address(uip_ip6addr_t * addr);
+int is_ipv6_link_local_address(uip_ip6addr_t *addr);
 
 void dump_uip_packet(struct uip_stack *ustack);
 

@@ -62,8 +62,8 @@ const int dhcpv6_retry_timeout[DHCPV6_NUM_OF_RETRY] = { 1, 2, 4, 8 };
 static PT_THREAD(handle_ndp(struct uip_stack *ustack, int force))
 {
 	struct ndpc_state *s;
-	pIPV6_CONTEXT ipv6c;
-	pDHCPV6_CONTEXT dhcpv6c = NULL;
+	struct ipv6_context *ipv6c;
+	struct dhcpv6_context *dhcpv6c = NULL;
 	u16_t task = 0;
 	char buf[INET6_ADDRSTRLEN];
 
@@ -109,7 +109,7 @@ wait_rtr:
 			      || timer_expired(&s->timer) || force);
 
 		if (uip_newdata(s->ustack)) {
-			/* Validate incoming packets 
+			/* Validate incoming packets
 			   Note that the uip_len is init from nic loop */
 			ipv6_rx_packet(ipv6c, (u16_t) uip_datalen(s->ustack));
 			if (ipv6c->flags & IPV6_FLAGS_ROUTER_ADV_RECEIVED) {
@@ -167,7 +167,7 @@ wait_dhcp:
 				      || timer_expired(&s->timer) || force);
 
 			if (uip_newdata(s->ustack)) {
-				/* Validate incoming packets 
+				/* Validate incoming packets
 				   Note that the uip_len is init from nic
 				   loop */
 				ipv6_rx_packet(ipv6c,
@@ -188,7 +188,6 @@ wait_dhcp:
 				LOG_DEBUG("%s: ndpc_handle DHCP failed",
 					  s->nic->log_name);
 				/* Allow to goto background loop */
-				//PT_RESTART(&s->pt);
 				goto ipv6_loop;
 			}
 		} while (dhcpv6c->dhcpv6_done == FALSE);
@@ -210,7 +209,7 @@ staticv6:
 	/* Copy out the default_router_addr6 and ll */
 	if (ustack->router_autocfg != IPV6_RTR_AUTOCFG_OFF)
 		memcpy(&ustack->default_route_addr6,
-		       &ipv6c->default_router, sizeof(IPV6_ADDR));
+		       &ipv6c->default_router, sizeof(struct ipv6_addr));
 	inet_ntop(AF_INET6, &ustack->default_route_addr6,
 		  buf, sizeof(buf));
 	LOG_INFO("%s: Default router IP: %s", s->nic->log_name,
@@ -218,7 +217,7 @@ staticv6:
 
 	if (ustack->linklocal_autocfg != IPV6_LL_AUTOCFG_OFF)
 		memcpy(&ustack->linklocal6, &ipv6c->link_local_addr,
-		       sizeof(IPV6_ADDR));
+		       sizeof(struct ipv6_addr));
 	inet_ntop(AF_INET6, &ustack->linklocal6,
 		  buf, sizeof(buf));
 	LOG_INFO("%s: Linklocal IP: %s", s->nic->log_name,
@@ -239,21 +238,20 @@ ipv6_loop:
 
 ndpc_state_null:
 
-	while (1) {
+	while (1)
 		PT_YIELD(&s->pt);
-	}
 
 	PT_END(&(s->pt));
 }
 
 /*---------------------------------------------------------------------------*/
-int ndpc_init(nic_t * nic, struct uip_stack *ustack,
+int ndpc_init(nic_t *nic, struct uip_stack *ustack,
 	      const void *mac_addr, int mac_len)
 {
-	pIPV6_CONTEXT ipv6c;
-	pDHCPV6_CONTEXT dhcpv6c;
+	struct ipv6_context *ipv6c;
+	struct dhcpv6_context *dhcpv6c;
 	struct ndpc_state *s = ustack->ndpc;
-	IPV6_ADDR src, gw, ll;
+	struct ipv6_addr src, gw, ll;
 	char buf[INET6_ADDRSTRLEN];
 
 	if (s) {
@@ -274,7 +272,7 @@ int ndpc_init(nic_t * nic, struct uip_stack *ustack,
 		ipv6c = s->ipv6_context;
 		goto init1;
 	}
-	ipv6c = malloc(sizeof(IPV6_CONTEXT));
+	ipv6c = malloc(sizeof(struct ipv6_context));
 	if (ipv6c == NULL) {
 		LOG_ERR("%s: Couldn't allocate mem for IPv6 context info",
 		nic->log_name);
@@ -286,7 +284,7 @@ init1:
 		dhcpv6c = s->dhcpv6_context;
 		goto init2;
 	}
-	dhcpv6c = malloc(sizeof(DHCPV6_CONTEXT));
+	dhcpv6c = malloc(sizeof(struct dhcpv6_context));
 	if (dhcpv6c == NULL) {
 		LOG_ERR("%s: Couldn't allocate mem for DHCPv6 context info",
 		nic->log_name);
@@ -324,7 +322,8 @@ init2:
 		memset(&src, 0, sizeof(src));
 	} else {
 		/* Static v6 specific */
-		memcpy(&src.addr8, &ustack->hostaddr6, sizeof(IPV6_ADDR));
+		memcpy(&src.addr8, &ustack->hostaddr6,
+		       sizeof(struct ipv6_addr));
 		ipv6_add_solit_node_address(ipv6c, &src);
 
 		inet_ntop(AF_INET6, &src.addr8, buf, sizeof(buf));
@@ -334,13 +333,13 @@ init2:
 	/* Copy out the default_router_addr6 and ll */
 	if (ustack->router_autocfg == IPV6_RTR_AUTOCFG_OFF)
 		memcpy(&gw.addr8, &ustack->default_route_addr6,
-		       sizeof(IPV6_ADDR));
+		       sizeof(struct ipv6_addr));
 	else
 		memset(&gw, 0, sizeof(gw));
 
 	if (ustack->linklocal_autocfg == IPV6_LL_AUTOCFG_OFF)
 		memcpy(&ll.addr8, &ustack->linklocal6,
-		       sizeof(IPV6_ADDR));
+		       sizeof(struct ipv6_addr));
 	else
 		memset(&ll, 0, sizeof(ll));
 	ipv6_set_ip_params(ipv6c, &src,
@@ -365,7 +364,7 @@ void ndpc_call(struct uip_stack *ustack)
 
 void ndpc_exit(struct ndpc_state *ndp)
 {
-	LOG_DEBUG("NDP - Exit ndpc_state=%p", ndp);
+	LOG_DEBUG("NDP - Exit ndpc_state = %p", ndp);
 	if (!ndp)
 		return;
 	if (ndp->ipv6_context)
@@ -378,7 +377,7 @@ void ndpc_exit(struct ndpc_state *ndp)
 int ndpc_request(struct uip_stack *ustack, void *in, void *out, int request)
 {
 	struct ndpc_state *s;
-	pIPV6_CONTEXT ipv6c;
+	struct ipv6_context *ipv6c;
 	int ret = 0;
 
 	if (!ustack) {
@@ -391,8 +390,6 @@ int ndpc_request(struct uip_stack *ustack, void *in, void *out, int request)
 			  request);
 		return -EINVAL;
 	}
-	//LOG_DEBUG("%s: NDP - Request %d", s->nic->log_name, request);
-
 	while (s->state != NDPC_STATE_BACKGROUND_LOOP) {
 		LOG_DEBUG("%s: ndpc state not in background loop, run handler ",
 			  "request = %d", s->nic->log_name, request);
@@ -403,21 +400,21 @@ int ndpc_request(struct uip_stack *ustack, void *in, void *out, int request)
 	switch (request) {
 	case NEIGHBOR_SOLICIT:
 		*(int *)out = ipv6_send_nd_solicited_packet(ipv6c,
-					  (pETH_HDR) ((pNDPC_REQPTR)in)->eth,
-					  (pIPV6_HDR) ((pNDPC_REQPTR)in)->ipv6);
+			(struct eth_hdr *)((struct ndpc_reqptr *)in)->eth,
+			(struct ipv6_hdr *)((struct ndpc_reqptr *)in)->ipv6);
 		break;
 	case CHECK_LINK_LOCAL_ADDR:
 		*(int *)out = ipv6_is_it_our_link_local_address(ipv6c,
-								(pIPV6_ADDR)in);
+							(struct ipv6_addr *)in);
 		break;
 	case CHECK_ARP_TABLE:
 		*(int *)out = ipv6_ip_in_arp_table(ipv6c,
-				   (pIPV6_ADDR) ((pNDPC_REQPTR)in)->ipv6,
-				   (MAC_ADDR *) ((pNDPC_REQPTR)in)->eth);
+			(struct ipv6_addr *)((struct ndpc_reqptr *)in)->ipv6,
+			(struct mac_address *)((struct ndpc_reqptr *)in)->eth);
 		break;
 	case GET_HOST_ADDR:
-		*(pIPV6_ADDR *)out = ipv6_find_longest_match(ipv6c,
-							     (pIPV6_ADDR)in);
+		*(struct ipv6_addr **)out = ipv6_find_longest_match(ipv6c,
+							(struct ipv6_addr *)in);
 	default:
 		break;
 	}

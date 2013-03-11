@@ -28,7 +28,6 @@
  *
  * This file is part of the uIP TCP/IP stack
  *
- * $Id: uip-neighbor.h,v 1.2 2006/06/12 08:00:30 adam Exp $
  */
 
 /**
@@ -99,7 +98,7 @@ void uip_neighbor_add(struct uip_stack *ustack,
 		      struct in6_addr *addr6, struct uip_eth_addr *addr);
 void uip_neighbor_update(struct uip_stack *ustack, struct in6_addr *addr6);
 int uip_neighbor_lookup(struct uip_stack *ustack, struct in6_addr *ipaddr,
-			uint8_t * mac_addr);
+			uint8_t *mac_addr);
 void uip_neighbor_periodic(void);
 void uip_neighbor_out(struct uip_stack *ustack);
 

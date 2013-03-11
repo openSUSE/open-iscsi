@@ -31,7 +31,6 @@
  *
  * This file is part of the uIP TCP/IP stack.
  *
- * $Id: main.c,v 1.16 2006/06/11 21:55:03 adam Exp $
  *
  */
 
@@ -77,7 +76,7 @@
  ******************************************************************************/
 #define PFX "main "
 
-static char default_pid_filepath[] = "/var/run/iscsiuio.pid";
+static const char default_pid_filepath[] = "/var/run/iscsiuio.pid";
 
 /*******************************************************************************
  *  Global Variables
@@ -93,7 +92,8 @@ struct options opt = {
 	.debug = DEBUG_OFF,
 };
 
-int event_loop_stop = 0;
+int event_loop_stop;
+extern nic_t *nic_list;
 
 struct utsname cur_utsname;
 
@@ -169,14 +169,13 @@ static void main_usage()
 	show_version();
 
 	printf("\nUsage: %s [OPTION]\n", APP_NAME);
-	printf("\
-iscsiuio daemon.\n\
-  -f, --foreground        make the program run in the foreground\n\
-  -d, --debug debuglevel  print debugging information\n\
-  -p, --pid=pidfile       use pid file (default  %s).\n\
-  -h, --help              display this help and exit\n\
-  -v, --version           display version and exit\n\
-", default_pid_filepath);
+	printf("iscsiuio daemon.\n"
+	       "-f, --foreground        make the program run in the foreground\n"
+	       "-d, --debug debuglevel  print debugging information\n"
+	       "-p, --pid=pidfile       use pid file (default  %s).\n"
+	       "-h, --help              display this help and exit\n"
+	       "-v, --version           display version and exit\n",
+	       default_pid_filepath);
 }
 
 static void daemon_init()
@@ -185,9 +184,8 @@ static void daemon_init()
 	int rc;
 
 	fd = open("/dev/null", O_RDWR);
-	if (fd == -1) {
+	if (fd == -1)
 		exit(-1);
-	}
 
 	dup2(fd, 0);
 	dup2(fd, 1);
@@ -287,9 +285,11 @@ int main(int argc, char *argv[])
 	LOG_INFO("Started iSCSI uio stack: Ver " PACKAGE_VERSION);
 	LOG_INFO("Build date: %s", build_date);
 
-	if (opt.debug == DEBUG_ON) {
+	if (opt.debug == DEBUG_ON)
 		LOG_INFO("Debug mode enabled");
-	}
+
+	event_loop_stop = 0;
+	nic_list = NULL;
 
 	/*  Determine the current kernel version */
 	memset(&cur_utsname, 0, sizeof(cur_utsname));
@@ -305,9 +305,8 @@ int main(int argc, char *argv[])
 
 	/*  Initialze the iscsid listener */
 	rc = iscsid_init();
-	if (rc != 0) {
+	if (rc != 0)
 		goto error;
-	}
 
 	if (!foreground) {
 		char buf[64];
@@ -353,9 +352,8 @@ int main(int argc, char *argv[])
 
 	/*  Load the NIC libraries */
 	rc = load_all_nic_libraries();
-	if (rc != 0) {
+	if (rc != 0)
 		goto error;
-	}
 
 	brcm_iscsi_init();
 
@@ -369,9 +367,8 @@ int main(int argc, char *argv[])
 
 	/*  Spin off the signal handling thread */
 	rc = pthread_create(&signal_thread, NULL, signal_handle_thread, NULL);
-	if (rc != 0) {
+	if (rc != 0)
 		LOG_ERR("Could not create signal handling thread");
-	}
 
 	/* Using sysfs to discover iSCSI hosts */
 	nic_discover_iscsi_hosts();
@@ -388,9 +385,8 @@ int main(int argc, char *argv[])
 
 	/*  Start the iscsid listener */
 	rc = iscsid_start();
-	if (rc != 0) {
+	if (rc != 0)
 		goto error;
-	}
 
 	/*  NetLink connection to listen to NETLINK_ISCSI private messages */
 	nic_nl_open();

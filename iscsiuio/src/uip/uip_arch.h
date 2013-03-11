@@ -54,7 +54,6 @@
  *
  * This file is part of the uIP TCP/IP stack.
  *
- * $Id: uip_arch.h,v 1.2 2006/06/07 09:15:19 adam Exp $
  *
  */
 
@@ -81,7 +80,7 @@
  *
  * \param op16 A 16-bit integer in host byte order.
  */
-void uip_add32(u8_t * op32, u16_t op16, u8_t * uip_add32);
+void uip_add32(u8_t *op32, u16_t op16, u8_t *uip_add32);
 
 /**
  * Calculate the Internet checksum over a buffer.
@@ -102,7 +101,7 @@ void uip_add32(u8_t * op32, u16_t op16, u8_t * uip_add32);
  *
  * \return The Internet checksum of the buffer.
  */
-u16_t uip_chksum(u16_t * buf, u16_t len);
+u16_t uip_chksum(u16_t *buf, u16_t len);
 
 /**
  * Calculate the IP header checksum of the packet header in uip_buf.

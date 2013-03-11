@@ -44,10 +44,10 @@
 #include "timer.h"
 #include "pt.h"
 
-typedef struct NDPC_REQPTR {
+struct ndpc_reqptr {
 	void *eth;
 	void *ipv6;
-} NDPC_REQPTR, *pNDPC_REQPTR;
+};
 
 struct ndpc_state {
 	struct pt pt;
@@ -76,7 +76,7 @@ enum {
 	NDPC_STATE_BACKGROUND_LOOP
 };
 
-int ndpc_init(nic_t * nic, struct uip_stack *ustack,
+int ndpc_init(nic_t *nic, struct uip_stack *ustack,
 	      const void *mac_addr, int mac_len);
 void ndpc_call(struct uip_stack *ustack);
 void ndpc_exit(struct ndpc_state *ndp);

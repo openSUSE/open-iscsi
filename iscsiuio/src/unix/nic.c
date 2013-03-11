@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -81,7 +81,7 @@ nic_lib_handle_t *nic_lib_list;
 
 /*  Used to store a list of active cnic devices */
 pthread_mutex_t nic_list_mutex = PTHREAD_MUTEX_INITIALIZER;
-nic_t *nic_list = NULL;
+nic_t *nic_list;
 
 /******************************************************************************
  *  Functions to handle NIC libraries
@@ -89,7 +89,7 @@ nic_t *nic_list = NULL;
 /**
  *  alloc_nic_library_handle() - Used to allocate a NIC library handle
  *  @return NULL if memory couldn't be allocated, pointer to the handle
- *    to the NIC library handle 
+ *    to the NIC library handle
  */
 static nic_lib_handle_t *alloc_nic_library_handle()
 {
@@ -109,7 +109,7 @@ static nic_lib_handle_t *alloc_nic_library_handle()
 	return handle;
 }
 
-static void free_nic_library_handle(nic_lib_handle_t * handle)
+static void free_nic_library_handle(nic_lib_handle_t *handle)
 {
 	free(handle);
 }
@@ -212,9 +212,8 @@ int load_all_nic_libraries()
 		} else {
 			nic_lib_handle_t *current = nic_lib_list;
 
-			while (current->next != NULL) {
+			while (current->next != NULL)
 				current = current->next;
-			}
 
 			current->next = handle;
 		}
@@ -308,7 +307,7 @@ done:
 }
 
 /**
- *  find_nic_lib_using_pci_id() - Find the proper NIC library using the 
+ *  find_nic_lib_using_pci_id() - Find the proper NIC library using the
  *     PCI ID's
  *  @param vendor - PCI vendor ID to search on
  *  @param device - PCI device ID to search on
@@ -319,7 +318,7 @@ done:
  */
 int find_nic_lib_using_pci_id(uint32_t vendor, uint32_t device,
 			      uint32_t subvendor, uint32_t subdevice,
-			      nic_lib_handle_t ** handle,
+			      nic_lib_handle_t **handle,
 			      struct pci_device_id **pci_entry)
 {
 	int rc;
@@ -335,7 +334,7 @@ int find_nic_lib_using_pci_id(uint32_t vendor, uint32_t device,
 
 		current->ops->lib_ops.get_pci_table(&pci_table, &entries);
 
-		/*  Sanity check the the pci table coming from the 
+		/*  Sanity check the the pci table coming from the
 		 *  hardware library */
 		if (entries > MAX_PCI_DEVICE_ENTRIES) {
 			LOG_WARN(PFX "Too many pci_table entries(%d) skipping",
@@ -426,7 +425,7 @@ nic_t *nic_init()
 	return nic;
 }
 
-void nic_add(nic_t * nic)
+void nic_add(nic_t *nic)
 {
 	/*  Add this device to our list of nics */
 	if (nic_list == NULL) {
@@ -434,19 +433,18 @@ void nic_add(nic_t * nic)
 	} else {
 		nic_t *current = nic_list;
 
-		while (current->next != NULL) {
+		while (current->next != NULL)
 			current = current->next;
-		}
 
 		current->next = nic;
 	}
 }
 
-/** 
+/**
  *  nic_remove() - Used to remove the NIC for the nic list
  *  @param nic - the nic to remove
  */
-int nic_remove(nic_t * nic)
+int nic_remove(nic_t *nic)
 {
 	int rc;
 	nic_t *prev, *current;
@@ -562,7 +560,7 @@ int nic_remove(nic_t * nic)
 	return 0;
 }
 
-/** 
+/**
  *  nic_close() - Used to indicate to a NIC that it should close
  *                Must be called with nic->nic_mutex
  *  @param nic - the nic to close
@@ -571,10 +569,10 @@ int nic_remove(nic_t * nic)
  *                     FORCE_SHUTDOWN will force the nic to close()
  *                     reguardless of the state
  *  @param clean    -  this will free the proper strings assoicated
- *  		       with the NIC
- *                     
+ *                     with the NIC
+ *
  */
-void nic_close(nic_t * nic, NIC_SHUTDOWN_T graceful, int clean)
+void nic_close(nic_t *nic, NIC_SHUTDOWN_T graceful, int clean)
 {
 	int rc;
 	nic_interface_t *nic_iface, *vlan_iface;
@@ -728,7 +726,7 @@ done:
  *  @param nic - NIC hardware to process the interrupt on
  *  @return 0 on success, <0 on failure
  */
-int nic_process_intr(nic_t * nic, int discard_check)
+int nic_process_intr(nic_t *nic, int discard_check)
 {
 	fd_set fdset;
 	int ret;
@@ -789,7 +787,7 @@ int nic_process_intr(nic_t * nic, int discard_check)
 				   "same", nic->log_name, count);
 		}
 
-		/*  Check if we missed an interrupt.  With UIO, 
+		/*  Check if we missed an interrupt.  With UIO,
 		 *  the count should be incremental */
 		if (count != nic->intr_count + 1) {
 			nic->stats.missed_interrupts++;
@@ -807,9 +805,9 @@ int nic_process_intr(nic_t * nic, int discard_check)
 	return ret;
 }
 
-static void prepare_ipv4_packet(nic_t * nic,
-				nic_interface_t * nic_iface,
-				struct uip_stack *ustack, packet_t * pkt)
+static void prepare_ipv4_packet(nic_t *nic,
+				nic_interface_t *nic_iface,
+				struct uip_stack *ustack, packet_t *pkt)
 {
 	u16_t ipaddr[2];
 	arp_table_query_t arp_query;
@@ -849,9 +847,9 @@ static void prepare_ipv4_packet(nic_t * nic,
 	}
 }
 
-static void prepare_ipv6_packet(nic_t * nic,
-				nic_interface_t * nic_iface,
-				struct uip_stack *ustack, packet_t * pkt)
+static void prepare_ipv6_packet(nic_t *nic,
+				nic_interface_t *nic_iface,
+				struct uip_stack *ustack, packet_t *pkt)
 {
 	struct uip_eth_hdr *eth;
 	struct uip_vlan_eth_hdr *eth_vlan;
@@ -874,8 +872,8 @@ static void prepare_ipv6_packet(nic_t * nic,
 	}
 }
 
-static void prepare_ustack(nic_t * nic,
-			   nic_interface_t * nic_iface,
+static void prepare_ustack(nic_t *nic,
+			   nic_interface_t *nic_iface,
 			   struct uip_stack *ustack, struct packet *pkt)
 {
 	struct ether_header *eth = NULL;
@@ -887,7 +885,7 @@ static void prepare_ustack(nic_t * nic,
 
 	ustack->data_link_layer = pkt->buf;
 	/*  Adjust the network layer pointer depending if
-	 *  there is a VLAN tag or not, or if the hardware 
+	 *  there is a VLAN tag or not, or if the hardware
 	 *  has stripped out the
 	 *  VLAN tag */
 	ustack->network_layer = ustack->data_link_layer +
@@ -983,9 +981,9 @@ static int check_timers(nic_t *nic,
 	return 0;
 }
 
-int process_packets(nic_t * nic,
+int process_packets(nic_t *nic,
 		    struct timer *periodic_timer,
-		    struct timer *arp_timer, nic_interface_t * nic_iface)
+		    struct timer *arp_timer, nic_interface_t *nic_iface)
 {
 	int rc;
 	packet_t *pkt;
@@ -1006,7 +1004,7 @@ int process_packets(nic_t * nic,
 		int af_type = 0;
 		struct uip_stack *ustack;
 		struct ip_hdr *ip;
-		pIPV6_HDR ip6;
+		struct ipv6_hdr *ip6;
 		void *dst_ip;
 		uint16_t vlan_id;
 
@@ -1027,7 +1025,7 @@ int process_packets(nic_t * nic,
 		switch (type) {
 		case UIP_ETHTYPE_IPv6:
 			af_type = AF_INET6;
-			ip6 = (pIPV6_HDR) pkt->network_layer;
+			ip6 = (struct ipv6_hdr *) pkt->network_layer;
 			dst_ip = (void *)&ip6->ipv6_dst;
 			break;
 		case UIP_ETHTYPE_IPv4:
@@ -1107,9 +1105,9 @@ nic_iface_present:
 		case UIP_ETHTYPE_IPv4:
 			uip_arp_ipin(ustack, pkt);
 			uip_input(ustack);
-			/* If the above function invocation resulted 
-			 * in data that should be sent out on the 
-			 * network, the global variable uip_len is 
+			/* If the above function invocation resulted
+			 * in data that should be sent out on the
+			 * network, the global variable uip_len is
 			 * set to a value > 0. */
 			if (ustack->uip_len > 0) {
 				prepare_ipv4_packet(nic, nic_iface,
@@ -1122,13 +1120,12 @@ nic_iface_present:
 		case UIP_ETHTYPE_ARP:
 			uip_arp_arpin(nic_iface, ustack, pkt);
 
-			/* If the above function invocation resulted 
-			 * in data that should be sent out on the 
-			 * network, the global variable uip_len 
+			/* If the above function invocation resulted
+			 * in data that should be sent out on the
+			 * network, the global variable uip_len
 			 * is set to a value > 0. */
-			if (pkt->buf_size > 0) {
+			if (pkt->buf_size > 0)
 				(*nic->ops->write) (nic, nic_iface, pkt);
-			}
 			break;
 		}
 		ustack->uip_len = 0;
@@ -1141,8 +1138,8 @@ done:
 	return rc;
 }
 
-static int process_dhcp_loop(nic_t * nic,
-			     nic_interface_t * nic_iface,
+static int process_dhcp_loop(nic_t *nic,
+			     nic_interface_t *nic_iface,
 			     struct timer *periodic_timer,
 			     struct timer *arp_timer)
 {

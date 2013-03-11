@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -77,7 +77,7 @@ extern void *nl_process_handle_thread(void *arg);
 
 #define FREE_CONFIG_NAME	0x0001
 #define FREE_UIO_NAME		0x0002
-#define FREE_ALL_STRINGS	FREE_CONFIG_NAME | FREE_UIO_NAME
+#define FREE_ALL_STRINGS	(FREE_CONFIG_NAME | FREE_UIO_NAME)
 #define FREE_NO_STRINGS		0x0000
 
 /******************************************************************************
@@ -141,6 +141,8 @@ typedef struct nic_interface {
 
 	struct uip_stack ustack;
 
+#define IFACE_NUM_PRESENT (1<<0)
+#define IFACE_NUM_INVALID -1
 	int iface_num;
 	int request_type;
 } nic_interface_t;
@@ -151,26 +153,26 @@ typedef struct nic_interface {
 struct nic_lib_ops {
 	/*  Used to get the NIC library name */
 	void (*get_library_name) (char **library_name,
-				  size_t * library_name_size);
+				  size_t *library_name_size);
 
 	/*  Used to get to the PCI table supported by the NIC library */
-	void (*get_pci_table) (struct pci_device_id ** table,
-			       uint32_t * entries);
+	void (*get_pci_table) (struct pci_device_id **table,
+			       uint32_t *entries);
 
 	/*  Used to get the version of this NIC library */
 	void (*get_library_version) (char **version_string,
-				     size_t * version_string_size);
+				     size_t *version_string_size);
 
 	/*  Used to get the NIC library build date */
 	void (*get_build_date) (char **build_date_string,
-				size_t * build_date_string_size);
+				size_t *build_date_string_size);
 
 	/*  Used to get the transport name assoicated with this library */
 	void (*get_transport_name) (char **transport_name,
-				    size_t * transport_name_size);
+				    size_t *transport_name_size);
 
 	/*  Used to get the uio name assoicated with this library */
-	void (*get_uio_name) (char **uio_name, size_t * uio_name_size);
+	void (*get_uio_name) (char **uio_name, size_t *uio_name_size);
 
 };
 
@@ -309,7 +311,7 @@ typedef struct nic {
 	struct pci_device_id *pci_id;
 
 	/*  Used to process the interrupt */
-	int (*process_intr) (struct nic * nic);
+	int (*process_intr) (struct nic *nic);
 
 	struct nic_ops *ops;
 
@@ -352,24 +354,24 @@ NIC_LIBRARY_EXIST_T does_nic_library_exist(char *name);
 /*******************************************************************************
  *  Packet management utility functions
  ******************************************************************************/
-struct packet *get_next_tx_packet(nic_t * nic);
-struct packet *get_next_free_packet(nic_t * nic);
-void put_packet_in_tx_queue(struct packet *pkt, nic_t * nic);
-void put_packet_in_free_queue(struct packet *pkt, nic_t * nic);
+struct packet *get_next_tx_packet(nic_t *nic);
+struct packet *get_next_free_packet(nic_t *nic);
+void put_packet_in_tx_queue(struct packet *pkt, nic_t *nic);
+void put_packet_in_free_queue(struct packet *pkt, nic_t *nic);
 
 int unload_all_nic_libraries();
-void nic_close(nic_t * nic, NIC_SHUTDOWN_T graceful, int clean);
+void nic_close(nic_t *nic, NIC_SHUTDOWN_T graceful, int clean);
 
 /*  Use this function to fill in minor number and uio, and eth names */
-int nic_fill_name(nic_t * nic);
+int nic_fill_name(nic_t *nic);
 
-int enable_multicast(nic_t * nic);
-int disable_multicast(nic_t * nic);
+int enable_multicast(nic_t *nic);
+int disable_multicast(nic_t *nic);
 
-void nic_set_all_nic_iface_mac_to_parent(nic_t * nic);
+void nic_set_all_nic_iface_mac_to_parent(nic_t *nic);
 int find_nic_lib_using_pci_id(uint32_t vendor, uint32_t device,
 			      uint32_t subvendor, uint32_t subdevice,
-			      nic_lib_handle_t ** handle,
+			      nic_lib_handle_t **handle,
 			      struct pci_device_id **pci_entry);
 
 void *nic_loop(void *arg);

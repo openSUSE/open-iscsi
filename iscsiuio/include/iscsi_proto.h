@@ -39,11 +39,11 @@
  */
 #define ntoh24(p) (((p)[0] << 16) | ((p)[1] << 8) | ((p)[2]))
 #define hton24(p, v) { \
-        p[0] = (((v) >> 16) & 0xFF); \
-        p[1] = (((v) >> 8) & 0xFF); \
-        p[2] = ((v) & 0xFF); \
+	p[0] = (((v) >> 16) & 0xFF); \
+	p[1] = (((v) >> 8) & 0xFF); \
+	p[2] = ((v) & 0xFF); \
 }
-#define zero_data(p) {p[0]=0;p[1]=0;p[2]=0;}
+#define zero_data(p) {p[0] = 0; p[1] = 0; p[2] = 0; }
 
 /*
  * If running svn modules we may need to define these.
@@ -78,7 +78,8 @@ struct iscsi_hdr {
 	uint8_t		hlength;	/* AHSs total length */
 	uint8_t		dlength[3];	/* Data length */
 	uint8_t		lun[8];
-	itt_t		itt;		/* Initiator Task Tag, opaque for target */
+	itt_t		itt;		/* Initiator Task Tag,
+					   opaque for target */
 	__be32		ttt;		/* Target Task Tag */
 	__be32		statsn;
 	__be32		exp_statsn;

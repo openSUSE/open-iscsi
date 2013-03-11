@@ -23,7 +23,6 @@
 
 #include "iscsi_proto.h"
 #include <netinet/in.h>
-//#include <linux/in6.h>
 
 #define ISCSI_NL_GRP_ISCSID     1
 #define ISCSI_NL_GRP_UIP        2
@@ -69,7 +68,7 @@ enum iscsi_uevent_e {
 	ISCSI_KEVENT_CREATE_SESSION	= KEVENT_BASE + 6,
 
 	ISCSI_KEVENT_PATH_REQ           = KEVENT_BASE + 7,
-        ISCSI_KEVENT_IF_DOWN            = KEVENT_BASE + 8,
+	ISCSI_KEVENT_IF_DOWN            = KEVENT_BASE + 8,
 };
 
 enum iscsi_tgt_dscvr {
@@ -157,7 +156,7 @@ struct iscsi_uevent {
 			enum iscsi_tgt_dscvr	type;
 			uint32_t	host_no;
 			/*
- 			 * enable = 1 to establish a new connection
+			 * enable = 1 to establish a new connection
 			 * with the server. enable = 0 to disconnect
 			 * from the server. Used primarily to switch
 			 * from one iSNS server to another.
@@ -205,7 +204,7 @@ struct iscsi_uevent {
 		struct msg_transport_connect_ret {
 			uint64_t	handle;
 		} ep_connect_ret;
-                struct msg_req_path {
+		struct msg_req_path {
 			uint32_t        host_no;
 			uint32_t	iface_num;
 		} req_path;
@@ -213,7 +212,7 @@ struct iscsi_uevent {
 			uint32_t        host_no;
 		} notify_if_down;
 	} r;
-} __attribute__ ((aligned (sizeof(uint64_t))));
+} __attribute__ ((aligned(sizeof(uint64_t))));
 
 /*
  * To keep the struct iscsi_uevent size the same for userspace code
@@ -235,10 +234,8 @@ struct iscsi_path {
 		struct in6_addr v6_addr;
 	} dst;
 	uint16_t        vlan_id;
-#define IFACE_NUM_PRESENT (1<<0)
-#define IFACE_NUM_INVALID -1
 	uint16_t        pmtu;
-}  __attribute__ ((aligned (sizeof(uint64_t))));
+}  __attribute__ ((aligned(sizeof(uint64_t))));
 
 
 /*
@@ -364,11 +361,12 @@ enum iscsi_host_param {
 };
 
 #define ISCSI_HOST_HWADDRESS		(1ULL << ISCSI_HOST_PARAM_HWADDRESS)
-#define ISCSI_HOST_INITIATOR_NAME	(1ULL << ISCSI_HOST_PARAM_INITIATOR_NAME)
+#define ISCSI_HOST_INITIATOR_NAME	(1ULL << \
+					 ISCSI_HOST_PARAM_INITIATOR_NAME)
 #define ISCSI_HOST_NETDEV_NAME		(1ULL << ISCSI_HOST_PARAM_NETDEV_NAME)
 #define ISCSI_HOST_IPADDRESS		(1ULL << ISCSI_HOST_PARAM_IPADDRESS)
 
-#define iscsi_ptr(_handle) ((void*)(unsigned long)_handle)
+#define iscsi_ptr(_handle) ((void *)(unsigned long)_handle)
 #define iscsi_handle(_ptr) ((uint64_t)(unsigned long)_ptr)
 
 /*
@@ -446,7 +444,7 @@ struct iscsi_stats {
 	 */
 	uint32_t custom_length;
 	struct iscsi_stats_custom custom[0]
-		__attribute__ ((aligned (sizeof(uint64_t))));
+		__attribute__ ((aligned(sizeof(uint64_t))));
 };
 
 /*

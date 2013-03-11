@@ -28,7 +28,6 @@
  *
  * This file is part of the uIP TCP/IP stack
  *
- * $Id: uip-neighbor.c,v 1.2 2006/06/12 08:00:30 adam Exp $
  */
 
 /**
@@ -141,16 +140,15 @@ void uip_neighbor_update(struct uip_stack *ustack, struct in6_addr *addr6)
 	pthread_mutex_lock(&ustack->lock);
 
 	e = find_entry(ustack, addr6);
-	if (e != NULL) {
+	if (e != NULL)
 		e->time = 0;
-	}
 
 	pthread_mutex_unlock(&ustack->lock);
 }
 
 /*---------------------------------------------------------------------------*/
 int uip_neighbor_lookup(struct uip_stack *ustack,
-			struct in6_addr *addr6, uint8_t * mac_addr)
+			struct in6_addr *addr6, uint8_t *mac_addr)
 {
 	struct neighbor_entry *e;
 
@@ -163,7 +161,7 @@ int uip_neighbor_lookup(struct uip_stack *ustack,
 		addr6_str[0] = '\0';
 		inet_ntop(AF_INET6, addr6->s6_addr, addr6_str,
 			  sizeof(addr6_str));
-		entry_mac_addr = (uint8_t *) & e->mac_addr.addr;
+		entry_mac_addr = (uint8_t *)&e->mac_addr.addr;
 
 		LOG_DEBUG(PFX
 			  "Found %s at %02x:%02x:%02x:%02x:%02x:%02x",

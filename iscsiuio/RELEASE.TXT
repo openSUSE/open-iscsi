@@ -620,15 +620,15 @@ uIP v0.6.4.4 (Mar. 17, 2011)
                operation.  The problem is that the lease time parameter
                has overflowed when converted to ticks count.
       Change:  Expanded the lease timer ticks count parameter from 16 to
-               32 bits. 
+               32 bits.
 
    3. Problem: Cont00053807 - RA and link local are unable to connect if
                DHCPv6 fails
       Cause:   The DHCPv6 engine does not have the failover to use RA
                mechanism
       Change:  Expanded to use best match address instead regardless of
-               DHCPv6 success or not, or using static v6. 
-   
+               DHCPv6 success or not, or using static v6.
+
    Enhancements
    ------------
    1. Change:  Cont00051823 - Added man page for brcm_iscsiuio
@@ -721,13 +721,13 @@ uIP v0.6.2.11 (Dec. 17, 2010)
    1. Problem: For IPv4, the gateway route was not being utilized
                when the subnet mask given or calculated does not
                match.  This resulted in many unwanted connection
-               attempts. 
+               attempts.
       Cause:   A bug was found in the default gateway calculation
                logic which prevented the gateway address from being
                used.
       Change:  Fixed the default gateway logic
 
-   2. Problem: For IPv6, there are scenarios where it won't connect 
+   2. Problem: For IPv6, there are scenarios where it won't connect
       Cause:   The IPv6 subnet mask as extracted from the CIDR
                format might contain garbage data.  This garbage data
                was then used as part of the subnet mask which would
@@ -774,7 +774,7 @@ uIP v0.6.2.8 (Dec. 9, 2010)
 
       Change:  Fixed the mac address handling.  Also requires corresponding
                kernel component for the complete fix
-	
+
 uIP v0.6.2.7 (Dec. 7, 2010)
 =======================================================
    Enhancements
@@ -807,7 +807,7 @@ uIP v0.6.2.6 (Nov. 16, 2010)
       Change:  Properly look at the return code from the routine which
                will read NetLink messages.  Also only free buffers
 	       if they are allocated.
-      
+
    Enhancements
    ------------
    1. Change: Add ability to print kernel version and machine
@@ -913,7 +913,7 @@ uIP v0.5.38 (September 14, 2010)
 
       Cause:  uIP and CNIC where not synchonized on NIC state
 
-      Change:  Check if the RX BD's which are zero'ed by CNIC when the 
+      Change:  Check if the RX BD's which are zero'ed by CNIC when the
                NIC is going down.  If the BD addresses are zero, then
 	       uIP will drop the TX packets.
 
@@ -935,7 +935,7 @@ uIP v0.5.36 (August 21, 2010)
    1. Problem: iSCSI boot would not completely login after the pivot
                root operation.
 
-      Cause: The uIP would not properly start the NIC interface. 
+      Cause: The uIP would not properly start the NIC interface.
 
       Change: uIP should only check the NIC state to determine whether
               to start the NIC thread or not.
@@ -943,7 +943,7 @@ uIP v0.5.36 (August 21, 2010)
    2. Problem: uIP would segfault during if'up if'down testing.
 
       Cause: The uIP would improperly start 2 NIC threads for the
-             same NIC interface. 
+             same NIC interface.
 
       Change: uIP should properly lock the NIC list when disabling/removing
               the NIC threads.
@@ -1113,7 +1113,7 @@ uIP v0.5.30 (August 6, 2010)
                without the ICMPv6 option as a response to unicast
 	       IPv6 Neighbor Solicitations.
 
-   3. Problem: There would be TCP SYN packets with improper MAC address. 
+   3. Problem: There would be TCP SYN packets with improper MAC address.
 
       Cause:   A zero'ed MAC address was not passed to CNIC to indicate an
                error or if the IP address didn't resolve.
@@ -1147,7 +1147,7 @@ uIP v0.5.28 (August 5, 2010)
 	      would return a Neighbor Advertisement with an unneeded
 	      ICMPv6 option.
 
-      Change: Only have the uIP stack return a unicast IPv6 Neighbor 
+      Change: Only have the uIP stack return a unicast IPv6 Neighbor
               Advertisement without the ICMPv6 option.
 
    2. Problem: With older bnx2/bnx2x/cnic/bnx2i driver combinations
@@ -1168,7 +1168,7 @@ uIP v0.5.27 (July 31, 2010)
    -----
    1. Problem: iSCSI HBA: Unable to use DHCP address for iSCSI interface
                if a connection was previously made with a static address
-	       on bnx2 devices. 
+	       on bnx2 devices.
 
       Cause:  Because the device is closed and reopen'ed the TX consumer
               indexes were not persisted
@@ -1188,7 +1188,7 @@ uIP v0.5.26 (July 30, 2010)
    -----
    1. Problem: iSCSI HBA: Unable to use DHCP address for iSCSI interface
                if a connection was previously made with a static address on
-	       bnx2x devices. 
+	       bnx2x devices.
 
       Cause:  Because the device is closed and reopen'ed the TX consumer
               indexes were not persisted
@@ -1271,14 +1271,14 @@ uIP v0.5.23 (July 20, 2010)
    Fixes
    -----
    1. Problem:  Segfault during brcm_iscsiuio initialization
-   
+
       Cause:  uIP was using a NULL data pointer, because a different
               thread re-initialized the uIP stack
 
       Change: Properly synchronize the initialization of the stack
 
    2. Problem:  Deadlock during the printing of heavy debug messages
-   
+
       Cause:  The variable macro structures would point to invalid
               data
 
@@ -1287,7 +1287,7 @@ uIP v0.5.23 (July 20, 2010)
 	       cleanup
 
    3. Problem:  uIP would hang when the interface could go up/down
-   
+
       Cause:  uIP would get out of sync with the state of the network
               interface
 
@@ -1301,14 +1301,14 @@ uIP v0.5.22 (July 15, 2010)
    -----
    1. Problem:  Unable to reconnect via iSCSI offload after
 		ifup/ifdown
-   
+
       Cause:  uIP was stuck on the thread when closing the NIC main
               loop
 
       Change: Properly synchronize the NetLink CNIC and uevent threads
 
    2. Problem:  uIP would crash during boot up.
-   
+
       Cause:  uIP would overwrite a memory location which was already
               freed during nic_remove().
 
@@ -1326,22 +1326,22 @@ uIP v0.5.21 (July 5, 2010)
    Fixes
    -----
    1. Problem:  Unable to connect via iSCSI offload after
-   		changing L2 address
-   
+		changing L2 address
+
       Cause:  uIP didn't notice the network inferface going down
 
       Change: Allow uIP to persist the stack's IP address after
               a reset
 
    2. Problem:   Unable to connect via IPv4 and IPv6 concurrently
-   
+
       Cause:  uIP didn't notice the network inferface going down
 
       Change: Allow uIP to persist the stack's IP address after
               a reset and properly bring up the interface
 
    3. Problem:   Unable to connect via VLAN
-   
+
       Cause:  IP address was no persisted after a device reset
 
       Change: When CNIC requests a path request, uIP will use the
@@ -1357,7 +1357,7 @@ uIP v0.5.20 (June 24, 2010)
    -----
    1. Problem: Certain IPv6 addresses are not repsonded to by
                the target.
-   
+
       Cause:  The MAC was generated from the target's IPv6
               address not the deterived multicast IPv6 address.
 
@@ -1367,14 +1367,14 @@ uIP v0.5.20 (June 24, 2010)
 
    2. Problem: brcm_iscsiuio would segfault when L2 interface is
                bought up and down after being logged into
-   
+
       Cause:  The NIC thread was not stopped properly
 
       Change: When the UIO device is remove and when the
               cooresponding NIC tracked by brcm_iscsiuio, the
 	      daemon would properly wait for the NIC thread to
 	      stop.
-	     
+
 
 uIP v0.5.19 (June 22, 2010)
 =======================================================

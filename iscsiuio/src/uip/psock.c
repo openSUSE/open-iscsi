@@ -30,7 +30,6 @@
  *
  * Author: Adam Dunkels <adam@sics.se>
  *
- * $Id: psock.c,v 1.2 2006/06/12 08:00:30 adam Exp $
  */
 
 #include <stdio.h>
@@ -71,7 +70,7 @@
 #define BUF_FOUND 2
 
 /*---------------------------------------------------------------------------*/
-static void buf_setup(struct psock_buf *buf, u8_t * bufptr, u16_t bufsize)
+static void buf_setup(struct psock_buf *buf, u8_t *bufptr, u16_t bufsize)
 {
 	buf->ptr = bufptr;
 	buf->left = bufsize;
@@ -79,7 +78,7 @@ static void buf_setup(struct psock_buf *buf, u8_t * bufptr, u16_t bufsize)
 
 /*---------------------------------------------------------------------------*/
 static u8_t
-buf_bufdata(struct psock_buf *buf, u16_t len, u8_t ** dataptr, u16_t * datalen)
+buf_bufdata(struct psock_buf *buf, u16_t len, u8_t **dataptr, u16_t *datalen)
 {
 	if (*datalen < buf->left) {
 		memcpy(buf->ptr, *dataptr, *datalen);
@@ -108,7 +107,7 @@ buf_bufdata(struct psock_buf *buf, u16_t len, u8_t ** dataptr, u16_t * datalen)
 /*---------------------------------------------------------------------------*/
 static u8_t
 buf_bufto(register struct psock_buf *buf, u8_t endmarker,
-	  register u8_t ** dataptr, register u16_t * datalen)
+	  register u8_t **dataptr, register u16_t *datalen)
 {
 	u8_t c;
 	while (buf->left > 0 && *datalen > 0) {
@@ -118,23 +117,20 @@ buf_bufto(register struct psock_buf *buf, u8_t endmarker,
 		--*datalen;
 		--buf->left;
 
-		if (c == endmarker) {
+		if (c == endmarker)
 			return BUF_FOUND;
-		}
 	}
 
-	if (*datalen == 0) {
+	if (*datalen == 0)
 		return BUF_NOT_FOUND;
-	}
 
 	while (*datalen > 0) {
 		c = **dataptr;
 		--*datalen;
 		++*dataptr;
 
-		if (c == endmarker) {
+		if (c == endmarker)
 			return BUF_FOUND | BUF_FULL;
-		}
 	}
 
 	return BUF_FULL;
@@ -144,11 +140,10 @@ buf_bufto(register struct psock_buf *buf, u8_t endmarker,
 static char send_data(register struct psock *s)
 {
 	if (s->state != STATE_DATA_SENT || uip_rexmit(s->ustack)) {
-		if (s->sendlen > uip_mss(s->ustack)) {
+		if (s->sendlen > uip_mss(s->ustack))
 			uip_appsend(s->ustack, s->sendptr, uip_mss(s->ustack));
-		} else {
+		else
 			uip_appsend(s->ustack, s->sendptr, s->sendlen);
-		}
 		s->state = STATE_DATA_SENT;
 		return 1;
 	}
@@ -173,8 +168,8 @@ static char data_acked(struct psock *s)
 }
 
 /*---------------------------------------------------------------------------*/
-PT_THREAD(psock_send(struct uip_stack * ustack,
-		     register struct psock * s, const u8_t * buf,
+PT_THREAD(psock_send(struct uip_stack *ustack,
+		     register struct psock *s, const u8_t *buf,
 		     unsigned int len))
 {
 	PT_BEGIN(&s->psockpt);
@@ -197,7 +192,7 @@ PT_THREAD(psock_send(struct uip_stack * ustack,
 
 		/*
 		 * The condition for this PT_WAIT_UNTIL is a little tricky: the
-		 * protothread will wait here until all data has been acknowledged
+		 * protothread will wait here until all data has been acked
 		 * (data_acked() returns true) and until all data has been sent
 		 * (send_data() returns true). The two functions data_acked()
 		 * and send_data() must be called in succession to ensure that
@@ -233,9 +228,8 @@ PT_THREAD(psock_generator_send(register struct psock *s,
 	do {
 		/* Call the generator function again if we are called to perform
 		   a retransmission. */
-		if (uip_rexmit(s->ustack)) {
+		if (uip_rexmit(s->ustack))
 			generate(arg);
-		}
 		/* Wait until all data is sent and acknowledged. */
 		PT_WAIT_UNTIL(&s->psockpt, data_acked(s) & send_data(s));
 	} while (s->sendlen > 0);
@@ -272,7 +266,7 @@ char psock_newdata(struct psock *s)
 }
 
 /*---------------------------------------------------------------------------*/
-PT_THREAD(psock_readto(register struct psock * psock, u8_t c))
+PT_THREAD(psock_readto(register struct psock *psock, u8_t c))
 {
 	PT_BEGIN(&psock->psockpt);
 
@@ -330,7 +324,7 @@ PT_THREAD(psock_readbuf(register struct psock *psock))
 /*---------------------------------------------------------------------------*/
 void
 psock_init(struct uip_stack *ustack,
-	   register struct psock *psock, u8_t * buffer, unsigned int buffersize)
+	   register struct psock *psock, u8_t *buffer, unsigned int buffersize)
 {
 	psock->state = STATE_NONE;
 	psock->readlen = 0;

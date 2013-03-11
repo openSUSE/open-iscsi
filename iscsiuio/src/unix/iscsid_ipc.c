@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -828,15 +828,15 @@ int process_iscsid_broadcast(int s2)
 		switch (rc) {
 		case 0:
 			rsp.command = cmd;
-			rsp.err = ISCSID_UIP_MGMT_IPC_DEVICE_UP;
+			rsp.err = ISCISD_UIP_MGMT_IPC_DEVICE_UP;
 			break;
 		case -EAGAIN:
 			rsp.command = cmd;
-			rsp.err = ISCSID_UIP_MGMT_IPC_DEVICE_INITIALIZING;
+			rsp.err = ISCISD_UIP_MGMT_IPC_DEVICE_INITIALIZING;
 			break;
 		default:
 			rsp.command = cmd;
-			rsp.err = ISCSID_UIP_MGMT_IPC_ERR;
+			rsp.err = ISCISD_UIP_MGMT_IPC_ERR;
 		}
 
 		break;

@@ -28,7 +28,6 @@
  *
  * This file is part of the uIP TCP/IP stack
  *
- * @(#)$Id: dhcpc.c,v 1.2 2006/06/11 21:46:37 adam Exp $
  */
 
 #include <errno.h>
@@ -101,7 +100,7 @@ struct dhcpc_options dhcpc_opt = {
 };
 
 /*---------------------------------------------------------------------------*/
-static u8_t *add_msg_type(u8_t * optptr, u8_t type)
+static u8_t *add_msg_type(u8_t *optptr, u8_t type)
 {
 	*optptr++ = DHCP_OPTION_MSG_TYPE;
 	*optptr++ = 1;
@@ -110,7 +109,7 @@ static u8_t *add_msg_type(u8_t * optptr, u8_t type)
 }
 
 /*---------------------------------------------------------------------------*/
-static u8_t *add_server_id(struct dhcpc_state *s, u8_t * optptr)
+static u8_t *add_server_id(struct dhcpc_state *s, u8_t *optptr)
 {
 	*optptr++ = DHCP_OPTION_SERVER_ID;
 	*optptr++ = 4;
@@ -119,7 +118,7 @@ static u8_t *add_server_id(struct dhcpc_state *s, u8_t * optptr)
 }
 
 /*---------------------------------------------------------------------------*/
-static u8_t *add_req_ipaddr(struct dhcpc_state *s, u8_t * optptr)
+static u8_t *add_req_ipaddr(struct dhcpc_state *s, u8_t *optptr)
 {
 	*optptr++ = DHCP_OPTION_REQ_IPADDR;
 	*optptr++ = 4;
@@ -128,7 +127,7 @@ static u8_t *add_req_ipaddr(struct dhcpc_state *s, u8_t * optptr)
 }
 
 /*---------------------------------------------------------------------------*/
-static u8_t *add_req_options(u8_t * optptr)
+static u8_t *add_req_options(u8_t *optptr)
 {
 	*optptr++ = DHCP_OPTION_REQ_LIST;
 	*optptr++ = 3;
@@ -139,7 +138,7 @@ static u8_t *add_req_options(u8_t * optptr)
 }
 
 /*---------------------------------------------------------------------------*/
-static u8_t *add_end(u8_t * optptr)
+static u8_t *add_end(u8_t *optptr)
 {
 	*optptr++ = DHCP_OPTION_END;
 	return optptr;
@@ -204,7 +203,7 @@ static void send_request(struct dhcpc_state *s)
 }
 
 /*---------------------------------------------------------------------------*/
-static u8_t parse_options(struct dhcpc_state *s, u8_t * optptr, int len)
+static u8_t parse_options(struct dhcpc_state *s, u8_t *optptr, int len)
 {
 	u8_t *end = optptr + len;
 	u8_t type = 0;
@@ -280,11 +279,10 @@ static PT_THREAD(handle_dhcp(struct uip_stack *ustack))
 			break;
 		}
 
-		if (s->ticks < CLOCK_SECOND * 60) {
+		if (s->ticks < CLOCK_SECOND * 60)
 			s->ticks += CLOCK_SECOND;
-		} else {
+		else
 			PT_RESTART(&s->pt);
-		}
 	} while (s->state != STATE_OFFER_RECEIVED);
 
 	s->ticks = CLOCK_SECOND;
@@ -301,11 +299,10 @@ static PT_THREAD(handle_dhcp(struct uip_stack *ustack))
 			break;
 		}
 
-		if (s->ticks <= CLOCK_SECOND * 10) {
+		if (s->ticks <= CLOCK_SECOND * 10)
 			s->ticks += CLOCK_SECOND;
-		} else {
+		else
 			PT_RESTART(&s->pt);
-		}
 	} while (s->state != STATE_CONFIG_RECEIVED);
 
 	LOG_INFO("Got IP address %d.%d.%d.%d",
@@ -351,15 +348,14 @@ static PT_THREAD(handle_dhcp(struct uip_stack *ustack))
 	 * should reacquire expired leases here.
 	 */
 
-	while (1) {
+	while (1)
 		PT_YIELD(&s->pt);
-	}
 
 	PT_END(&(s->pt));
 }
 
 /*---------------------------------------------------------------------------*/
-int dhcpc_init(nic_t * nic, struct uip_stack *ustack,
+int dhcpc_init(nic_t *nic, struct uip_stack *ustack,
 	       const void *mac_addr, int mac_len)
 {
 	uip_ip4addr_t addr;
@@ -390,9 +386,8 @@ int dhcpc_init(nic_t * nic, struct uip_stack *ustack,
 	}
 	uip_ipaddr(addr, 255, 255, 255, 255);
 	s->conn = uip_udp_new(ustack, &addr, const_htons(DHCPC_SERVER_PORT));
-	if (s->conn != NULL) {
+	if (s->conn != NULL)
 		uip_udp_bind(s->conn, const_htons(DHCPC_CLIENT_PORT));
-	}
 
 	ustack->dhcpc = s;
 
@@ -415,9 +410,8 @@ void dhcpc_request(struct uip_stack *ustack)
 {
 	struct dhcpc_state *s = ustack->dhcpc;
 
-	if (s != NULL && s->state == STATE_INITIAL) {
+	if (s != NULL && s->state == STATE_INITIAL)
 		handle_dhcp(ustack);
-	}
 }
 
 /*---------------------------------------------------------------------------*/

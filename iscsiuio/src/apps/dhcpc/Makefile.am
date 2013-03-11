@@ -10,5 +10,3 @@ lib_apps_dhcpc_a_SOURCES = 	dhcpc.c dhcpv6.c
 
 lib_apps_dhcpc_a_CFLAGS =	$(AM_CFLAGS)             \
 				-DBYTE_ORDER=@ENDIAN@
-
-

@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by: Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -82,9 +82,8 @@ void log_uip(char *level_str, char *fmt, ...)
 	pthread_mutex_lock(&main_log.lock);
 	va_start(ap, fmt);
 
-	if (main_log.fp == NULL) {
+	if (main_log.fp == NULL)
 		goto end;
-	}
 
 	main_log.stats.last_log_time = time(NULL);
 	strftime(time_buf, 26, "%a %b %d %T %Y",

@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,7 +47,7 @@ extern const size_t bnx2i_library_transport_name_size;
 int cnic_nl_open();
 void cnic_nl_close();
 
-int cnic_handle_iscsi_path_req(nic_t * nic, int, struct iscsi_uevent *,
+int cnic_handle_iscsi_path_req(nic_t *nic, int, struct iscsi_uevent *,
 			       struct iscsi_path *path,
 			       nic_interface_t *nic_iface);
 

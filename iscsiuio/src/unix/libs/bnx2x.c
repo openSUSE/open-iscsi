@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -181,7 +181,7 @@ struct bnx2x_driver_version bnx2x_version = {
 	BNX2X_UNKNOWN_SUB_MINOR_VERSION,
 };
 
-static int bnx2x_clear_tx_intr(nic_t * nic);
+static int bnx2x_clear_tx_intr(nic_t *nic);
 
 /*******************************************************************************
  * BNX2X Library Functions
@@ -192,7 +192,7 @@ static int bnx2x_clear_tx_intr(nic_t * nic);
  *                library name
  *  @param name_size
  */
-static void bnx2x_get_library_name(char **name, size_t * name_size)
+static void bnx2x_get_library_name(char **name, size_t *name_size)
 {
 	*name = (char *)library_name;
 	*name_size = sizeof(library_name);
@@ -203,9 +203,9 @@ static void bnx2x_get_library_name(char **name, size_t * name_size)
  *                                NIC libary
  *  @param version - This function will return the pointer to this NIC
  *                   library version string
- *  @param version_size - This will be set with the version size 
+ *  @param version_size - This will be set with the version size
  */
-static void bnx2x_get_library_version(char **version, size_t * version_size)
+static void bnx2x_get_library_version(char **version, size_t *version_size)
 {
 	*version = (char *)library_version;
 	*version_size = sizeof(library_version);
@@ -215,9 +215,9 @@ static void bnx2x_get_library_version(char **version, size_t * version_size)
  *  bnx2x_get_build_date() - Used to get the build date string of this library
  *  @param version - This function will return the pointer to this NIC
  *                   library build date string
- *  @param version_size - This will be set with the build date string size 
+ *  @param version_size - This will be set with the build date string size
  */
-static void bnx2x_get_build_date(char **build, size_t * build_size)
+static void bnx2x_get_build_date(char **build, size_t *build_size)
 {
 	*build = (char *)build_date;
 	*build_size = sizeof(build_date);
@@ -231,20 +231,20 @@ static void bnx2x_get_build_date(char **build, size_t * build_size)
  *  @param transport_name_size - This will be set with the transport name size
  */
 static void bnx2x_get_transport_name(char **transport_name,
-				     size_t * transport_name_size)
+				     size_t *transport_name_size)
 {
 	*transport_name = (char *)bnx2i_library_transport_name;
 	*transport_name_size = bnx2i_library_transport_name_size;
 }
 
 /**
- *  bnx2x_get_uio_name() - Used to get the uio name associated with this this 
+ *  bnx2x_get_uio_name() - Used to get the uio name associated with this this
  *                        NIC libary
  *  @param uio_name - This function will return the pointer to this NIC
  *                    library's associated uio string
  *  @param transport_name_size - This will be set with the uio name size
  */
-static void bnx2x_get_uio_name(char **uio_name, size_t * uio_name_size)
+static void bnx2x_get_uio_name(char **uio_name, size_t *uio_name_size)
 {
 	*uio_name = (char *)library_uio_name;
 	*uio_name_size = sizeof(library_uio_name);
@@ -252,14 +252,14 @@ static void bnx2x_get_uio_name(char **uio_name, size_t * uio_name_size)
 
 /**
  *  bnx2x_get_pci_table() - Used to get the PCI table for this NIC libary to
- *  			    determine which NIC's based off of PCI ID's are
- *  			    supported
+ *			    determine which NIC's based off of PCI ID's are
+ *			    supported
  *  @param table - This function will return the pointer to the PCI table
  *  @param entries - This function will return the number of entries in the NIC
  *                   library's PCI table
  */
 static void bnx2x_get_pci_table(struct pci_device_id **table,
-				uint32_t * entries)
+				uint32_t *entries)
 {
 	*table = (struct pci_device_id *)bnx2x_pci_tbl;
 	*entries =
@@ -281,7 +281,7 @@ struct nic_ops *bnx2x_get_ops()
 /*******************************************************************************
  * Utility Functions Used to read register from the bnx2x device
  ******************************************************************************/
-static void bnx2x_set_drv_version_unknown(bnx2x_t * bp)
+static void bnx2x_set_drv_version_unknown(bnx2x_t *bp)
 {
 	bp->version.major = BNX2X_UNKNOWN_MAJOR_VERSION;
 	bp->version.minor = BNX2X_UNKNOWN_MINOR_VERSION;
@@ -304,7 +304,7 @@ static int bnx2x_is_drv_version_unknown(struct bnx2x_driver_version *version)
  * bnx2x_get_drv_version() - Used to determine the driver version
  * @param bp - Device used to determine bnx2x driver version
  */
-static int bnx2x_get_drv_version(bnx2x_t * bp)
+static int bnx2x_get_drv_version(bnx2x_t *bp)
 {
 	nic_t *nic = bp->parent;
 	int fd, rc;
@@ -325,7 +325,7 @@ static int bnx2x_get_drv_version(bnx2x_t * bp)
 	}
 
 	drvinfo.cmd = ETHTOOL_GDRVINFO;
-	ifr.ifr_data = (caddr_t) & drvinfo;
+	ifr.ifr_data = (caddr_t) &drvinfo;
 	rc = ioctl(fd, SIOCETHTOOL, &ifr);
 	if (rc < 0) {
 		LOG_ERR(PFX "%s: call to ethool IOCTL failed [0x%x %s]",
@@ -378,7 +378,7 @@ static inline int bnx2x_is_ver70(bnx2x_t *bp)
 	return (bp->version.major == 1 && bp->version.minor >= 70);
 }
 
-static inline int bnx2x_is_ver60(bnx2x_t * bp)
+static inline int bnx2x_is_ver60(bnx2x_t *bp)
 {
 	return (bp->version.major == 1 && (bp->version.minor == 60 ||
 					   bp->version.minor == 62 ||
@@ -390,22 +390,22 @@ static inline int bnx2x_is_ver60_plus(bnx2x_t *bp)
 	return bnx2x_is_ver60(bp) || bnx2x_is_ver70(bp);
 }
 
-static inline int bnx2x_is_ver52(bnx2x_t * bp)
+static inline int bnx2x_is_ver52(bnx2x_t *bp)
 {
 	return (bp->version.major == 1 && bp->version.minor == 52);
 }
 
-static void bnx2x_wr32(bnx2x_t * bp, __u32 off, __u32 val)
+static void bnx2x_wr32(bnx2x_t *bp, __u32 off, __u32 val)
 {
 	*((volatile __u32 *)(bp->reg + off)) = val;
 }
 
-static void bnx2x_doorbell(bnx2x_t * bp, __u32 off, __u32 val)
+static void bnx2x_doorbell(bnx2x_t *bp, __u32 off, __u32 val)
 {
 	*((volatile __u32 *)(bp->reg2 + off)) = val;
 }
 
-static void bnx2x_flush_doorbell(bnx2x_t * bp, __u32 off)
+static void bnx2x_flush_doorbell(bnx2x_t *bp, __u32 off)
 {
 	volatile __u32 tmp;
 
@@ -413,17 +413,17 @@ static void bnx2x_flush_doorbell(bnx2x_t * bp, __u32 off)
 	tmp = *((volatile __u32 *)(bp->reg2 + off));
 }
 
-static __u32 bnx2x_rd32(bnx2x_t * bp, __u32 off)
+static __u32 bnx2x_rd32(bnx2x_t *bp, __u32 off)
 {
 	return *((volatile __u32 *)(bp->reg + off));
 }
 
-static int bnx2x_reg_sync(bnx2x_t * bp, __u32 off, __u16 length)
+static int bnx2x_reg_sync(bnx2x_t *bp, __u32 off, __u16 length)
 {
 	return msync(bp->reg + off, length, MS_SYNC);
 }
 
-static void bnx2x_update_rx_prod(bnx2x_t * bp)
+static void bnx2x_update_rx_prod(bnx2x_t *bp)
 {
 	struct ustorm_eth_rx_producers rx_prods = { 0 };
 	int i;
@@ -448,7 +448,7 @@ static void bnx2x_update_rx_prod(bnx2x_t * bp)
  * @param dev - Device used to determin NIC type
  * @return Chip ID read from the MISC ID register
  */
-static int bnx2x_get_chip_id(bnx2x_t * bp)
+static int bnx2x_get_chip_id(bnx2x_t *bp)
 {
 	int val, id;
 
@@ -470,7 +470,7 @@ static int bnx2x_get_chip_id(bnx2x_t * bp)
  *  bnx2x_uio_verify()
  *
  */
-static int bnx2x_uio_verify(nic_t * nic)
+static int bnx2x_uio_verify(nic_t *nic)
 {
 	char *raw = NULL, *raw_tmp;
 	uint32_t raw_size = 0;
@@ -482,9 +482,8 @@ static int bnx2x_uio_verify(nic_t * nic)
 		 cnic_uio_sysfs_name_tempate, nic->uio_minor);
 
 	rc = capture_file(&raw, &raw_size, temp_path);
-	if (rc != 0) {
+	if (rc != 0)
 		goto error;
-	}
 
 	/* sanitize name string by replacing newline with null termination */
 	raw_tmp = raw;
@@ -511,7 +510,7 @@ error:
 /*******************************************************************************
  * bnx2x Utility Functions to get to the hardware consumer indexes
  ******************************************************************************/
-static __u16 bnx2x_get_rx(bnx2x_t * bp)
+static __u16 bnx2x_get_rx(bnx2x_t *bp)
 {
 	struct host_def_status_block *sblk = bp->status_blk.def;
 	__u16 rx_comp_cons;
@@ -527,7 +526,7 @@ static __u16 bnx2x_get_rx(bnx2x_t * bp)
 	return rx_comp_cons;
 }
 
-static __u16 bnx2x_get_rx_60(bnx2x_t * bp)
+static __u16 bnx2x_get_rx_60(bnx2x_t *bp)
 {
 	struct host_sp_status_block *sblk = bp->status_blk.sp;
 	__u16 rx_comp_cons;
@@ -542,7 +541,7 @@ static __u16 bnx2x_get_rx_60(bnx2x_t * bp)
 	return rx_comp_cons;
 }
 
-static __u16 bnx2x_get_tx(bnx2x_t * bp)
+static __u16 bnx2x_get_tx(bnx2x_t *bp)
 {
 	struct host_def_status_block *sblk = bp->status_blk.def;
 	__u16 tx_cons;
@@ -555,7 +554,7 @@ static __u16 bnx2x_get_tx(bnx2x_t * bp)
 	return tx_cons;
 }
 
-static __u16 bnx2x_get_tx_60(bnx2x_t * bp)
+static __u16 bnx2x_get_tx_60(bnx2x_t *bp)
 {
 	struct host_sp_status_block *sblk = bp->status_blk.sp;
 	__u16 tx_cons;
@@ -578,7 +577,7 @@ typedef enum {
  *  @ return CNIC_VLAN_STRIPPING_ENABLED stripping is enabled
  *           CNIC_VLAN_STRIPPING_DISABLED stripping is not enabled
  */
-static CNIC_VLAN_STRIPPING_MODE bnx2x_strip_vlan_enabled(bnx2x_t * bp)
+static CNIC_VLAN_STRIPPING_MODE bnx2x_strip_vlan_enabled(bnx2x_t *bp)
 {
 	return CNIC_VLAN_STRIPPING_DISABLED;
 }
@@ -626,7 +625,7 @@ static bnx2x_t *bnx2x_alloc(nic_t * nic)
  * @param dev - The struct cnic_uio device to attach the hardware with
  * @return 0 on success, on failure a errno will be returned
  */
-static int bnx2x_open(nic_t * nic)
+static int bnx2x_open(nic_t *nic)
 {
 	bnx2x_t *bp;
 	struct stat uio_stat;
@@ -1024,9 +1023,8 @@ SF:
 		 nic->mac_addr[3], nic->mac_addr[4], nic->mac_addr[5]);
 
 	/*  Determine if Hardware VLAN tag stripping is enabled or not */
-	if (CNIC_VLAN_STRIPPING_ENABLED == bnx2x_strip_vlan_enabled(bp)) {
+	if (CNIC_VLAN_STRIPPING_ENABLED == bnx2x_strip_vlan_enabled(bp))
 		nic->flags |= NIC_VLAN_STRIP_ENABLED;
-	}
 
 	msync(bp->reg, BNX2X_BAR_SIZE, MS_SYNC);
 
@@ -1083,7 +1081,7 @@ open_error:
  *  @param graceful - whether to wait to close gracefully
  *  @return 0 on success, <0 on failure
  */
-static int bnx2x_uio_close_resources(nic_t * nic, NIC_SHUTDOWN_T graceful)
+static int bnx2x_uio_close_resources(nic_t *nic, NIC_SHUTDOWN_T graceful)
 {
 	bnx2x_t *bp = (bnx2x_t *) nic->priv;
 	int rc = 0;
@@ -1181,7 +1179,7 @@ static int bnx2x_uio_close_resources(nic_t * nic, NIC_SHUTDOWN_T graceful)
  *  @param graceful - whether to wait to close gracefully
  *  @return 0 if successful, <0 if there is an error
  */
-static int bnx2x_close(nic_t * nic, NIC_SHUTDOWN_T graceful)
+static int bnx2x_close(nic_t *nic, NIC_SHUTDOWN_T graceful)
 {
 	/*  Sanity Check: validate the parameters */
 	if (nic == NULL) {
@@ -1201,8 +1199,8 @@ static int bnx2x_close(nic_t * nic, NIC_SHUTDOWN_T graceful)
 	return 0;
 }
 
-static void bnx2x_prepare_xmit_packet(nic_t * nic,
-				      nic_interface_t * nic_iface,
+static void bnx2x_prepare_xmit_packet(nic_t *nic,
+				      nic_interface_t *nic_iface,
 				      struct packet *pkt)
 {
 	bnx2x_t *bp = (bnx2x_t *) nic->priv;
@@ -1227,7 +1225,7 @@ static void bnx2x_prepare_xmit_packet(nic_t * nic,
  *  bnx2x_get_tx_pkt() - This function is used to a TX packet from the NIC
  *  @param nic - The NIC device to send the packet
  */
-void *bnx2x_get_tx_pkt(nic_t * nic)
+void *bnx2x_get_tx_pkt(nic_t *nic)
 {
 	bnx2x_t *bp = (bnx2x_t *) nic->priv;
 	return bp->tx_pkt;
@@ -1239,7 +1237,7 @@ void *bnx2x_get_tx_pkt(nic_t * nic)
  *  @param len - the length of the TX packet
  *
  */
-void bnx2x_start_xmit(nic_t * nic, size_t len, u16_t vlan_id)
+void bnx2x_start_xmit(nic_t *nic, size_t len, u16_t vlan_id)
 {
 	bnx2x_t *bp = (bnx2x_t *) nic->priv;
 	uint16_t ring_prod;
@@ -1294,7 +1292,7 @@ void bnx2x_start_xmit(nic_t * nic, size_t len, u16_t vlan_id)
  *  @param pkt - The packet which will hold the data to be sent on the wire
  *  @return 0 if successful, <0 if failed
  */
-int bnx2x_write(nic_t * nic, nic_interface_t * nic_iface, packet_t * pkt)
+int bnx2x_write(nic_t *nic, nic_interface_t *nic_iface, packet_t *pkt)
 {
 	bnx2x_t *bp;
 	struct uip_stack *uip;
@@ -1318,7 +1316,7 @@ int bnx2x_write(nic_t * nic, nic_interface_t * nic_iface, packet_t * pkt)
 
 	/*  Try to wait for a TX completion */
 	for (i = 0; i < 15; i++) {
-		struct timespec sleep_req = {.tv_sec = 0,.tv_nsec = 5000000 },
+		struct timespec sleep_req = {.tv_sec = 0, .tv_nsec = 5000000 },
 		    sleep_rem;
 
 		if (bnx2x_clear_tx_intr(nic) == 0)
@@ -1350,7 +1348,7 @@ int bnx2x_write(nic_t * nic, nic_interface_t * nic_iface, packet_t * pkt)
 	return 0;
 }
 
-static inline int bnx2x_get_rx_pad(bnx2x_t * bp, union eth_rx_cqe *cqe)
+static inline int bnx2x_get_rx_pad(bnx2x_t *bp, union eth_rx_cqe *cqe)
 {
 	int pad = 0;
 
@@ -1372,7 +1370,7 @@ static inline int bnx2x_get_rx_pad(bnx2x_t * bp, union eth_rx_cqe *cqe)
  *  @param pkt - The packet which will hold the data
  *  @return 0 if successful, <0 if failed
  */
-static int bnx2x_read(nic_t * nic, packet_t * pkt)
+static int bnx2x_read(nic_t *nic, packet_t *pkt)
 {
 	bnx2x_t *bp;
 	int rc = 0;
@@ -1478,7 +1476,7 @@ static int bnx2x_read(nic_t * nic, packet_t * pkt)
  *  @param nic - the nic the interrupt occured on
  *  @return  0 on success
  */
-static int bnx2x_clear_tx_intr(nic_t * nic)
+static int bnx2x_clear_tx_intr(nic_t *nic)
 {
 	bnx2x_t *bp;
 	uint16_t hw_cons;

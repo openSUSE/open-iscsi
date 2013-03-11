@@ -2,7 +2,7 @@
  * Copyright (c) 2009-2011, Broadcom Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,8 +41,8 @@
 #include "uip.h"
 #include "mgmt_ipc.h"
 
-mgmt_ipc_err_e iscsid_connect(int *fd);
-int iscsid_get_ipaddr(int fd, uip_ip4addr_t * ipaddr);
+enum mgmt_ipc_err iscsid_connect(int *fd);
+int iscsid_get_ipaddr(int fd, uip_ip4addr_t *ipaddr);
 
 int iscsid_init();
 int iscsid_start();

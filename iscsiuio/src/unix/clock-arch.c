@@ -28,7 +28,6 @@
  *
  * This file is part of the uIP TCP/IP stack
  *
- * $Id: clock-arch.c,v 1.2 2006/06/12 08:00:31 adam Exp $
  */
 
 /**
