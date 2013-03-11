@@ -208,10 +208,11 @@ int __kipc_call(int fd, void *iov_base, int iov_len)
 static int pull_from_nl(char **buf)
 {
 	int rc;
-	size_t ev_size;
+	size_t ev_size, payload_size, alloc_size;
 	char nlm_ev[NLMSG_SPACE(sizeof(struct iscsi_uevent))];
 	struct nlmsghdr *nlh;
 	char *data = NULL;
+	struct iscsi_uevent *ev;
 
 	/*  Take a quick peek at what how much uIP will need to read */
 	rc = nl_read(nl_sock, nlm_ev,
@@ -235,15 +236,26 @@ static int pull_from_nl(char **buf)
 		return -EINVAL;
 	}
 
-	data = (char *)malloc(nlh->nlmsg_len);
+	ev = (struct iscsi_uevent *)NLMSG_DATA(nlh);
+	if (ev->type == ISCSI_KEVENT_PATH_REQ) {
+		ev_size = nlh->nlmsg_len - NLMSG_ALIGN(sizeof(struct nlmsghdr));
+		payload_size = ev_size - sizeof(struct iscsi_uevent);
+		if (payload_size < sizeof(struct iscsi_path))
+			alloc_size = nlh->nlmsg_len + (payload_size -
+				     sizeof(struct iscsi_path));
+		else
+			alloc_size = nlh->nlmsg_len;
+	} else {
+		alloc_size = nlh->nlmsg_len;
+	}
+	data = (char *)malloc(alloc_size);
 	if (unlikely(data == NULL)) {
 		LOG_ERR(PFX "Couldn't allocate %d bytes for Netlink "
-			"iSCSI message", nlh->nlmsg_len);
+			"iSCSI message", alloc_size);
 		return -ENOMEM;
 	}
 
-	memset(data, 0, nlh->nlmsg_len);
-	ev_size = nlh->nlmsg_len - NLMSG_ALIGN(sizeof(struct nlmsghdr));
+	memset(data, 0, alloc_size);
 	rc = nl_read(nl_sock, data, (int)nlh->nlmsg_len, MSG_WAITALL);
 	if (rc <= 0) {
 		LOG_ERR("can not read nlm_ev, error %s[%d]",
@@ -255,7 +267,6 @@ static int pull_from_nl(char **buf)
 
 		goto error;
 	}
-
 	*buf = data;
 	return 0;
 error:
@@ -313,8 +324,12 @@ static int ctldev_handle(char *data, nic_t *nic)
 			ip_type = 0;
 
 		/* Find the nic_iface to use */
-		iface_num = IFACE_NUM_INVALID;
+		iface_num = ev->r.req_path.iface_num ?
+			    ev->r.req_path.iface_num : IFACE_NUM_INVALID;
 		vlan_id = path->vlan_id ? path->vlan_id : NO_VLAN;
+
+		LOG_DEBUG(PFX "%s: PATH_REQ with iface_num %d VLAN %d",
+			  nic->log_name, iface_num, vlan_id);
 
 		pthread_mutex_lock(&nic->nic_mutex);
 

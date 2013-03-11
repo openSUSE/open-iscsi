@@ -207,6 +207,7 @@ struct iscsi_uevent {
 		} ep_connect_ret;
                 struct msg_req_path {
 			uint32_t        host_no;
+			uint32_t	iface_num;
 		} req_path;
 		struct msg_notify_if_down {
 			uint32_t        host_no;

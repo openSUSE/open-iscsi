@@ -1268,24 +1268,29 @@ nic_interface_t *nic_find_nic_iface(nic_t *nic,
 			goto next;
 
 		/* Check for iface_num first */
-		if (iface_num != IFACE_NUM_INVALID &&
-		    current->iface_num == iface_num) {
-			/* Exception is when iface_num == 0, need to
-			   check for request_type also if != IP_CONFIG_OFF */
-			if (!iface_num && request_type != IP_CONFIG_OFF) {
-				if (current->request_type == request_type)
+		if (iface_num != IFACE_NUM_INVALID) {
+			if (current->iface_num == iface_num) {
+				/* Exception is when iface_num == 0, need to
+				   check for request_type also if !=
+				   IP_CONFIG_OFF */
+				if (!iface_num && request_type !=
+				    IP_CONFIG_OFF) {
+					if (current->request_type ==
+					    request_type)
+						goto found;
+				} else {
 					goto found;
-			} else
-				goto found;
-		}
-		if (vlan_id == NO_VLAN)
+				}
+			}
+		} else if (vlan_id == NO_VLAN) {
 			/* Just return the top of the family */
 			goto found;
-		if ((current->vlan_id == vlan_id) &&
-		    ((request_type == IP_CONFIG_OFF) ||
-		    (current->request_type == request_type)))
-			goto found;
-
+		} else {
+			if ((current->vlan_id == vlan_id) &&
+			    ((request_type == IP_CONFIG_OFF) ||
+			    (current->request_type == request_type)))
+				goto found;
+		}
 		/* vlan_next loop */
 		current_vlan = current->vlan_next;
 		while (current_vlan != NULL) {
