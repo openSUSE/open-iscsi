@@ -53,6 +53,9 @@ extern int iface_setup_from_boot_context(struct iface_rec *iface,
                                    struct boot_context *context);
 extern int iface_create_ifaces_from_boot_contexts(struct list_head *ifaces,
 						  struct list_head *targets);
+extern int iface_setup_netdev(struct iscsi_transport *t,
+			      struct iscsi_session *session,
+			      struct iface_rec *iface);
 extern int iface_get_param_count(struct iface_rec *iface_primary,
 				 int iface_all);
 extern int iface_build_net_config(struct iface_rec *iface_primary,

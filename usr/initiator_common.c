@@ -596,6 +596,11 @@ int iscsi_host_set_net_params(struct iface_rec *iface,
 		netdev = hinfo.iface.netdev;
 	}
 
+	/* XXX is this SUSE patch still needed? */
+	rc = iface_setup_netdev(t, session, iface);
+	if (rc != 0)
+		return rc;
+
 	if (net_ifup_netdev(netdev))
 		log_warning("Could not brining up netdev %s. Try running "
 			    "'ifup %s' first if login fails.", netdev, netdev);

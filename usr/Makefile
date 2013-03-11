@@ -20,7 +20,7 @@ ifeq ($(OSNAME),Linux)
 		IPC_CFLAGS=-DNETLINK_ISCSI=8 -D_GNU_SOURCE
 	endif
 	endif
-IPC_OBJ=netlink.o
+IPC_OBJ=netlink.o uip_mgmt_ipc.o
 else
 ifeq ($(OSNAME),FreeBSD)
 IPC_CFLAGS=
