@@ -164,7 +164,7 @@ typedef struct DHCPV6_OPT_CLIENT_ID {
 #define DHCPV6_DUID_TYPE_LINK_LAYER          3
 	u16_t hw_type;
 #define DHCPV6_HW_TYPE_ETHERNET              1
-//  u32_t time;
+	u32_t time;
 	MAC_ADDR link_layer_addr;
 } DHCPV6_OPT_CLIENT_ID, *pDHCPV6_OPT_CLIENT_ID;
 

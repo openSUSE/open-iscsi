@@ -176,8 +176,10 @@ STATIC u16_t dhcpv6_init_packet(pDHCPV6_CONTEXT dhcpv6_context, u8_t type)
 	opt->hdr.type = HOST_TO_NET16(DHCPV6_OPT_CLIENTID);
 	opt->hdr.length = HOST_TO_NET16(sizeof(DHCPV6_OPT_CLIENT_ID));
 	opt->type.client_id.duid_type =
-	    HOST_TO_NET16(DHCPV6_DUID_TYPE_LINK_LAYER);
+	    HOST_TO_NET16(DHCPV6_DUID_TYPE_LINK_LAYER_AND_TIME);
 	opt->type.client_id.hw_type = HOST_TO_NET16(DHCPV6_HW_TYPE_ETHERNET);
+	opt->type.client_id.time = HOST_TO_NET32(clock_time()/1000 -
+						 0x3A4FC880);
 	memcpy((char __FAR__ *)&opt->type.client_id.link_layer_addr,
 	       (char __FAR__ *)dhcpv6_context->our_mac_addr, sizeof(MAC_ADDR));
 	pkt_len += sizeof(DHCPV6_OPT_CLIENT_ID) + sizeof(DHCPV6_OPT_HDR);
