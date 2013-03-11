@@ -251,6 +251,7 @@ int nic_discover_iscsi_hosts()
 
 				if (nic_fill_name(nic) != 0) {
 					free(nic);
+					free(raw);
 					rc = -EIO;
 					continue;
 				}
@@ -808,6 +809,9 @@ int nic_fill_name(nic_t * nic)
 
 		nic->uio_minor = rc;
 
+		if (nic->flags & NIC_UIO_NAME_MALLOC)
+			free(nic->uio_device_name);
+
 		nic->uio_device_name =
 		    malloc(sizeof(uio_udev_path_template) + 8);
 		if (nic->uio_device_name == NULL) {
@@ -954,7 +958,6 @@ int nic_enable(nic_t * nic)
 		}
 #endif
 		nic->flags &= ~NIC_ENABLED_PENDING;
-		pthread_mutex_unlock(&nic->nic_mutex);
 
 		if (rc == 0 && nic->flags & NIC_ENABLED) {
 			LOG_DEBUG(PFX "%s: device enabled", nic->log_name);
@@ -980,6 +983,7 @@ int nic_enable(nic_t * nic)
 				nic_iface = nic_iface->next;
 			}
 		}
+		pthread_mutex_unlock(&nic->nic_mutex);
 
 		return rc;
 	} else {
@@ -1066,6 +1070,7 @@ void nic_remove_all()
 	nic = nic_list;
 	while (nic != NULL) {
 		nic_next = nic->next;
+		nic_close(nic, 1, FREE_ALL_STRINGS);
 		nic_remove(nic);
 		nic = nic_next;
 	}

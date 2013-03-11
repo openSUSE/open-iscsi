@@ -392,6 +392,7 @@ nic_t *nic_init()
 	nic->fd = INVALID_FD;
 	nic->next = NULL;
 	nic->thread = INVALID_THREAD;
+	nic->enable_thread = INVALID_THREAD;
 	nic->flags |= NIC_UNITIALIZED | NIC_DISABLED;
 	nic->state |= NIC_STOPPED;
 	nic->free_packet_queue = NULL;
@@ -452,7 +453,7 @@ int nic_remove(nic_t * nic)
 	nic->state = NIC_EXIT;
 	pthread_mutex_unlock(&nic->nic_mutex);
 
-	if (nic->enable_thread) {
+	if (nic->enable_thread != INVALID_THREAD) {
 		LOG_ERR(PFX "%s: Canceling nic enable thread", nic->log_name);
 
 		rc = pthread_cancel(nic->enable_thread);
@@ -466,6 +467,7 @@ int nic_remove(nic_t * nic)
 		if (rc != 0)
 			LOG_ERR(PFX "%s: Couldn't join to canceled enable nic "
 				"thread", nic->log_name);
+		nic->enable_thread = INVALID_THREAD;
 	}
 	if (nic->thread != INVALID_THREAD) {
 		LOG_ERR(PFX "%s: Canceling nic thread", nic->log_name);
@@ -1333,7 +1335,13 @@ void *nic_loop(void *arg)
 				nic->log_name);
 
 			if (rc == -ENOTSUP)
-				nic->flags &= NIC_EXIT_MAIN_LOOP;
+				nic->flags |= NIC_EXIT_MAIN_LOOP;
+			else
+				nic->flags &= ~NIC_ENABLED;
+
+			/*  Signal that the device enable is done */
+			pthread_cond_broadcast(&nic->enable_done_cond);
+			pthread_mutex_unlock(&nic->nic_mutex);
 
 			goto dev_close;
 		}
@@ -1348,7 +1356,9 @@ void *nic_loop(void *arg)
 			} else {
 				LOG_ERR(PFX "%s: No packets allocated "
 					"instead of %d", nic->log_name, 5);
-
+				/*  Signal that the device enable is done */
+				pthread_cond_broadcast(&nic->enable_done_cond);
+				pthread_mutex_unlock(&nic->nic_mutex);
 				goto dev_close;
 			}
 		}
@@ -1414,10 +1424,19 @@ void *nic_loop(void *arg)
 					      &tmp, nic_iface->mac_addr);
 				if (dhcpc_init(nic, ustack,
 					       nic_iface->mac_addr, ETH_ALEN)) {
-					LOG_DEBUG(PFX "%s: DHCPv4 engine "
-						  "already initialized!",
-						  nic->log_name);
-					goto skip;
+					if (ustack->dhcpc) {
+						LOG_DEBUG(PFX "%s: DHCPv4 "
+							  "engine already "
+							  "initialized!",
+							  nic->log_name);
+						goto skip;
+					} else {
+						LOG_DEBUG(PFX "%s: DHCPv4 "
+							  "engine failed "
+							  "initialization!",
+							  nic->log_name);
+						goto dev_close_free;
+					}
 				}
 				pthread_mutex_unlock(&nic->nic_mutex);
 				rc = process_dhcp_loop(nic, nic_iface,
@@ -1446,7 +1465,7 @@ void *nic_loop(void *arg)
 							" thread",
 							nic->log_name);
 
-					goto dev_close;
+					goto dev_close_free;
 				}
 
 				if (nic->flags & NIC_DISABLED) {
@@ -1540,8 +1559,10 @@ skip:
 			LOG_WARN(PFX "%s: nic was disabled during nic loop, "
 				 "closing flag 0x%x",
 				 nic->log_name, nic->flags);
+			/* Signal that the device enable is done */
+			pthread_cond_broadcast(&nic->enable_done_cond);
 			pthread_mutex_unlock(&nic->nic_mutex);
-			goto dev_close;
+			goto dev_close_free;
 		}
 
 		/*  This is when we start the processing of packets */
@@ -1576,6 +1597,8 @@ skip:
 
 		LOG_INFO(PFX "%s: exited main processing loop", nic->log_name);
 
+dev_close_free:
+		free_free_queue(nic);
 dev_close:
 		pthread_mutex_lock(&nic->nic_mutex);
 
@@ -1625,6 +1648,8 @@ dev_close:
 	pthread_mutex_unlock(&nic->nic_mutex);
 
 	LOG_INFO(PFX "%s: nic loop thread exited", nic->log_name);
+
+	nic->thread = INVALID_THREAD;
 
 	pthread_exit(NULL);
 }

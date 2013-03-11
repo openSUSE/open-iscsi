@@ -70,7 +70,7 @@ struct packet *alloc_packet(size_t max_buf_size, size_t priv_size)
 
 	return pkt;
 
-      free_pkt:
+free_pkt:
 	free(pkt);
 
 	return NULL;
@@ -123,8 +123,23 @@ int alloc_free_queue(nic_t * nic, size_t num_of_packets)
 
 	rc = num_of_packets;
 
-      done:
+done:
 	pthread_mutex_unlock(&nic->free_packet_queue_mutex);
 
 	return i;
+}
+
+void free_free_queue(nic_t *nic)
+{
+	packet_t *pkt, *pkt_next;
+
+	pthread_mutex_lock(&nic->free_packet_queue_mutex);
+	pkt = nic->free_packet_queue;
+	while (pkt) {
+		pkt_next = pkt->next;
+		free_packet(pkt);
+		pkt = pkt_next;
+	}
+	nic->free_packet_queue = NULL;
+	pthread_mutex_unlock(&nic->free_packet_queue_mutex);
 }

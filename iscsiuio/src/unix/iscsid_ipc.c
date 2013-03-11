@@ -114,6 +114,8 @@ static void *enable_nic_thread(void *data)
 	/*  Enable the NIC */
 	nic_enable(nic);
 
+	nic->enable_thread = INVALID_THREAD;
+
 	pthread_exit(NULL);
 }
 
@@ -218,6 +220,7 @@ static int parse_iface(void *arg)
 	int i, prefix_len = 64;
 	struct ip_addr_mask ipam;
 	struct iface_rec *rec;
+	void *res;
 
 	data = (iscsid_uip_broadcast_t *) arg;
 	rec = &data->u.iface_rec.rec;
@@ -567,16 +570,30 @@ diff:
 enable_nic:
 	if (nic->state & NIC_STOPPED) {
 		pthread_mutex_lock(&nic->nic_mutex);
+		if (nic->flags & NIC_ENABLED_PENDING) {
+			/* Still waiting */
+			pthread_mutex_unlock(&nic->nic_mutex);
+			rc = 0;
+			goto enable_out;
+		}
 		nic->flags |= NIC_ENABLED_PENDING;
 		pthread_mutex_unlock(&nic->nic_mutex);
 
 		/* This thread will be thrown away when completed */
+		if (nic->enable_thread != INVALID_THREAD) {
+			rc = pthread_join(nic->enable_thread, &res);
+			if (rc != 0) {
+				LOG_INFO(PFX "%s: failed joining enable NIC "
+					 "thread\n", nic->log_name);
+				goto eagain;
+			}
+		}
 		rc = pthread_create(&nic->enable_thread, NULL,
 				    enable_nic_thread, (void *)nic);
 		if (rc != 0)
 			LOG_WARN(PFX "%s: failed starting enable NIC thread\n",
 				 nic->log_name);
-
+eagain:
 		rc = -EAGAIN;
 	} else {
 		LOG_INFO(PFX "%s: NIC already enabled "
@@ -584,7 +601,7 @@ enable_nic:
 			 nic->log_name, nic->flags, nic->state);
 		rc = 0;
 	}
-
+enable_out:
 	LOG_INFO(PFX "ISCSID_UIP_IPC_GET_IFACE: command: %x "
 		 "name: %s, netdev: %s ipaddr: %s vlan: %d transport_name:%s",
 		 data->header.command, rec->name, rec->netdev,

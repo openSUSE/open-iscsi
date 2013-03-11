@@ -69,6 +69,7 @@ typedef struct packet {
  *  Packet Function Declarations
  *****************************************************************************/
 int alloc_free_queue(struct nic *, size_t num_of_packets);
+void free_free_queue(struct nic *);
 void reset_packet(packet_t * pkt);
 
 #endif /*  __PACKET_H__ */

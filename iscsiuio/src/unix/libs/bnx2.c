@@ -383,6 +383,17 @@ static CNIC_VLAN_STRIPPING_MODE bnx2_strip_vlan_enabled(bnx2_t * bp)
 }
 
 /**
+ *  bnx2_free() - Used to free a bnx2 structure
+ */
+static void bnx2_free(nic_t *nic)
+{
+	if (nic->priv)
+		free(nic->priv);
+	nic->priv = NULL;
+}
+
+
+/**
  *  bnx2_alloc() - Used to allocate a bnx2 structure
  */
 static bnx2_t *bnx2_alloc(nic_t * nic)
@@ -463,7 +474,8 @@ static int bnx2_open(nic_t * nic)
 	}
 	if (fstat(nic->fd, &uio_stat) < 0) {
 		LOG_ERR(PFX "%s: Could not fstat device", nic->log_name);
-		return -ENODEV;
+		errno = -ENODEV;
+		goto error_alloc_rx_ring;
 	}
 	nic->uio_minor = minor(uio_stat.st_rdev);
 
@@ -472,7 +484,8 @@ static int bnx2_open(nic_t * nic)
 	if (bp->bar0_fd < 0) {
 		LOG_ERR(PFX "%s: Could not open %s", nic->log_name,
 			sysfs_resc_path);
-		return -ENODEV;
+		errno = -ENODEV;
+		goto error_alloc_rx_ring;
 	}
 
 	/*  TODO: hardcoded with the cnic driver */
@@ -494,6 +507,7 @@ static int bnx2_open(nic_t * nic)
 	if (bp->rx_ring == NULL) {
 		LOG_ERR(PFX "%s: Could not allocate space for rx_ring",
 			nic->log_name);
+		errno = -ENOMEM;
 		goto error_alloc_rx_ring;
 	}
 	mlock(bp->rx_ring, sizeof(struct l2_fhdr *) * bp->rx_ring_size);
@@ -503,6 +517,7 @@ static int bnx2_open(nic_t * nic)
 	if (bp->rx_pkt_ring == NULL) {
 		LOG_ERR(PFX "%s: Could not allocate space for rx_pkt_ring",
 			nic->log_name);
+		errno = -ENOMEM;
 		goto error_alloc_rx_pkt_ring;
 	}
 	mlock(bp->rx_pkt_ring, sizeof(void *) * bp->rx_ring_size);
@@ -665,9 +680,10 @@ static int bnx2_open(nic_t * nic)
 	bnx2_wr32(bp, BNX2_RPM_SORT_USER2, val | BNX2_RPM_SORT_USER2_ENA);
 
 	rc = enable_multicast(nic);
-	if (rc != 0)
+	if (rc != 0) {
+		errno = rc;
 		goto error_bufs;
-
+	}
 	msync(bp->reg, 0x12800, MS_SYNC);
 	LOG_INFO("%s: bnx2 uio initialized", nic->log_name);
 
@@ -695,6 +711,7 @@ error_alloc_rx_pkt_ring:
 	bp->rx_ring = NULL;
 
 error_alloc_rx_ring:
+	bnx2_free(nic);
 
 	return errno;
 }
@@ -803,8 +820,6 @@ static int bnx2_uio_close_resources(nic_t * nic, NIC_SHUTDOWN_T graceful)
  */
 static int bnx2_close(nic_t * nic, NIC_SHUTDOWN_T graceful)
 {
-	bnx2_t *bp = (bnx2_t *) nic->priv;
-
 	/*  Sanity Check: validate the parameters */
 	if (nic == NULL) {
 		LOG_ERR(PFX "bnx2_close(): nic == NULL");
@@ -814,7 +829,7 @@ static int bnx2_close(nic_t * nic, NIC_SHUTDOWN_T graceful)
 	LOG_INFO(PFX "Closing NIC device: %s", nic->log_name);
 
 	bnx2_uio_close_resources(nic, graceful);
-	bp->flags &= ~BNX2_OPENED;
+	bnx2_free(nic);
 
 	return 0;
 }

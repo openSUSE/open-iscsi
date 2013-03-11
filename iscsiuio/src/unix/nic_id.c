@@ -282,17 +282,12 @@ int get_bus_slot_func_num(nic_t * nic,
 	sscanf(tok2, "%x", func);
 	LOG_INFO(PFX "%s: is found at %02x:%02x.%02x", nic->log_name,
 		 *bus, *slot, *func);
-
-	free(read_pci_bus_slot_func_str);
-
 	rc = 0;
-
-      error:
-      error_alloc_read_pci_bus:
+error:
+	free(read_pci_bus_slot_func_str);
+error_alloc_read_pci_bus:
 	free(path);
-
-      error_alloc_path:
-
+error_alloc_path:
 	return rc;
 }
 

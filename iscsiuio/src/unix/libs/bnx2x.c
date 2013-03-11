@@ -583,7 +583,17 @@ static CNIC_VLAN_STRIPPING_MODE bnx2x_strip_vlan_enabled(bnx2x_t * bp)
 }
 
 /**
- *  bnx2x_alloc() - Used to allocate a CNIC structure
+ *  bnx2x_free() - Used to free a bnx2x structure
+ */
+static void bnx2x_free(nic_t *nic)
+{
+	if (nic->priv)
+		free(nic->priv);
+	nic->priv = NULL;
+}
+
+/**
+ *  bnx2x_alloc() - Used to allocate a bnx2x structure
  */
 static bnx2x_t *bnx2x_alloc(nic_t * nic)
 {
@@ -681,7 +691,8 @@ static int bnx2x_open(nic_t * nic)
 	}
 	if (fstat(nic->fd, &uio_stat) < 0) {
 		LOG_ERR(PFX "%s: Could not fstat device", nic->log_name);
-		return -ENODEV;
+		rc = -ENODEV;
+		goto open_error;
 	}
 	nic->uio_minor = minor(uio_stat.st_rdev);
 
@@ -690,7 +701,8 @@ static int bnx2x_open(nic_t * nic)
 	if (bp->bar0_fd < 0) {
 		LOG_ERR(PFX "%s: Could not open %s", nic->log_name,
 			sysfs_resc_path);
-		return -ENODEV;
+		rc = -ENODEV;
+		goto open_error;
 	}
 
 	bp->reg = mmap(NULL, BNX2X_BAR_SIZE, PROT_READ | PROT_WRITE,
@@ -711,7 +723,8 @@ static int bnx2x_open(nic_t * nic)
 	if (bp->bar2_fd < 0) {
 		LOG_ERR(PFX "%s: Could not open %s", nic->log_name,
 			sysfs_resc_path);
-		return -ENODEV;
+		rc = -ENODEV;
+		goto open_error;
 	}
 
 	bp->reg2 = mmap(NULL, BNX2X_BAR2_SIZE, PROT_READ | PROT_WRITE,
@@ -1046,6 +1059,7 @@ open_error:
 		close(bp->bar0_fd);
 		bp->bar0_fd = INVALID_FD;
 	}
+	bnx2x_free(nic);
 
 	return rc;
 }
@@ -1149,25 +1163,24 @@ static int bnx2x_uio_close_resources(nic_t * nic, NIC_SHUTDOWN_T graceful)
 }
 
 /**
- *  cnic_close() - Used to close the NIC device
+ *  bnx2x_close() - Used to close the NIC device
  *  @param nic - NIC device to close
  *  @param graceful - whether to wait to close gracefully
  *  @return 0 if successful, <0 if there is an error
  */
 static int bnx2x_close(nic_t * nic, NIC_SHUTDOWN_T graceful)
 {
-	bnx2x_t *bp = (bnx2x_t *) nic->priv;
-
 	/*  Sanity Check: validate the parameters */
-	if (nic == NULL || bp == NULL) {
-		LOG_ERR(PFX "bnx2x_close(): nic == %p, bp == %p", nic, bp);
+	if (nic == NULL || nic->priv == NULL) {
+		LOG_ERR(PFX "bnx2x_close(): nic == %p, bp == %p", nic,
+			nic->priv);
 		return -EINVAL;
 	}
 
 	LOG_INFO(PFX "Closing NIC device: %s", nic->log_name);
 
 	bnx2x_uio_close_resources(nic, graceful);
-	bp->flags &= ~BNX2X_OPENED;
+	bnx2x_free(nic);
 
 	return 0;
 }
