@@ -105,7 +105,6 @@ fi
 %defattr(-,root,root)
 %dir /etc/iscsi
 %attr(0600,root,root) %config(noreplace) /etc/iscsi/iscsid.conf
-%attr(0600,root,root) %config(noreplace) /etc/iscsi/initiatorname.iscsi
 %dir /etc/iscsi/ifaces
 %config /etc/iscsi/ifaces/iface.example
 /etc/iscsid.conf
