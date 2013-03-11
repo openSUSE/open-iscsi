@@ -265,11 +265,14 @@ uip_arp_arpin(nic_interface_t * nic_iface,
 			arp->sipaddr[0] = ustack->hostaddr[0];
 			arp->sipaddr[1] = ustack->hostaddr[1];
 
-			if (nic_iface->vlan_id == 0)
+			if (nic_iface->vlan_id == 0) {
 				eth->type = htons(UIP_ETHTYPE_ARP);
-			else
+				pkt->buf_size = sizeof(*arp) + sizeof(*eth);
+			} else {
 				eth->type = htons(UIP_ETHTYPE_8021Q);
-			pkt->buf_size = sizeof(*arp) + sizeof(*eth);
+				pkt->buf_size = sizeof(*arp) +
+						sizeof(struct uip_vlan_eth_hdr);
+			}
 		}
 		break;
 	case const_htons(ARP_REPLY):

@@ -272,7 +272,7 @@ NIC_LIBRARY_EXIST_T does_nic_uio_name_exist(char *name)
 
 	rc = NIC_LIBRARY_DOESNT_EXIST;
 
-      done:
+done:
 	pthread_mutex_unlock(&nic_lib_list_mutex);
 	return rc;
 }
@@ -302,7 +302,7 @@ NIC_LIBRARY_EXIST_T does_nic_library_exist(char *name)
 
 	rc = NIC_LIBRARY_DOESNT_EXIST;
 
-      done:
+done:
 	pthread_mutex_unlock(&nic_lib_list_mutex);
 	return rc;
 }
@@ -368,7 +368,7 @@ int find_nic_lib_using_pci_id(uint32_t vendor, uint32_t device,
 	}
 	rc = -EINVAL;
 
-      done:
+done:
 	pthread_mutex_unlock(&nic_lib_list_mutex);
 
 	return rc;
@@ -711,6 +711,7 @@ int nic_add_nic_iface(nic_t *nic, nic_interface_t *nic_iface)
 done:
 	/* Set nic_interface common fields */
 	nic_iface->parent = nic;
+	memcpy(&nic_iface->ustack.uip_ethaddr.addr, nic->mac_addr, ETH_ALEN);
 	nic->num_of_nic_iface++;
 
 	LOG_INFO(PFX "%s: Added nic interface for VLAN: %d, protocol: %d",
