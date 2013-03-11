@@ -60,6 +60,9 @@ typedef struct iface_rec {
 							   * 1 = enable */
 	uint16_t		mtu;
 	uint16_t		port;
+
+	char                    port_state[ISCSI_MAX_STR_LEN];
+	char                    port_speed[ISCSI_MAX_STR_LEN];
 	/*
 	 * TODO: we may have to make this bigger and interconnect
 	 * specific for infinniband 
