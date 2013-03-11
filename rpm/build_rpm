@@ -4,8 +4,9 @@
 #
 
 RPM="open-iscsi"
-BRANCH="sles11-sp2"
-VERSION="2.0-872"
+#BRANCH="sles11-sp2"
+BRANCH="sles11-sp2-update-to-873"
+VERSION="2.0-873"
 DESTDIR=
 TMPDIR=
 OBS_BRANCH=home:hreinecke:branches

@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu Jun 21 11:12:01 PDT 2012 - lduncan@suse.com
+
+- Updated open-iscsi to version 2.0.873 (bnc#751056)
+- Updated iscsiuio to version 0.7.4.3, to match
+
+-------------------------------------------------------------------
 Fri Dec  9 15:09:01 CET 2011 - hare@suse.de
 
 - iscsiadm: Return correct error when login fails (bnc#715071)
