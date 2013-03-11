@@ -993,9 +993,12 @@ static int bnx2x_open(nic_t * nic)
 			val = bnx2x_rd32(bp, mf_cfg_addr + ovtag_offset);
 			val &= 0xffff;
 			/* SD mode, check for valid outer VLAN */
-			if (val == 0xffff)
-				goto open_error;
-
+			if (val == 0xffff) {
+				LOG_ERR(PFX "%s: Invalid OV detected for SD, "
+					" fallback to SF mode!\n",
+					nic->log_name);
+				goto SF;
+			}
 			/* Check for iSCSI protocol */
 			val = bnx2x_rd32(bp, mf_cfg_addr + proto_offset);
 			if ((val & 6) != 6)
@@ -1018,10 +1021,9 @@ static int bnx2x_open(nic_t * nic)
 			mac[4] = (__u8) (val >> 8);
 			mac[5] = (__u8) val;
 			memcpy(nic->mac_addr, mac, 6);
-
 		}
 	}
-
+SF:
 	LOG_INFO(PFX "%s:  Using mac address: %02x:%02x:%02x:%02x:%02x:%02x",
 		 nic->log_name,
 		 nic->mac_addr[0], nic->mac_addr[1], nic->mac_addr[2],
