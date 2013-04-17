@@ -8,7 +8,8 @@ BRANCH="sles11-sp3"
 VERSION="2.0-873"
 BRANCH_TAG="sles11-sp2-update"
 PATCH2_END_TAG="sles11-sp2-update2"
-PATCH3_END_TAG="HEAD"		# fix when more changes added
+PATCH3_END_TAG="sles11-sp2-update-iscsiuio"
+PATCH4_END_TAG="sles11-sp2-update-flash"
 DESTDIR=
 uncommitted_changes=0
 
@@ -136,8 +137,12 @@ git diff $BRANCH_TAG..$PATCH2_END_TAG | \
 git diff $PATCH2_END_TAG..$PATCH3_END_TAG | \
 	bzip2 > $DESTDIR/$RPM-sles11-sp3-iscsiuio-update.diff.bz2
 
+# patch4: some iscsiuio changes for flash support
+git diff $PATCH3_END_TAG..$PATCH4_END_TAG | \
+	bzip2 > $DESTDIR/$RPM-sles11-sp3-flash-update.diff.bz2
+
 # if the user specified this then get all changes not even checked in
-# and patch them into the spec file as "Patch3" (fragile)
+# and patch them into the spec file as "Patch5" (fragile)
 if (( $uncommitted_changes )) ; then
     echo "WARNING: Including uncommitted changes for testing." >&2
     echo "         Don't submit the package to Autobuild!"     >&2
@@ -145,9 +150,9 @@ if (( $uncommitted_changes )) ; then
     patchname=$RPM-$(date -u +%Y-%M-%d_%T_%Z).diff
     git diff $BRANCH > $DESTDIR/$patchname
 
-    # XXX this assumes the highest existing patch is 3 -- should be cleaned up
-    sed -i "/Patch3:.*$/aPatch4:         $patchname" $DESTDIR/$RPM.spec
-    sed -i "/%patch3 -p1/a%patch4 -p1" $DESTDIR/$RPM.spec
+    # XXX this assumes the highest existing patch is 4 -- should be cleaned up
+    sed -i "/Patch4:.*$/aPatch5:         $patchname" $DESTDIR/$RPM.spec
+    sed -i "/%patch4 -p1/a%patch5 -p1" $DESTDIR/$RPM.spec
 fi
 
 echo "$RPM src rpm copied to $DESTDIR"
