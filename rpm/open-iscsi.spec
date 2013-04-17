@@ -1,7 +1,7 @@
 #
 # spec file for package open-iscsi
 #
-# Copyright (c) 2011 SUSE LINUX Products GmbH, Nuernberg, Germany.
+# Copyright (c) 2013 SUSE LINUX Products GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -19,14 +19,14 @@
 
 
 Name:           open-iscsi
-BuildRequires:  autoconf bison db-devel openssl-devel flex
+BuildRequires:  autoconf bison db-devel flex openssl-devel
 Url:            http://www.open-iscsi.org
 License:        GPL v2 or later
 Group:          Productivity/Networking/Other
 PreReq:         %fillup_prereq %insserv_prereq
 AutoReqProv:    on
 Version:        2.0.873
-Release:        0.<RELEASE30>
+Release:        0.<RELEASE9>
 Provides:       linux-iscsi
 Obsoletes:      linux-iscsi
 Recommends:     logrotate
@@ -35,6 +35,8 @@ Summary:        Linux* Open-iSCSI Software Initiator
 Source:         %{name}-2.0-%{iscsi_release}.tar.bz2
 Patch1:         %{name}-sles11-sp2-update.diff.bz2
 Patch2:         %{name}-sles11-sp2-latest.diff.bz2
+Patch3:         %{name}-sles11-sp3-iscsiuio-update.diff.bz2
+Patch4:         %{name}-sles11-sp3-flash-update.diff.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -66,6 +68,8 @@ Authors:
 %setup -n %{name}-2.0-%{iscsi_release}
 %patch1 -p1
 %patch2 -p1
+%patch3 -p1
+%patch4 -p1
 
 %build
 %{__make} OPTFLAGS="${RPM_OPT_FLAGS} -DLOCK_DIR=\\\"/etc/iscsi\\\" -DOFFLOAD_BOOT_SUPPORTED" user
@@ -83,6 +87,7 @@ make DESTDIR=${RPM_BUILD_ROOT} install_initd_suse
 [ -d $RPM_BUILD_ROOT/usr/sbin ] || mkdir $RPM_BUILD_ROOT/usr/sbin
 ln -sf ../../etc/init.d/open-iscsi $RPM_BUILD_ROOT/usr/sbin/rcopen-iscsi
 (cd ${RPM_BUILD_ROOT}/etc; ln -sf iscsi/iscsid.conf iscsid.conf)
+touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 
 %clean
 [ "${RPM_BUILD_ROOT}" != "/" -a -d ${RPM_BUILD_ROOT} ] && rm -rf ${RPM_BUILD_ROOT}
@@ -105,6 +110,7 @@ fi
 %defattr(-,root,root)
 %dir /etc/iscsi
 %attr(0600,root,root) %config(noreplace) /etc/iscsi/iscsid.conf
+%ghost /etc/iscsi/initiatorname.iscsi
 %dir /etc/iscsi/ifaces
 %config /etc/iscsi/ifaces/iface.example
 /etc/iscsid.conf
