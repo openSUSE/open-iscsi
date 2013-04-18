@@ -8,8 +8,8 @@ BRANCH="sles11-sp3"
 VERSION="2.0-873"
 BRANCH_TAG="sles11-sp2-update"
 PATCH2_END_TAG="sles11-sp2-update2"
-PATCH3_END_TAG="sles11-sp2-update-iscsiuio"
-PATCH4_END_TAG="sles11-sp2-update-flash"
+PATCH3_END_TAG="sles11-sp3-update-iscsiuio"
+PATCH4_END_TAG="sles11-sp3-update-flash"
 DESTDIR=
 uncommitted_changes=0
 
