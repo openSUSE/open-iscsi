@@ -2957,9 +2957,7 @@ main(int argc, char **argv)
 			usage(0);
 		}
 
-		if ((mode == MODE_IFACE ||
-		     (mode == MODE_HOST && sub_mode == MODE_FLASHNODE)) &&
-		    name && value) {
+		if (name && value) {
 			param = idbm_alloc_user_param(name, value);
 			if (!param) {
 				log_error("Cannot allocate memory for params.");
