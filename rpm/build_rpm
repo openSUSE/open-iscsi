@@ -1,6 +1,11 @@
 #!/bin/bash
 #
-# Build an open-iscsi source rpm 
+# Build an open-iscsi source rpm
+#
+# To Do:
+# - add "verbose" mode
+# - use getopt for option handling
+# - fix OBS/osc interaction
 #
 
 RPM="open-iscsi"
@@ -10,6 +15,9 @@ BRANCH_TAG="sles11-sp2-update"
 PATCH2_END_TAG="sles11-sp2-update2"
 PATCH3_END_TAG="sles11-sp3-update-iscsiuio"
 PATCH4_END_TAG="sles11-sp3-update-flash"
+PATCH5_END_TAG="HEAD"
+NUM_PATCHES=5
+let NEXT_PATCH=$NUM_PATCHES+1
 DESTDIR=
 uncommitted_changes=0
 
@@ -23,52 +31,52 @@ TMPDIR=
 while [ $# -gt 0 ] ; do
     case "$1" in
 	-c|--clean)
-	    remove_destdir=1;
-	    shift;
+	    remove_destdir=1
+	    shift
 	    ;;
         -d)
-            DESTDIR=$2;
-            shift 2;
+            DESTDIR="$2"
+            shift 2
             ;;
-        --destdir)
-            DESTDIR=${$1#*=};
-            shift;
+        --destdir*)
+            DESTDIR="${$1#*=}"
+            shift
             ;;
         -b)
-            BRANCH=$2;
-            shift 2;
+            BRANCH="$2"
+            shift 2
             ;;
-        --branch=)
-            BRANCH=${1##*=};
-            shift;
+        --branch=*)
+            BRANCH="${1##*=}"
+            shift
             ;;
 	-o|--use-osc)
-	    use_osc=1;
-	    shift;
+	    use_osc=1
+	    shift
 	    ;;
         -f|--force)
-            force=1;
-	    update=;
+            force=1
+	    update=
             shift;
             ;;
 	-m|--maintenance)
 	    OBS_PRJ=SUSE:SLE-11-SP2:GA
 	    OSC="osc -A https://api.suse.de"
-	    shift;
+	    shift
 	    ;;
         -u|--update)
-            update=1;
-	    force=;
-            shift;
+            update=1
+	    force=
+            shift
             ;;
         --uncommitted-changes)
             uncommitted_changes=1
-            shift;
+            shift
             ;;
         *)
             echo "Usage: build_rpm [-c|-f|-o|-u] [-d dir|--destdir=DIR] " \
                  "[-b BRANCH|--branch=BRANCH] [--uncommitted-changes]"
-            exit 1;
+            exit 1
             ;;
     esac
 done
@@ -89,7 +97,10 @@ if [ -d "$DESTDIR" ] ; then
             echo "Cannot remove directory $DESTDIR"
             exit 1
         fi
+	mkdir -p "$DESTDIR"
     fi
+elif [ -n "$DESTDIR" ] ; then
+    mkdir -p "$DESTDIR"
 else
     DESTDIR=$(mktemp -d --tmpdir $RPM-XXXXXXXX)
     if [ ! -d "$DESTDIR" ] ; then
@@ -141,8 +152,12 @@ git diff $PATCH2_END_TAG..$PATCH3_END_TAG | \
 git diff $PATCH3_END_TAG..$PATCH4_END_TAG | \
 	bzip2 > $DESTDIR/$RPM-sles11-sp3-flash-update.diff.bz2
 
+# patch5: changes since patch4
+git diff $PATCH4_END_TAG..$PATCH5_END_TAG | \
+	bzip2 > $DESTDIR/$RPM-sles11-sp3-general-updates-1.diff.bz2
+
 # if the user specified this then get all changes not even checked in
-# and patch them into the spec file as "Patch5" (fragile)
+# and patch them into the spec file as "Patch$NEXT_PATCH"
 if (( $uncommitted_changes )) ; then
     echo "WARNING: Including uncommitted changes for testing." >&2
     echo "         Don't submit the package to Autobuild!"     >&2
@@ -150,9 +165,12 @@ if (( $uncommitted_changes )) ; then
     patchname=$RPM-$(date -u +%Y-%M-%d_%T_%Z).diff
     git diff $BRANCH > $DESTDIR/$patchname
 
-    # XXX this assumes the highest existing patch is 4 -- should be cleaned up
-    sed -i "/Patch4:.*$/aPatch5:         $patchname" $DESTDIR/$RPM.spec
-    sed -i "/%patch4 -p1/a%patch5 -p1" $DESTDIR/$RPM.spec
+    sed -i \
+    	"/Patch${NUM_PATCHES}:.*$/aPatch${NEXT_PATCH}:         $patchname" \
+    	$DESTDIR/$RPM.spec
+    sed -i \
+    	"/%patch${NUM_PATCHES} -p1/a%patch${NEXT_PATCH} -p1" \
+    	$DESTDIR/$RPM.spec
 fi
 
 echo "$RPM src rpm copied to $DESTDIR"
