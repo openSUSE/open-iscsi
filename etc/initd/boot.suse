@@ -36,18 +36,23 @@ iscsi_load_iscsiuio()
     if [ "$TRANSPORT" ] ; then
 	echo -n "Launch iscsiuio "
         startproc $ISCSIUIO
+	rc_status -v
     fi
 }
 
 iscsi_mark_root_nodes()
 {
+    echo -n "Marking iSCSI targets needed at boot time: "
+    rc_failed 5
     $ISCSIADM -m session 2> /dev/null | while read t num i target ; do
 	ip=${i%%:*}
 	STARTUP=`$ISCSIADM -m node -p $ip -T $target 2> /dev/null | grep "node.conn\[0\].startup" | cut -d' ' -f3`
 	if [ "$STARTUP" -a "$STARTUP" != "onboot" ] ; then
 	    $ISCSIADM -m node -p $ip -T $target -o update -n node.conn[0].startup -v onboot
+	    rc_failed 0
 	fi
     done
+    rc_status -v
 }
 
 # Reset status of this service
@@ -61,10 +66,12 @@ fi
 
 case "$1" in
     start)
-	echo -n "Starting iSCSI initiator for the root device: "
+	if ! checkproc $DAEMON ; then
+	    echo -n "Starting iSCSI initiator for the root device: "
+	    startproc $DAEMON $ARGS
+	    rc_status -v
+	fi
 	iscsi_load_iscsiuio
-	startproc $DAEMON $ARGS
-	rc_status -v
 	iscsi_mark_root_nodes
 	;;
     stop|restart|reload)

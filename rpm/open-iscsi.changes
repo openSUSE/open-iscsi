@@ -1,8 +1,24 @@
 -------------------------------------------------------------------
-Tue Sep 18 18:31:50 PDT 2012
+Fri May 17 18:34:23 PDT 2013 - lduncan@suse.com
 
-- Fixed bug where initiatorname.iscsi was same on all systems
-- Fixed startup values in iscsid.conf to use rcopen-iscsi start
+- Now handles boot-time non-root iSCSI volumes (bnc#630434)
+
+-------------------------------------------------------------------
+Thu May  9 10:32:17 PDT 2013 - lduncan@suse.com
+
+- Fixed iscsiadm name/value command-line parsing
+  bug caused by previous update (bnc#818517)
+
+-------------------------------------------------------------------
+Fri Apr  5 11:04:21 PDT 2013 - lduncan@suse.com
+
+- Added iscsiadm support for user management of target adapter
+  flash (bnc#810208)
+
+-------------------------------------------------------------------
+Mon Mar 11 15:20:47 PDT 2013 - lduncan@suse.com
+
+- Updated iscsiuio to latest (bnc#769125)
 
 -------------------------------------------------------------------
 Fri Sep  7 10:19:41 PDT 2012 - lduncan@suse.com
@@ -14,6 +30,19 @@ Thu Jun 21 11:12:01 PDT 2012 - lduncan@suse.com
 
 - Updated open-iscsi to version 2.0.873 (bnc#751056)
 - Updated iscsiuio to version 0.7.4.3, to match
+
+-------------------------------------------------------------------
+Mon Feb  6 15:57:43 CET 2012 - hare@suse.de
+
+- Do not install initiatorname.iscsi (bnc#742430)
+- iscsi_offload: Fixup qla4xxx booting (bnc#742570)
+
+-------------------------------------------------------------------
+Fri Feb  3 12:38:57 CET 2012 - hare@suse.de
+
+- Append '.suse' to version string (bnc#713975)
+- iscsiadm dumps core on invalid config file (bnc#742570)
+- Load iscsi_tcp kernel modules unconditionally (bnc#738040)
 
 -------------------------------------------------------------------
 Fri Dec  9 15:09:01 CET 2011 - hare@suse.de
