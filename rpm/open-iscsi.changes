@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu May 23 19:24:20 PDT 2013 - lduncan@suse.com
+
+- Adds support to be able to use isns discovery and
+  bind the portals found to offload ifaces (bnc#820881)
+
+-------------------------------------------------------------------
 Fri May 17 18:34:23 PDT 2013 - lduncan@suse.com
 
 - Now handles boot-time non-root iSCSI volumes (bnc#630434)
