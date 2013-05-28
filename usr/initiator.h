@@ -83,6 +83,7 @@ typedef enum iscsi_event_e {
 	EV_CONN_LOGOUT_TIMER,
 	EV_CONN_STOP,
 	EV_CONN_LOGIN,
+	EV_UIO_POLL,
 } iscsi_event_e;
 
 struct queue_task;
@@ -354,6 +355,9 @@ extern void iscsi_copy_operational_params(struct iscsi_conn *conn,
 extern int iscsi_setup_authentication(struct iscsi_session *session,
 				      struct iscsi_auth_config *auth_cfg);
 extern int iscsi_setup_portal(struct iscsi_conn *conn, char *address, int port);
+extern int iscsi_set_net_config(struct iscsi_transport *t,
+				iscsi_session_t *session,
+				struct iface_rec *iface);
 extern void iscsi_session_init_params(struct iscsi_session *session);
 
 #endif /* INITIATOR_H */

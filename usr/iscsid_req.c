@@ -296,13 +296,18 @@ int uip_broadcast(void *buf, size_t buf_len)
 		return err;
 	}
 
+	log_debug(3, "connected to uIP daemon");
+
 	/*  Send the data to uIP */
-	if ((err = write(fd, buf, buf_len)) != buf_len) {
+	err = write(fd, buf, buf_len);
+	if (err != buf_len) {
 		log_error("got write error (%d/%d), daemon died?",
-			err, errno);
+			  err, errno);
 		close(fd);
-		return -EIO;
+		return ISCSI_ERR_ISCSID_COMM_ERR;
 	}
+
+	log_debug(3, "send iface config to uIP daemon");
 
 	/*  Set the socket to a non-blocking read, this way if there are
 	 *  problems waiting for uIP, iscsid can bailout early */
@@ -310,35 +315,43 @@ int uip_broadcast(void *buf, size_t buf_len)
 	if (flags == -1)
 		flags = 0;
 	err = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-	if(err != 0) {
+	if (err) {
 		log_error("could not set uip broadcast to non-blocking: %d",
 			  errno);
 		close(fd);
-		return -EIO;
+		return ISCSI_ERR;
 	}
 
 #define MAX_UIP_BROADCAST_READ_TRIES 3
-	for(count = 0; count < MAX_UIP_BROADCAST_READ_TRIES; count++) {
+	for (count = 0; count < MAX_UIP_BROADCAST_READ_TRIES; count++) {
 		/*  Wait for the response */
 		err = read(fd, &rsp, sizeof(rsp));
 		if (err == sizeof(rsp)) {
-			log_debug(3, "Broadcasted to uIP with length: %ld\n",
-				  buf_len);
+			log_debug(3, "Broadcasted to uIP with length: %ld "
+				     "cmd: 0x%x rsp: 0x%x\n", buf_len,
+				     rsp.command, rsp.err);
+			err = 0;
 			break;
-		} else if((err == -1) && (errno == EAGAIN)) {
+		} else if ((err == -1) && (errno == EAGAIN)) {
 			usleep(250000);
 			continue;
 		} else {
-			log_error("Could not read response (%d/%d), daemon died?",
-				  err, errno);
+			log_error("Could not read response (%d/%d), daemon "
+				  "died?", err, errno);
+			err = ISCSI_ERR;
 			break;
 		}
 	}
 
-	if(count == MAX_UIP_BROADCAST_READ_TRIES)
-		log_error("Could not broadcast to uIP");
+	if (count == MAX_UIP_BROADCAST_READ_TRIES) {
+		log_error("Could not broadcast to uIP after %d tries",
+			  count);
+		err = ISCSI_ERR_AGAIN;
+	} else if (rsp.err != ISCSID_UIP_MGMT_IPC_DEVICE_UP) {
+		log_debug(3, "Device is not ready\n");
+		err = ISCSI_ERR_AGAIN;
+	}
 
 	close(fd);
-
-	return 0;
+	return err;
 }

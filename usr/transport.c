@@ -45,6 +45,7 @@ struct iscsi_transport_template iscsi_tcp = {
 	.ep_connect	= iscsi_io_tcp_connect,
 	.ep_poll	= iscsi_io_tcp_poll,
 	.ep_disconnect	= iscsi_io_tcp_disconnect,
+	.set_net_config = uip_broadcast_params,
 };
 
 struct iscsi_transport_template iscsi_iser = {
