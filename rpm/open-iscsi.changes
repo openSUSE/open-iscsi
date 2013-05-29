@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Wed May 29 15:25:53 PDT 2013 - lduncan@suse.com
+
+- check return from nice() correctly (bnc#807936)
+
+-------------------------------------------------------------------
 Thu May 23 19:24:20 PDT 2013 - lduncan@suse.com
 
 - Adds support to be able to use isns discovery and

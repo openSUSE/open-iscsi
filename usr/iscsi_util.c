@@ -61,7 +61,7 @@ int oom_adjust(void)
 	struct stat statb;
 
 	errno = 0;
-	if (nice(-10) < 0 && errno)
+	if (nice(-10) == -1 && errno != 0)
 		log_debug(1, "Could not increase process priority: %s",
 			  strerror(errno));
 
