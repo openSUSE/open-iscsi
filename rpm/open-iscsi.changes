@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Tue Jun  4 11:27:55 PDT 2013 - lduncan@suse.com
+
+- Branched from SLES 11 SP3
+
+- Modified for openSUSE by removing iscsiuio references, and
+  by changing service name from open-iscsi to iscsid (bnc#821695)
+
+-------------------------------------------------------------------
 Thu May 23 19:24:20 PDT 2013 - lduncan@suse.com
 
 - Adds support to be able to use isns discovery and

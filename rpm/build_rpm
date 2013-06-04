@@ -9,7 +9,7 @@
 #
 
 RPM="open-iscsi"
-BRANCH="sles11-sp3"
+BRANCH="openSUSE-12.3"
 VERSION="2.0-873"
 BRANCH_TAG="sles11-sp2-update"
 PATCH2_END_TAG="sles11-sp2-update2"
@@ -144,8 +144,9 @@ git diff $VERSION..$BRANCH_TAG | bzip2 > $DESTDIR/$RPM-sles11-sp2-update.diff.bz
 git diff $BRANCH_TAG..$PATCH2_END_TAG | \
 	bzip2 > $DESTDIR/$RPM-sles11-sp2-latest.diff.bz2
 
-# patch3: some iscsiuio changes for SP3
-git diff $PATCH2_END_TAG..$PATCH3_END_TAG | \
+# patch3: some iscsiuio changes for SP3, but only need the
+# non-iscsiuio part (one rev)
+git diff $PATCH2_END_TAG..$PATCH3_END_TAG rpm | \
 	bzip2 > $DESTDIR/$RPM-sles11-sp3-iscsiuio-update.diff.bz2
 
 # patch4: some iscsiuio changes for flash support

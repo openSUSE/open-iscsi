@@ -18,7 +18,6 @@
 CONFIG_FILE=/etc/iscsi/iscsid.conf
 DAEMON=/sbin/iscsid
 ISCSIADM=/sbin/iscsiadm
-ISCSIUIO=/sbin/iscsiuio
 ARGS="-c $CONFIG_FILE -n"
 
 # Source LSB init functions
@@ -407,9 +406,6 @@ case "$1" in
 	    RETVAL=0
 	else
 	    echo -n "Starting iSCSI initiator service: "
-	    if grep -q bnx2i /proc/modules && [ -x $ISCSIUIO ] ; then
-		startproc $ISCSIUIO
-	    fi
 	    startproc $DAEMON $ARGS
 	    RETVAL=$?
 	    rc_status -v
@@ -425,10 +421,6 @@ case "$1" in
 	    if [ -z "$m" ] ; then
 		killproc -KILL $DAEMON
 		RETVAL=$?
-		if grep -q bnx2i /proc/modules && [ -x $ISCSIUIO ]; then
-		    killproc -KILL $ISCSIUIO
-		fi
- 		RETVAL=$?
 	    else
 		RETVAL=1
 	    fi

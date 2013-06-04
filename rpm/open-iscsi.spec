@@ -15,21 +15,21 @@
 # Please submit bugfixes or comments via http://bugs.opensuse.org/
 #
 
-# norootforbuild
-
 
 Name:           open-iscsi
-BuildRequires:  autoconf bison db-devel flex openssl-devel
+BuildRequires:  bison
+BuildRequires:  db-devel
+BuildRequires:  flex
+BuildRequires:  openssl-devel
 Url:            http://www.open-iscsi.org
-License:        GPL v2 or later
+License:        GPL-2.0+
 Group:          Productivity/Networking/Other
 PreReq:         %fillup_prereq %insserv_prereq
 AutoReqProv:    on
 Version:        2.0.873
-Release:        0.<RELEASE9>
+Release:        0
 Provides:       linux-iscsi
 Obsoletes:      linux-iscsi
-Recommends:     logrotate
 %define iscsi_release 873
 Summary:        Linux* Open-iSCSI Software Initiator
 Source:         %{name}-2.0-%{iscsi_release}.tar.bz2
@@ -74,20 +74,19 @@ Authors:
 %patch5 -p1
 
 %build
-%{__make} OPTFLAGS="${RPM_OPT_FLAGS} -DLOCK_DIR=\\\"/etc/iscsi\\\" -DOFFLOAD_BOOT_SUPPORTED" user
-cd iscsiuio
-touch NEWS
-touch AUTHORS
-autoreconf --install
-%configure --sbindir=/sbin
-make CFLAGS="${RPM_OPT_FLAGS}"
+%{__make} OPTFLAGS="${RPM_OPT_FLAGS} -fno-strict-aliasing -DLOCK_DIR=\\\"/etc/iscsi\\\"" user
 
 %install
 make DESTDIR=${RPM_BUILD_ROOT} install_user
 make DESTDIR=${RPM_BUILD_ROOT} install_initd_suse
-(cd iscsiuio; make DESTDIR=${RPM_BUILD_ROOT} install)
+# rename open-iscsi service to iscsid for openSUSE
+mv ${RPM_BUILD_ROOT}/etc/init.d/boot.open-iscsi \
+	${RPM_BUILD_ROOT}/etc/init.d/boot.iscsid-early
+mv ${RPM_BUILD_ROOT}/etc/init.d/open-iscsi \
+	${RPM_BUILD_ROOT}/etc/init.d/iscsid
+# create rc shortcut
 [ -d $RPM_BUILD_ROOT/usr/sbin ] || mkdir $RPM_BUILD_ROOT/usr/sbin
-ln -sf ../../etc/init.d/open-iscsi $RPM_BUILD_ROOT/usr/sbin/rcopen-iscsi
+(cd ${RPM_BUILD_ROOT/etc; ln -sf iscsid $RPM_BUILD_ROOT/usr/sbin/rciscsid)
 (cd ${RPM_BUILD_ROOT}/etc; ln -sf iscsi/iscsid.conf iscsid.conf)
 touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 
@@ -96,7 +95,7 @@ touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 
 %post
 [ -x /sbin/mkinitrd_setup ] && mkinitrd_setup
-%{fillup_and_insserv -Y boot.open-iscsi}
+%{fillup_and_insserv -Y boot.iscsid-early}
 if [ ! -f /etc/iscsi/initiatorname.iscsi ] ; then
     /sbin/iscsi-gen-initiatorname
 fi
@@ -106,7 +105,7 @@ fi
 %{insserv_cleanup}
 
 %preun
-%{stop_on_removal open-iscsi}
+%{stop_on_removal iscsid}
 
 %files
 %defattr(-,root,root)
@@ -116,11 +115,10 @@ fi
 %dir /etc/iscsi/ifaces
 %config /etc/iscsi/ifaces/iface.example
 /etc/iscsid.conf
-%config /etc/init.d/open-iscsi
-%config /etc/init.d/boot.open-iscsi
+%config /etc/init.d/iscsid
+%config /etc/init.d/boot.iscsid-early
 /sbin/*
-/usr/sbin/rcopen-iscsi
-%config /etc/logrotate.d/iscsiuiolog
+/usr/sbin/rciscsid
 %dir /lib/mkinitrd
 %dir /lib/mkinitrd/scripts
 /lib/mkinitrd/scripts/setup-iscsi.sh
