@@ -31,6 +31,7 @@
 
 #include "log.h"
 #include "iscsi_settings.h"
+#include "transport.h"
 #include "iface.h"
 #include "session_info.h"
 #include "iscsi_util.h"
