@@ -38,6 +38,7 @@ Patch2:         %{name}-sles11-sp2-latest.diff.bz2
 Patch3:         %{name}-sles11-sp3-iscsiuio-update.diff.bz2
 Patch4:         %{name}-sles11-sp3-flash-update.diff.bz2
 Patch5:         %{name}-sles11-sp3-general-updates-1.diff.bz2
+Patch6:         %{name}-openSUSE-12.3-first-merge.diff.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -72,6 +73,7 @@ Authors:
 %patch3 -p1
 %patch4 -p1
 %patch5 -p1
+%patch6 -p1
 
 %build
 %{__make} OPTFLAGS="${RPM_OPT_FLAGS} -fno-strict-aliasing -DLOCK_DIR=\\\"/etc/iscsi\\\"" user
