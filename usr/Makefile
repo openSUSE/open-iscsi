@@ -61,7 +61,7 @@ iscsiadm: $(ISCSI_LIB_SRCS) $(DISCOVERY_SRCS) iscsiadm.o session_mgmt.o
 
 iscsistart: $(ISCSI_LIB_SRCS) $(INITIATOR_SRCS) $(FW_BOOT_SRCS) \
 		iscsistart.o statics.o
-	$(CC) $(CFLAGS) -static $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@
 clean:
 	rm -f *.o $(PROGRAMS) .depend $(LIBSYS)
 
