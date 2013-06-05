@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Wed Jun  5 15:53:34 PDT 2013 - lduncan@suse.com
+
+- check return from nice() correctly (bnc#807936)
+
+-------------------------------------------------------------------
 Tue Jun  4 11:27:55 PDT 2013 - lduncan@suse.com
 
 - Branched from SLES 11 SP3
