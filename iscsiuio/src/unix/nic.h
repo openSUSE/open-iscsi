@@ -249,6 +249,8 @@ typedef struct nic {
 
 	uint32_t intr_count;	/* Total UIO interrupt count            */
 
+	int page_size;
+
 	/* Held for nic ops manipulation */
 	pthread_mutex_t nic_mutex;
 
