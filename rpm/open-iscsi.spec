@@ -25,7 +25,6 @@ Url:            http://www.open-iscsi.org
 License:        GPL-2.0+
 Group:          Productivity/Networking/Other
 PreReq:         %fillup_prereq %insserv_prereq
-AutoReqProv:    on
 Version:        2.0.873
 Release:        0
 Provides:       linux-iscsi
