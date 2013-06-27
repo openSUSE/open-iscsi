@@ -53,11 +53,12 @@ iscsi_load_transport_modules()
 
     for iface in /etc/iscsi/ifaces/*; do
 	[ -f "$iface" ] || continue
-	[ "$iface" = "iface.example" ] && continue
+	[ "$iface" = "/etc/iscsi/ifaces/iface.example" ] && continue
 	# Check if the iface has been configured
-	result=$(sed '/#.*/D;/iface.iscsi_ifacename/D;/iface.hwaddress/D;/iface.transport_name/D' $iface)
+	result=$(sed '/#.*/D;/^$/D;/iface.iscsi_ifacename/D;/iface.hwaddress/D;/iface.transport_name/D' $iface)
 	if [ "$result" ] ; then
-	    mod=$(sed -n 's/iface.transport_name *= *\(.*\)/\1/p' $iface)
+	    mod=$(sed -n 's/^iface.transport_name *= *\(.*\)/\1/p' $iface)
+            [ "$mod" = "iscsi_tcp" -o "$mod" = "tcp" ] && continue
 	    loaded=$(sed -n "/^$mod/p" /proc/modules)
 	    if [ -z "$loaded" ] ; then
 		modprobe $mod
