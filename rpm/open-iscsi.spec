@@ -87,7 +87,7 @@ mv ${RPM_BUILD_ROOT}/etc/init.d/open-iscsi \
 	${RPM_BUILD_ROOT}/etc/init.d/iscsid
 # create rc shortcut
 [ -d ${RPM_BUILD_ROOT}/usr/sbin ] || mkdir -p ${RPM_BUILD_ROOT}/usr/sbin
-(cd ${RPM_BUILD_ROOT}; ln -sf etc/init.d/iscsid usr/sbin/rciscsid)
+ln -sf ../../etc/init.d/iscsid ${RPM_BUILD_ROOT}/usr/sbin/rciscsid
 (cd ${RPM_BUILD_ROOT}/etc; ln -sf iscsi/iscsid.conf iscsid.conf)
 touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 
