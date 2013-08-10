@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Fri Aug  9 17:31:28 PDT 2013 - lduncan@suse.com
+
+- update mkinitrd open-iscsi setup script to handle both
+  root and non-root iSCSI volumes, including iBFT (bnc#834256)
+
+-------------------------------------------------------------------
 Thu Jun  6 13:56:05 UTC 2013 - mmarek@suse.cz
 
 - Revert mkinitrd change (bnc#823363).
