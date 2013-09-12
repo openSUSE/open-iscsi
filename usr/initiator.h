@@ -353,5 +353,6 @@ extern void iscsi_copy_operational_params(struct iscsi_conn *conn,
 extern int iscsi_setup_authentication(struct iscsi_session *session,
 				      struct iscsi_auth_config *auth_cfg);
 extern int iscsi_setup_portal(struct iscsi_conn *conn, char *address, int port);
+extern void iscsi_session_init_params(struct iscsi_session *session);
 
 #endif /* INITIATOR_H */
