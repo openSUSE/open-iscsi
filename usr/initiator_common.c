@@ -324,7 +324,7 @@ int iscsi_host_set_params(struct iscsi_session *session)
 	return 0;
 }
 
-#define MAX_SESSION_PARAMS 32
+#define MAX_SESSION_PARAMS 35
 
 int iscsi_session_set_params(struct iscsi_conn *conn)
 {
@@ -495,6 +495,18 @@ int iscsi_session_set_params(struct iscsi_conn *conn)
 		}, {
 			.param = ISCSI_PARAM_INITIATOR_NAME,
 			.value = session->initiator_name,
+			.type = ISCSI_STRING,
+		}, {
+			.param = ISCSI_PARAM_BOOT_ROOT,
+			.value = session->nrec.session.boot_root,
+			.type = ISCSI_STRING,
+		}, {
+			.param = ISCSI_PARAM_BOOT_NIC,
+			.value = session->nrec.session.boot_nic,
+			.type = ISCSI_STRING,
+		}, {
+			.param = ISCSI_PARAM_BOOT_TARGET,
+			.value = session->nrec.session.boot_target,
 			.type = ISCSI_STRING,
 		},
 	};
