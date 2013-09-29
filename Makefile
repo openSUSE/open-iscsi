@@ -13,6 +13,7 @@ bindir = $(exec_prefix)/bin
 mandir = $(prefix)/share/man
 etcdir = /etc
 initddir = $(etcdir)/init.d
+systemddir = $(prefix)/lib/systemd/system
 
 MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8 iscsiuio/docs/iscsiuio.8
 PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi_discovery utils/iscsi-iname iscsiuio/src/unix/iscsiuio
@@ -105,11 +106,13 @@ install_initd:
 
 # these are external targets to allow bypassing distribution detection
 install_initd_suse:
-	$(INSTALL) -d $(DESTDIR)$(initddir)
-	$(INSTALL) -m 755 etc/initd/initd.suse \
-		$(DESTDIR)$(initddir)/open-iscsi
-	$(INSTALL) -m 755 etc/initd/boot.suse \
-		$(DESTDIR)$(initddir)/boot.open-iscsi
+	$(INSTALL) -d $(DESTDIR)$(systemddir)
+	$(INSTALL) -m 644 etc/systemd/iscsid.service \
+		$(DESTDIR)$(systemddir)
+	$(INSTALL) -m 644 etc/systemd/iscsid.socket \
+		$(DESTDIR)$(systemddir)
+	$(INSTALL) -m 644 etc/systemd/iscsi.service \
+		$(DESTDIR)$(systemddir)
 
 install_initd_redhat:
 	$(INSTALL) -d $(DESTDIR)$(initddir)
