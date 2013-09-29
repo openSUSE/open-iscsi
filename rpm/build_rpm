@@ -9,14 +9,15 @@
 #
 
 RPM="open-iscsi"
-BRANCH="openSUSE-12.3"
+BRANCH="openSUSE-Factory"
 VERSION="2.0-873"
 BRANCH_TAG="sles11-sp2-update"
 PATCH2_END_TAG="sles11-sp2-update2"
 PATCH3_END_TAG="sles11-sp3-update-iscsiuio"
 PATCH4_END_TAG="sles11-sp3-update-flash"
 PATCH5_END_TAG="openSUSE-12.3-branch"
-PATCH6_END_TAG="HEAD"
+PATCH6_END_TAG="openSUSE-12.3-update"
+PATCH7_END_TAG="HEAD"
 NUM_PATCHES=6
 let NEXT_PATCH=$NUM_PATCHES+1
 DESTDIR=
@@ -154,13 +155,17 @@ git diff $PATCH2_END_TAG..$PATCH3_END_TAG rpm | \
 git diff $PATCH3_END_TAG..$PATCH4_END_TAG | \
 	bzip2 > $DESTDIR/$RPM-sles11-sp3-flash-update.diff.bz2
 
-# patch5: changes since patch4
+# patch5: changes since patch4 -- to openSUSE 12.3
 git diff $PATCH4_END_TAG..$PATCH5_END_TAG | \
 	bzip2 > $DESTDIR/$RPM-sles11-sp3-general-updates-1.diff.bz2
 
-# patch6: changes since branching SP3 to openSUSE 12.3
+# patch6: changes since branching openSUSE 12.3 to Factory
 git diff $PATCH5_END_TAG..$PATCH6_END_TAG | \
 	bzip2 > $DESTDIR/$RPM-openSUSE-12.3-first-merge.diff.bz2
+
+# patch7: changes since branching openSUSE Factory to now
+git diff $PATCH6_END_TAG..$PATCH7_END_TAG | \
+	bzip2 > $DESTDIR/$RPM-openSUSE-Factory-first-merge.diff.bz2
 
 # if the user specified this then get all changes not even checked in
 # and patch them into the spec file as "Patch$NEXT_PATCH"

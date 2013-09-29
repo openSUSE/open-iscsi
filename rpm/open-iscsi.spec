@@ -21,12 +21,16 @@ BuildRequires:  bison
 BuildRequires:  db-devel
 BuildRequires:  flex
 BuildRequires:  openssl-devel
+%if 0%{?suse_version} >= 1230
+BuildRequires:  systemd
+%endif
 Url:            http://www.open-iscsi.org
 License:        GPL-2.0+
 Group:          Productivity/Networking/Other
 PreReq:         %fillup_prereq %insserv_prereq
 Version:        2.0.873
 Release:        0
+%{?systemd_requires}
 Provides:       linux-iscsi
 Obsoletes:      linux-iscsi
 %define iscsi_release 873
@@ -38,6 +42,7 @@ Patch3:         %{name}-sles11-sp3-iscsiuio-update.diff.bz2
 Patch4:         %{name}-sles11-sp3-flash-update.diff.bz2
 Patch5:         %{name}-sles11-sp3-general-updates-1.diff.bz2
 Patch6:         %{name}-openSUSE-12.3-first-merge.diff.bz2
+Patch7:         %{name}-openSUSE-Factory-first-merge.diff.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -73,12 +78,18 @@ Authors:
 %patch4 -p1
 %patch5 -p1
 %patch6 -p1
+%patch7 -p1
 
 %build
 %{__make} OPTFLAGS="${RPM_OPT_FLAGS} -fno-strict-aliasing -DLOCK_DIR=\\\"/etc/iscsi\\\"" user
 
 %install
 make DESTDIR=${RPM_BUILD_ROOT} install_user
+make DESTDIR=${RPM_BUILD_ROOT} install_mkinitrd_suse
+# install service files
+%if 0%{?suse_version} >= 1230
+make DESTDIR=${RPM_BUILD_ROOT} install_service_suse
+%else
 make DESTDIR=${RPM_BUILD_ROOT} install_initd_suse
 # rename open-iscsi service to iscsid for openSUSE
 mv ${RPM_BUILD_ROOT}/etc/init.d/boot.open-iscsi \
@@ -88,6 +99,7 @@ mv ${RPM_BUILD_ROOT}/etc/init.d/open-iscsi \
 # create rc shortcut
 [ -d ${RPM_BUILD_ROOT}/usr/sbin ] || mkdir -p ${RPM_BUILD_ROOT}/usr/sbin
 ln -sf ../../etc/init.d/iscsid ${RPM_BUILD_ROOT}/usr/sbin/rciscsid
+%endif
 (cd ${RPM_BUILD_ROOT}/etc; ln -sf iscsi/iscsid.conf iscsid.conf)
 touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 
@@ -96,17 +108,33 @@ touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 
 %post
 [ -x /sbin/mkinitrd_setup ] && mkinitrd_setup
-%{fillup_and_insserv -Y boot.iscsid-early}
 if [ ! -f /etc/iscsi/initiatorname.iscsi ] ; then
     /sbin/iscsi-gen-initiatorname
 fi
+%if 0%{?suse_version} >= 1230
+%{service_add_post iscsid.socket iscsid.service iscsi.service}
+%else
+%{fillup_and_insserv -Y boot.iscsid-early}
+%endif
 
 %postun
 [ -x /sbin/mkinitrd_setup ] && mkinitrd_setup
+%if 0%{?suse_version} >= 1230
+%{service_del_postun iscsid.socket iscsid.service iscsi.service}
+%else
 %{insserv_cleanup}
+%endif
+
+%pre
+%if 0%{?suse_version} >= 1230
+%{service_add_pre iscsid.socket iscsid.service iscsi.service}
+%endif
 
 %preun
 %{stop_on_removal iscsid}
+%if 0%{?suse_version} >= 1230
+%{service_del_preun iscsid.socket iscsid.service iscsi.service}
+%endif
 
 %files
 %defattr(-,root,root)
@@ -116,10 +144,16 @@ fi
 %dir /etc/iscsi/ifaces
 %config /etc/iscsi/ifaces/iface.example
 /etc/iscsid.conf
+%if 0%{?suse_version} >= 1230
+%config %{_unitdir}/iscsid.service
+%{_unitdir}/iscsid.socket
+%config %{_unitdir}/iscsi.service
+%else
 %config /etc/init.d/iscsid
 %config /etc/init.d/boot.iscsid-early
-/sbin/*
 /usr/sbin/rciscsid
+%endif
+/sbin/*
 %dir /lib/mkinitrd
 %dir /lib/mkinitrd/scripts
 /lib/mkinitrd/scripts/setup-iscsi.sh

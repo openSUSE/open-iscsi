@@ -14,6 +14,7 @@ mandir = $(prefix)/share/man
 etcdir = /etc
 initddir = $(etcdir)/init.d
 mkinitrd = $(exec_prefix)/lib/mkinitrd/scripts
+systemddir = /usr/lib/systemd/system
 
 MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8
 PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi_discovery utils/iscsi-iname
@@ -93,6 +94,7 @@ install_initd:
 		$(MAKE) install_initd_redhat ; \
 	elif [ -f /etc/SuSE-release ]; then \
 		$(MAKE) install_initd_suse ; \
+		$(MAKE) install_mkinitrd_suse ; \
 	fi
 
 # these are external targets to allow bypassing distribution detection
@@ -102,6 +104,8 @@ install_initd_suse:
 		$(DESTDIR)$(initddir)/open-iscsi
 	$(INSTALL) -m 755 etc/initd/boot.suse \
 		$(DESTDIR)$(initddir)/boot.open-iscsi
+
+install_mkinitrd_suse:
 	$(INSTALL) -d $(DESTDIR)$(mkinitrd)
 	$(INSTALL) -m 755 etc/mkinitrd/mkinitrd-boot.sh \
 		$(DESTDIR)$(mkinitrd)/boot-iscsi.sh
@@ -119,6 +123,16 @@ install_initd_debian:
 	$(INSTALL) -d $(DESTDIR)$(initddir)
 	$(INSTALL) -m 755 etc/initd/initd.debian \
 		$(DESTDIR)$(initddir)/open-iscsi
+
+# install systemd service files for openSUSE
+install_service_suse:
+	$(INSTALL) -d $(DESTDIR)$(systemddir)
+	$(INSTALL) -m 644 etc/systemd/iscsid.service \
+		$(DESTDIR)$(systemddir)
+	$(INSTALL) -m 644 etc/systemd/iscsid.socket \
+		$(DESTDIR)$(systemddir)
+	$(INSTALL) -m 644 etc/systemd/iscsi.service \
+		$(DESTDIR)$(systemddir)
 
 install_iface: $(IFACEFILES)
 	$(INSTALL) -d $(DESTDIR)$(etcdir)/iscsi/ifaces
