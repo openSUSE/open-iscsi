@@ -4,6 +4,57 @@ Fri Sep 27 14:23:10 PDT 2013 - lduncan@suse.com
 - add support for systemd integration (bnc#827654)
 
 -------------------------------------------------------------------
+Wed Jul  3 15:01:50 UTC 2013 - meissner@suse.com
+
+- moved the open-iscsi branch to the SLES 11 SP3 codebase.
+
+  Update coalesces and drops patches:
+  iscsi-gen-initiatorname.sh
+  open-iscsi-2.0-870-rc1-static.patch
+  open-iscsi-2.0-870-rc1.tar.bz2
+  open-iscsi-add-error-msg-to-log.c
+  open-iscsi-add-mkinitrd-scriptlets
+  open-iscsi-add-rhel5-compat
+  open-iscsi-add-sles10-compat
+  open-iscsi-allow-onboot-for-loginall
+  open-iscsi-beta5-kernel-patch-update
+  open-iscsi.changes
+  open-iscsi-cxgb3i-support
+  open-iscsi-error-check-in-db-lock-creation
+  open-iscsi-fix-sysfs-get-value-null.patch
+  open-iscsi-fixup-onboot-for-loginall
+  open-iscsi-fw-crash-on-ppc
+  open-iscsi-fwparam_ppc-string-overflow
+  open-iscsi-header.patch
+  open-iscsi-initiator-compile-warning
+  open-iscsi-install-mkinitrd-scriptlets
+  open-iscsi-iscsid-adjust-settings
+  open-iscsi-iscsi_discovery-doc-fixes
+  open-iscsi-load-ibft-before-reading-sys-firmware
+  open-iscsi-login-retry-update
+  open-iscsi-no-pid-file
+  open-iscsi-option-no-pid-file
+  open-iscsi-remove-dump-char
+  open-iscsi-remove-trailing-tilde
+  open-iscsi-rm-unused-variable
+  open-iscsi-set-LOCK_DIR-during-compilation
+  open-iscsi.spec
+  open-iscsi-start-target-before-initiator
+  open-iscsi-support-non-root-boot-volume.patch
+  open-iscsi-suse-build-fixes
+  open-iscsi-sync-modules-with-2.6.27
+  open-iscsi-update-init-script
+  open-iscsi-update-suse-init-scripts
+
+- New patches:
+  open-iscsi-openSUSE-12.3-first-merge.diff.bz2
+  open-iscsi-sles11-sp2-latest.diff.bz2
+  open-iscsi-sles11-sp2-update.diff.bz2
+  open-iscsi-sles11-sp3-flash-update.diff.bz2
+  open-iscsi-sles11-sp3-general-updates-1.diff.bz2
+  open-iscsi-sles11-sp3-iscsiuio-update.diff.bz2
+
+-------------------------------------------------------------------
 Wed Jun  5 15:53:34 PDT 2013 - lduncan@suse.com
 
 - check return from nice() correctly (bnc#807936)
@@ -38,6 +89,14 @@ Fri Apr  5 11:04:21 PDT 2013 - lduncan@suse.com
 
 - Added iscsiadm support for user management of target adapter
   flash (bnc#810208)
+
+-------------------------------------------------------------------
+Thu Mar 14 13:19:32 PDT 2013 - lduncan@suse.com
+
+- Add open-iscsi-support-non-root-boot-volume.patch: handle non-
+  root boot-time iscsi volumes (bnc#630434)
+- Add open-iscsi-fix-sysfs-get-value-null.patch: accept "(null)"
+  password as meaning no password, when using sysfs (bnc#766300)
 
 -------------------------------------------------------------------
 Mon Mar 11 15:20:47 PDT 2013 - lduncan@suse.com
@@ -110,6 +169,11 @@ Fri Nov  4 09:15:52 CET 2011 - hare@suse.de
 - Stop iscsiuio when run inside initrd (bnc#728095)
 
 -------------------------------------------------------------------
+Thu Oct 27 09:25:02 UTC 2011 - aj@suse.de
+
+- Rename init scripts (bnc#661401).
+
+-------------------------------------------------------------------
 Mon Oct 24 09:13:19 CEST 2011 - hare@suse.de
 
 - Update iscsiuio to 0.7.0.14f (bnc#687392)
@@ -169,6 +233,11 @@ Tue Jun 21 15:09:46 CEST 2011 - hare@suse.de
 - Update brcm_iscsi_uio to version 0.7.0.4 (FATE#312028)
 - Rediff patches to apply to upstream codebase
 - Include scripts for automated build
+
+-------------------------------------------------------------------
+Mon Jun  6 09:20:29 UTC 2011 - aj@suse.de
+
+- Fix build with newer glibc.
 
 -------------------------------------------------------------------
 Wed Feb  2 11:32:12 CET 2011 - mweckbecker@suse.de
@@ -294,6 +363,11 @@ Wed Nov 18 10:33:27 CET 2009 - hare@suse.de
 - Read initiatorname correctly from sysfs (bnc#541882)
 
 -------------------------------------------------------------------
+Tue Nov  3 19:09:35 UTC 2009 - coolo@novell.com
+
+- updated patches to apply with fuzz=0
+
+-------------------------------------------------------------------
 Wed Aug 19 12:58:13 CEST 2009 - hare@suse.de
 
 - Synchronize startup settings (bnc#514273)
@@ -301,9 +375,22 @@ Wed Aug 19 12:58:13 CEST 2009 - hare@suse.de
 - Do not use temp file in iscsi_discovery (bnc#528711)
 
 -------------------------------------------------------------------
+Sun Jun 21 14:36:45 CEST 2009 - crrodriguez@suse.de
+
+- build with fno-strict-aliasing
+- do not use static libc, this does not work in reality, use
+  of getaddrinfo(3) requires shared libraries at runtime 
+
+-------------------------------------------------------------------
 Tue Feb 10 10:56:19 CET 2009 - hare@suse.de
 
 - search_ibft() might crash when no iBFT is found (bnc#471475)
+
+-------------------------------------------------------------------
+Mon Jan 26 11:51:54 CET 2009 - ro@suse.de
+
+- change fillup call from "-Y" to "-y" the boot script has
+  been present in this package for long enough (SLES10-GA)
 
 -------------------------------------------------------------------
 Thu Jan 22 13:41:40 CET 2009 - hare@suse.de
