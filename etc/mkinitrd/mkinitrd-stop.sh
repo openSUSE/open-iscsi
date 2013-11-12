@@ -2,6 +2,8 @@
 #
 #%stage: setup
 #%provides: killprogs
+#%programs: kill
+#%programs: pidof
 #
 #%if: "$root_iscsi"
 #%dontshow
@@ -19,6 +21,4 @@
 # kill iscsid, will be restarted from the real root
 iscsi_pid=$(pidof iscsid)
 [ "$iscsi_pid" ] && kill -TERM $iscsi_pid
-# Same goes for iscsiuio
-iscsiuio_pid=$(pidof iscsiuio)
 [ "$iscsiuio_pid" ] && kill -TERM $iscsiuio_pid

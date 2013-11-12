@@ -1,7 +1,15 @@
 -------------------------------------------------------------------
+Fri Oct  4 16:07:47 CEST 2013 - ohering@suse.de
+
+- Remove usage of iscsiuio from mkinitrd scripts
+- Add programs tags to mkinitrd scripts
+  open-iscsi-2.0-873.patch
+
+-------------------------------------------------------------------
 Fri Sep 27 14:23:10 PDT 2013 - lduncan@suse.com
 
 - add support for systemd integration (bnc#827654)
+  open-iscsi-openSUSE-Factory-first-merge.diff.bz2
 
 -------------------------------------------------------------------
 Wed Jul  3 15:01:50 UTC 2013 - meissner@suse.com

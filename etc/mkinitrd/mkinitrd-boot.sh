@@ -1,7 +1,10 @@
 #!/bin/bash
 #%stage: device
 #%depends: network
-#%programs: /sbin/iscsid /sbin/iscsiadm /sbin/iscsiuio
+#%programs: mkdir
+#%programs: rm
+#%programs: /sbin/iscsid
+#%programs: /sbin/iscsiadm
 #%modules: iscsi_tcp crc32c scsi_transport_iscsi iscsi_ibft bnx2i
 #%if: "$root_iscsi" -o "$TargetAddress"
 #
@@ -87,7 +90,6 @@ echo "InitiatorName=$InitiatorName" > /etc/iscsi/initiatorname.iscsi
 unset iSCSI_warning_InitiatorName
 
 echo "Starting iSCSI daemon"
-/sbin/iscsiuio
 /sbin/iscsid -n
 
 if [ -d /sys/firmware/ibft/initiator ] ; then
