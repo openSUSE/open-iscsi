@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Thu Nov 14 22:59:40 UTC 2013 - crrodriguez@opensuse.org
+
+- install the iscsistart utility which is required by dracut
+
+-------------------------------------------------------------------
 Fri Oct  4 16:07:47 CEST 2013 - ohering@suse.de
 
 - Remove usage of iscsiuio from mkinitrd scripts
