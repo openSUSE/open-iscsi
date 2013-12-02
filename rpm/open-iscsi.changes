@@ -1,4 +1,24 @@
 -------------------------------------------------------------------
+Mon Dec  2 14:46:25 PST 2013 - lduncan@suse.com
+
+- Dropped this patch from OBS; moved to github repostiory:
+  open-iscsi-2.0-873.patch
+
+  The following patches updated to use new linux git
+  requirements for longer hash values in patches, but not
+  functionally changed:
+  open-iscsi-openSUSE-12.3-first-merge.diff.bz2
+  open-iscsi-sles11-sp2-latest.diff.bz2
+  open-iscsi-sles11-sp2-update.diff.bz2
+  open-iscsi-sles11-sp3-flash-update.diff.bz2
+  open-iscsi-sles11-sp3-general-updates-1.diff.bz2
+  open-iscsi-sles11-sp3-iscsiuio-update.diff.bz2
+
+  This patch was also changed to absorb changes from
+  open-iscsi-2.0-873.patch:
+  open-iscsi-openSUSE-Factory-first-merge.diff.bz2
+
+-------------------------------------------------------------------
 Thu Nov 14 22:59:40 UTC 2013 - crrodriguez@opensuse.org
 
 - install the iscsistart utility which is required by dracut
