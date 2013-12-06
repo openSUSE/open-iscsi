@@ -96,7 +96,7 @@ touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 
 %post
 [ -x /sbin/mkinitrd_setup ] && mkinitrd_setup
-%{fillup_and_insserv -Y boot.iscsid-early}
+%{fillup_and_insserv -y boot.iscsid-early}
 if [ ! -f /etc/iscsi/initiatorname.iscsi ] ; then
     /sbin/iscsi-gen-initiatorname
 fi
