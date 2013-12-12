@@ -48,6 +48,7 @@ function check_iscsi()
 }
 
 
+# perform sanity checks on an iSCSI device (given a sysfs path)
 check_for_node_onboot()
 {
     local ip="$1" startup target
@@ -86,7 +87,7 @@ check_for_node_onboot()
     if [[ "${startup}" != "onboot" ]] ; then
 	[[ -z "${startup}" ]] && return		# No parameter - either iBFT or not iSCSI: return
 
-	## Note: could set "onboot" ourselves here, but that seems heavy-handed
+	## Note: not sure this warning is useful any longer, but leave in for now
 	echo >&2 "Warning: iSCSI device ${devname} is using 'node.conn[0].startup = ${startup}'"
 	echo >&2 "         System may not be bootable with this setting,"
 	echo >&2 "         need to be set to 'onboot' instead, using:"
@@ -106,20 +107,9 @@ for bd in $blockdev ; do
     check_iscsi $bd && root_iscsi=1
 done
 
-# Are any of the defined file partitions to be mounted at system boot
-# attached to iSCSI devices? In case they are, ensure:
-# (1) the iSCSI gets included in "initrd", and
-# (2) the iSCSI sessions have been configured with
-#     "node.conn[0].startup = onboot".
-if [[ -z "${root_iscsi}" ]] ; then
-    for bd in $(awk '/^[[:space:]]*(\/dev\/|(LABEL|UUID)=)/ { print $1 }' /etc/fstab) ; do
-	bd="${bd/LABEL=//dev/disk/by-label/}"
-	bd="${bd/UUID=//dev/disk/by-uuid/}"
-	update_blockdev $bd
-	check_iscsi $bd && root_iscsi=1
-    done
-fi
-
+# No need to check for non-root volumes listed in fstab here, since
+# we will assume that the user has set "onboot" for any volumes
+# they wish mounted at this time
 
 # Include the iSCSI stack, when at least one active iSCSI session has
 # been configured with "node.conn[0].startup = onboot", even if it was
