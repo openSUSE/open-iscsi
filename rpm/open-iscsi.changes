@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Dec 11 17:40:51 PST 2013 - lduncan@suse.com
+
+- Fixed mkinitrd setup to not scan /etc/fstab
+ (bnc#826700), changing:
+  open-iscsi-openSUSE-Factory-first-merge.diff.bz2
+
+-------------------------------------------------------------------
 Mon Dec  2 14:46:25 PST 2013 - lduncan@suse.com
 
 - Dropped this patch from OBS; moved to github repostiory:
