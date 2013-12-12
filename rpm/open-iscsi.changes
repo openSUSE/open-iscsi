@@ -1,3 +1,10 @@
+------------------------------------------------------------------ 
+Wed Dec 11 17:44:57 PST 2013 - lduncan@suse.com
+
+- updated mkinitrd setup script to not scan fstab (bnc#826700),
+  changing file:
+  open-iscsi-openSUSE-12.3-first-merge.diff.bz2
+
 -------------------------------------------------------------------
 Wed Jul  3 15:01:50 UTC 2013 - meissner@suse.com
 
