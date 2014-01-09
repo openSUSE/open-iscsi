@@ -1,4 +1,34 @@
 -------------------------------------------------------------------
+Thu Jan  9 10:11:32 PST 2014 - lduncan@suse.com
+
+- Added open-iscsi-openSUSE-Factory-qla4xxx-patches.diff.bz2, with
+  the following changes from QLogic (bnc#855859):
+  iscsiadm.8: Updated man page for host statistics.
+  README: Updated for host statistics.
+  iscsi_tool: Add offload host statistics support.
+  iscsiadm: Added document for description of iface attributes
+  iscsi tools: Show iface params based on iface type
+  iscsi tools: Let default type of iface be ipv4
+  iscsi tools: iface params should be updated for node_rec as well.
+  iscsi tools: Additional parameters for network settings
+  iscsi tools: Ignore network parameter if not enabled/disabled
+  iscsi tools: Use single function to set integer network parameters
+  iscsi tools: Use single function to enable/disable network parameters
+  iscsi tools: Use macro to set IPv4/IPv6 IP addresses
+  iscsi_if.h: Additional parameters for network param settings
+  iscsi_if.h: Remove numbers used for network parameter settings
+  iscsi tools: Setup iface conf file with all iface attrs exported in sysfs
+  README changes for adding support to set CHAP entry
+  iscsi tools: Correctly get username_in and password_in flashnode params
+  iscsiadm: Add support to set CHAP entry using host chap mode
+  README changes to use long option --index instead of --flashnode_idx
+  iscsiadm: Man page changes to use -x option for chap_tbl_idx
+  iscsiadm: Use '-x' option instead of '-v' to specify chap_tbl_idx
+  flashnode: Add support to set ISCSI_FLASHNODE_CHAP_OUT_IDX param
+  iscsi tools: Print additional session info for flashnode session
+  iscsiadm: Correctly check for invalid hostno and flashnode index
+
+-------------------------------------------------------------------
 Wed Dec 11 17:40:51 PST 2013 - lduncan@suse.com
 
 - Fixed mkinitrd setup to not scan /etc/fstab

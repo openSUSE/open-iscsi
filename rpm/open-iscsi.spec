@@ -43,6 +43,7 @@ Patch4:         %{name}-sles11-sp3-flash-update.diff.bz2
 Patch5:         %{name}-sles11-sp3-general-updates-1.diff.bz2
 Patch6:         %{name}-openSUSE-12.3-first-merge.diff.bz2
 Patch7:         %{name}-openSUSE-Factory-first-merge.diff.bz2
+Patch8:         %{name}-openSUSE-Factory-qla4xxx-patches.diff.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -79,6 +80,7 @@ Authors:
 %patch5 -p1
 %patch6 -p1
 %patch7 -p1
+%patch8 -p1
 
 %build
 %{__make} OPTFLAGS="${RPM_OPT_FLAGS} -fno-strict-aliasing -DLOCK_DIR=\\\"/etc/iscsi\\\"" user

@@ -17,8 +17,9 @@ PATCH3_END_TAG="sles11-sp3-update-iscsiuio"
 PATCH4_END_TAG="sles11-sp3-update-flash"
 PATCH5_END_TAG="openSUSE-12.3-branch"
 PATCH6_END_TAG="openSUSE-12.3-update"
-PATCH7_END_TAG="HEAD"
-NUM_PATCHES=6
+PATCH7_END_TAG="openSUSE-Factory-update-1"
+PATCH8_END_TAG="HEAD"
+NUM_PATCHES=u
 let NEXT_PATCH=$NUM_PATCHES+1
 DESTDIR=
 uncommitted_changes=0
@@ -166,6 +167,10 @@ git diff $PATCH5_END_TAG..$PATCH6_END_TAG | \
 # patch7: changes since branching openSUSE Factory to now
 git diff $PATCH6_END_TAG..$PATCH7_END_TAG | \
 	bzip2 > $DESTDIR/$RPM-openSUSE-Factory-first-merge.diff.bz2
+
+# patch8: changes since branching openSUSE Factory to now
+git diff $PATCH7_END_TAG..$PATCH8_END_TAG | \
+	bzip2 > $DESTDIR/$RPM-openSUSE-Factory-qla4xxx-patches.diff.bz2
 
 # if the user specified this then get all changes not even checked in
 # and patch them into the spec file as "Patch$NEXT_PATCH"
