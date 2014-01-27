@@ -4,6 +4,7 @@ sbindir	= @sbindir@
 mandir	= @mandir@
 etcdir	= /etc
 vardir	= /var/lib/isns
+datarootdir = @datarootdir@
 
 SBINDIR	= $(INSTALL_ROOT)$(sbindir)
 ETCDIR	= $(INSTALL_ROOT)$(etcdir)
@@ -16,6 +17,13 @@ CPPFLAGS= @CPPFLAGS@
 CFLAGS	= @CFLAGS@ -I.
 LDFLAGS	= @LDFLAGS@
 
+ISNSD	= isnsd
+ISNSDOBJS = isnsd.o
+ISNSDD	= isnsdd
+ISNSDDOBJS = isnsdd.o local.o
+ISNSADM	= isnsadm
+ISNSADMOBJS	= isnsadm.o
+SRV	= $(ISNSD) $(ISNSDD) $(ISNSADM)
 LIB	= libisns.a
 LIBOBJS	= server.o \
 	  client.o \
@@ -58,6 +66,7 @@ LIBOBJS	= server.o \
 	  sysdep-unix.o \
 	  util.o \
 	  bitvector.o \
+	  pki.o \
 	  mdebug.o
 SECLINK	= @SECLIBS@
 SLPLINK	= @SLPLIBS@
@@ -65,8 +74,10 @@ SLPLIN	= @SLPLIBS@
 
 all: $(LIB)
 
+programs: $(SRV) $(LIB)
+
 clean distclean::
-	rm -f *.o $(LIB) *~
+	rm -f *.o $(LIB) $(SRV) *~
 
 distclean::
 	rm -f config.h Makefile config.status config.log
@@ -74,6 +85,15 @@ distclean::
 
 $(LIB): $(LIBOBJS)
 	ar cr $@ $(LIBOBJS)
+
+$(ISNSD): $(ISNSDOBJS) $(LIB)
+	gcc $(CFLAGS) -o $@ $(ISNSDOBJS) $(LIB) $(SECLINK) $(SLPLINK)
+
+$(ISNSDD): $(ISNSDDOBJS) $(LIB)
+	gcc $(CFLAGS) -o $@ $(ISNSDDOBJS) $(LIB) $(SECLINK) $(SLPLINK)
+
+$(ISNSADM): $(ISNSADMOBJS) $(LIB)
+	gcc $(CFLAGS) -o $@ $(ISNSADMOBJS) $(LIB) $(SECLINK) $(SLPLINK)
 
 depend:
 	gcc $(CFLAGS) -M `ls *.c` > .depend
