@@ -109,8 +109,18 @@ main(int argc, char **argv)
 
 	isns_read_config(opt_configfile);
 
+	if (!isns_config.ic_source_name) {
+		/*
+		 * Try to read the source name from open-iscsi configuration
+		 */
+		isns_read_initiatorname(ISCSI_DEFAULT_INITIATORNAME);
+	}
+
+	isns_init_names();
+
 	if (!isns_config.ic_source_name)
 		usage(1, "Please specify an iSNS source name");
+
 	source = isns_source_create_iscsi(isns_config.ic_source_name);
 
 	if (opt_mode == MODE_INIT)
