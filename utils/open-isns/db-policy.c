@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <unistd.h>
+#include "config.h"
 #ifdef WITH_SECURITY
 #include <openssl/pem.h>
 #include <openssl/err.h>
@@ -16,7 +17,6 @@
 #include "objects.h"
 #include "vendor.h"
 #include "util.h"
-#include "config.h"
 
 /*
  * DB keystore
