@@ -5,21 +5,19 @@
 ### BEGIN INIT INFO
 # Provides:          iscsi
 # Required-Start:    $network
-# Should-Start:      iscsitarget multipathd
+# Should-Start:      iscsitarget
 # Required-Stop:     $network
-# Should-Stop:       multipathd
+# Should-Stop:       iscsitarget
 # Default-Start:     3 5
 # Default-Stop:      
 # Short-Description: iSCSI initiator daemon
 # Description:       The iSCSI initator is used to create and
 #                    manage iSCSI connections to a iSCSI Target.
-#
 ### END INIT INFO
 
 CONFIG_FILE=/etc/iscsi/iscsid.conf
 DAEMON=/sbin/iscsid
 ISCSIADM=/sbin/iscsiadm
-BRCM_ISCSIUIO=/sbin/brcm_iscsiuio
 ARGS="-c $CONFIG_FILE -n"
 
 # Source LSB init functions
@@ -55,11 +53,12 @@ iscsi_load_transport_modules()
 
     for iface in /etc/iscsi/ifaces/*; do
 	[ -f "$iface" ] || continue
-	[ "$iface" = "iface.example" ] && continue
+	[ "$iface" = "/etc/iscsi/ifaces/iface.example" ] && continue
 	# Check if the iface has been configured
-	result=$(sed '/#.*/D;/iface.iscsi_ifacename/D;/iface.hwaddress/D;/iface.transport_name/D' $iface)
+	result=$(sed '/#.*/D;/^$/D;/iface.iscsi_ifacename/D;/iface.hwaddress/D;/iface.transport_name/D' $iface)
 	if [ "$result" ] ; then
-	    mod=$(sed -n 's/iface.transport_name *= *\(.*\)/\1/p' $iface)
+	    mod=$(sed -n 's/^iface.transport_name *= *\(.*\)/\1/p' $iface)
+            [ "$mod" = "iscsi_tcp" -o "$mod" = "tcp" ] && continue
 	    loaded=$(sed -n "/^$mod/p" /proc/modules)
 	    if [ -z "$loaded" ] ; then
 		modprobe $mod
@@ -232,7 +231,7 @@ iscsi_check_if_mounted()
     local dev=$1
     local d m t o x p
 
-    cat /proc/mounts | sed -ne '/^\/dev\/.*/p' | while read d m t o x; do 
+    sed < /proc/mounts -ne '/^\/dev\/.*/p' | while read d m t o x; do
 	if [ -L "$d" ] ; then
 	    d=$(readlink -f $d)
 	fi
@@ -259,10 +258,10 @@ iscsi_check_if_mounted()
 
 #
 # Unwind block device stack
-# 
+#
 # Stops unwinding if either no more 'holders'
 # are found or if a device is mounted
-# 
+#
 # Unmounts top-level device and deconfigures
 # all devices down the stack
 #
@@ -374,19 +373,22 @@ iscsi_stop_sessions()
 	m=$(iscsi_check_target $t)
 	s=${session##*/session}
 	if [ -z "$m" ] ; then
-	    iscsiadm -m session -r ${s} -u
-	    i=$(( $i + 1 ))
+	    if ! iscsiadm -m session -r ${s} -u ; then
+		i=$(( $i + 1 ))
+	    fi
 	else
 	    iscsi_check_interface $s
+	    i=$(( $i + 1 ))
 	fi
     done
-    echo $i
+    return $i
 }
 
 iscsi_list_all_nodes()
 {
     # Check for active sessions
     if $ISCSIADM -m session > /dev/null; then
+	echo "No active connections."
 	return 0
     fi
     echo "Active connections:"
@@ -398,14 +400,13 @@ iscsi_list_all_nodes()
 
 case "$1" in
     start)
+	echo -n "Loading iscsi modules: "
+	iscsi_load_transport_modules
+	rc_status -v
 	if checkproc $DAEMON ; then
 	    RETVAL=0
 	else
 	    echo -n "Starting iSCSI initiator service: "
-	    iscsi_load_transport_modules
-	    if grep -q bnx2i /proc/modules && [ -x $BRCM_ISCSIUIO ] ; then
-		startproc $BRCM_ISCSIUIO
-	    fi
 	    startproc $DAEMON $ARGS
 	    RETVAL=$?
 	    rc_status -v
@@ -415,17 +416,12 @@ case "$1" in
 	fi
 	;;
     stop)
-	n=$(iscsi_stop_sessions)
 	echo -n "Stopping iSCSI initiator service: "
-	if [ "$n" ] && [ "$n" != "0" ] ; then
+	if iscsi_stop_sessions ; then
 	    m=$(iscsiadm -m session 2> /dev/null)
 	    if [ -z "$m" ] ; then
 		killproc -KILL $DAEMON
 		RETVAL=$?
-		if grep -q bnx2i /proc/modules && [ -x $BRCM_ISCSIUIO ]; then
-		    killproc -KILL $BRCM_ISCSIUIO
-		fi
- 		RETVAL=$?
 	    else
 		RETVAL=1
 	    fi
