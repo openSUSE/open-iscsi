@@ -1,7 +1,7 @@
 #
 # spec file for package open-iscsi
 #
-# Copyright (c) 2013 SUSE LINUX Products GmbH, Nuernberg, Germany.
+# Copyright (c) 2014 SUSE LINUX Products GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -36,14 +36,7 @@ Obsoletes:      linux-iscsi
 %define iscsi_release 873
 Summary:        Linux* Open-iSCSI Software Initiator
 Source:         %{name}-2.0-%{iscsi_release}.tar.bz2
-Patch1:         %{name}-sles11-sp2-update.diff.bz2
-Patch2:         %{name}-sles11-sp2-latest.diff.bz2
-Patch3:         %{name}-sles11-sp3-iscsiuio-update.diff.bz2
-Patch4:         %{name}-sles11-sp3-flash-update.diff.bz2
-Patch5:         %{name}-sles11-sp3-general-updates-1.diff.bz2
-Patch6:         %{name}-openSUSE-12.3-first-merge.diff.bz2
-Patch7:         %{name}-openSUSE-Factory-first-merge.diff.bz2
-Patch8:         %{name}-openSUSE-Factory-qla4xxx-patches.diff.bz2
+Patch1:         %{name}-Factory-latest.diff.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -74,13 +67,6 @@ Authors:
 %prep
 %setup -n %{name}-2.0-%{iscsi_release}
 %patch1 -p1
-%patch2 -p1
-%patch3 -p1
-%patch4 -p1
-%patch5 -p1
-%patch6 -p1
-%patch7 -p1
-%patch8 -p1
 
 %build
 %{__make} OPTFLAGS="${RPM_OPT_FLAGS} -fno-strict-aliasing -DLOCK_DIR=\\\"/etc/iscsi\\\"" user
