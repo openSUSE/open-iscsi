@@ -1,4 +1,20 @@
 -------------------------------------------------------------------
+Tue Jan 28 11:40:16 PST 2014 - lduncan@suse.com
+
+- Replaced 8 patches with one, to clean up. Added patch:
+   open-iscsi-Factory-latest.diff.bz2
+  Removed patches:
+   open-iscsi-openSUSE-12.3-first-merge.diff.bz2
+   open-iscsi-openSUSE-Factory-first-merge.diff.bz2
+   open-iscsi-openSUSE-Factory-qla4xxx-patches.diff.bz2
+   open-iscsi-sles11-sp2-latest.diff.bz2
+   open-iscsi-sles11-sp2-update.diff.bz2
+   open-iscsi-sles11-sp3-flash-update.diff.bz2
+   open-iscsi-sles11-sp3-general-updates-1.diff.bz2
+   open-iscsi-sles11-sp3-iscsiuio-update.diff.bz2
+  No functional changes.
+
+-------------------------------------------------------------------
 Thu Jan  9 10:11:32 PST 2014 - lduncan@suse.com
 
 - Added open-iscsi-openSUSE-Factory-qla4xxx-patches.diff.bz2, with
