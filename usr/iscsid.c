@@ -475,11 +475,11 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (uid && setuid(uid) < 0)
-		perror("setuid\n");
-
 	if (gid && setgid(gid) < 0)
 		perror("setgid\n");
+
+	if (uid && setuid(uid) < 0)
+		perror("setuid\n");
 
 	memset(&daemon_config, 0, sizeof (daemon_config));
 	daemon_config.pid_file = pid_file;
