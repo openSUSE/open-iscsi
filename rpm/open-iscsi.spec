@@ -32,8 +32,6 @@ PreReq:         %fillup_prereq %insserv_prereq
 Version:        2.0.873
 Release:        0
 %{?systemd_requires}
-Provides:       linux-iscsi
-Obsoletes:      linux-iscsi
 %define iscsi_release 873
 Summary:        Linux* Open-iSCSI Software Initiator
 Source:         %{name}-2.0-%{iscsi_release}.tar.bz2
@@ -67,8 +65,10 @@ Authors:
     open-iscsi@googlegroups.com
 
 %package -n open-isns
-Summary: iSNS server for Linux
-Obsoletes: isnsserver
+Summary: Linux iSNS server
+Version: 0.90
+Obsoletes: isns <= 2.1.02
+Provides: isns = 2.1.03
 
 %description -n open-isns
 This is a partial implementation of iSNS, according to RFC4171.
