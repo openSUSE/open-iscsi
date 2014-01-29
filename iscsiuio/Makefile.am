@@ -8,7 +8,7 @@ build_date:
 
 manprefix = /usr/share
 mandir = ${manprefix}/man
-logdir = /etc/logrotate.d
+logdir = $(DESTDIR)/etc/logrotate.d
 
 install-am: all-am
 	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am install-man install-log install-brcm
