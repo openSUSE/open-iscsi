@@ -35,7 +35,7 @@ user: utils/open-isns/Makefile iscsiuio/Makefile
 	$(MAKE) -C utils/fwparam_ibft
 	$(MAKE) -C usr
 	$(MAKE) -C utils
-	$(MAKE) -C iscsiuio
+	$(MAKE) -C iscsiuio CFLAGS="$(OPTFLAGS)"
 	@echo
 	@echo "Compilation complete                 Output file"
 	@echo "-----------------------------------  ----------------"
