@@ -153,6 +153,8 @@ fi
 %doc %{_mandir}/man8/iscsid.8.gz
 %doc %{_mandir}/man8/iscsi_discovery.8.gz
 %doc %{_mandir}/man8/iscsiuio.8.gz
+%doc %{_mandir}/man8/iscsistart.8.gz
+%doc %{_mandir}/man8/iscsi-iname.8.gz
 
 %files -n open-isns
 %defattr(-,root,root)
