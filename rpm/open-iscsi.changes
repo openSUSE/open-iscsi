@@ -1,7 +1,12 @@
 -------------------------------------------------------------------
+Thu Jan 30 10:55:36 CET 2014 - hare@suse.de
+
+- Systemd integration for open-isns (FATE#316901)
+
+-------------------------------------------------------------------
 Wed Jan 29 11:36:10 CET 2014 - hare@suse.de
 
-- Pulled in patches from upstream git
+- Pulled in patches from upstream git (FATE#315963)
   * Replaced iscsiuio with upstream version
   * Switched to autotools when building iscsiuio
 - Recreate SUSE-specific patches
