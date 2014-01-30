@@ -48,7 +48,7 @@ user: utils/open-isns/Makefile iscsiuio/Makefile
 	@echo "Read README file for detailed information."
 
 utils/open-isns/Makefile: utils/open-isns/configure utils/open-isns/Makefile.in
-	cd utils/open-isns; ./configure CFLAGS="$(OPTFLAGS)" --with-security=no
+	cd utils/open-isns; ./configure CFLAGS="$(OPTFLAGS)" --with-security=no --prefix=/usr
 
 iscsiuio/Makefile: iscsiuio/configure iscsiuio/Makefile.in
 	cd iscsiuio; ./configure
