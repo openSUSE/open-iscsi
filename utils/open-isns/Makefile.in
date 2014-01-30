@@ -70,7 +70,6 @@ LIBOBJS	= server.o \
 	  mdebug.o
 SECLINK	= @SECLIBS@
 SLPLINK	= @SLPLIBS@
-SLPLIN	= @SLPLIBS@
 
 all: $(LIB)
 
