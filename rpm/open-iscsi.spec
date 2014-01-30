@@ -85,7 +85,7 @@ Authors:
 %patch2 -p1
 
 %build
-%{__make} OPTFLAGS="${RPM_OPT_FLAGS} -fno-strict-aliasing -DLOCK_DIR=\\\"/etc/iscsi\\\"" LDFLAGS="" user
+%{__make} OPTFLAGS="${RPM_OPT_FLAGS} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"/etc/iscsi\\\"" LDFLAGS="" user
 %{__make} OPTFLAGS="${RPM_OPT_FLAGS}" -C utils/open-isns programs
 
 %install
@@ -95,18 +95,8 @@ make DESTDIR=${RPM_BUILD_ROOT} install_initd_suse
 (cd ${RPM_BUILD_ROOT}/etc; ln -sf iscsi/iscsid.conf iscsid.conf)
 touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 install -m 0755 usr/iscsistart %{buildroot}/sbin
-mkdir -p %{buildroot}/usr/sbin
-install -m 0755 utils/open-isns/isnsd %{buildroot}/usr/sbin
-install -m 0755 utils/open-isns/isnsdd %{buildroot}/usr/sbin
-install -m 0755 utils/open-isns/isnsadm %{buildroot}/usr/sbin
-mkdir -p %{buildroot}/etc/isns
-install -m 0644 utils/open-isns/etc/isnsd.conf %{buildroot}/etc/isns
-install -m 0644 utils/open-isns/etc/isnsdd.conf %{buildroot}/etc/isns
-mkdir -p %{buildroot}%{_mandir}/man8
-install -m 0644 utils/open-isns/doc/*.8 %{buildroot}%{_mandir}/man8
-mkdir -p %{buildroot}%{_mandir}/man5
-install -m 0644 utils/open-isns/doc/*.5 %{buildroot}%{_mandir}/man5
-:
+make DESTDIR=${RPM_BUILD_ROOT} -C utils/open-isns install
+
 %clean
 [ "${RPM_BUILD_ROOT}" != "/" -a -d ${RPM_BUILD_ROOT} ] && rm -rf ${RPM_BUILD_ROOT}
 
@@ -126,8 +116,18 @@ fi
 %{stop_on_removal iscsid}
 %{service_del_preun iscsid.socket iscsid.service iscsi.service}
 
+%post -n open-isns
+%{service_add_post isnsd.socket isnsd.service}
+
+%postun -n open-isns
+%{service_add_post isnsd.socket isnsd.service}
+
+%pre -n open-isns
+%{service_add_pre isnsd.socket isnsd.service}
+
 %preun -n open-isns
 %{stop_on_removal isnsd isnsdd}
+%{service_del_preun isnsd.socket isnsd.service}
 
 %files
 %defattr(-,root,root)
@@ -161,6 +161,8 @@ fi
 %dir /etc/isns
 %attr(0600,root,root) %config(noreplace) /etc/isns/isnsd.conf
 %attr(0600,root,root) %config(noreplace) /etc/isns/isnsdd.conf
+%config %{_unitdir}/isnsd.service
+%{_unitdir}/isnsd.socket
 /usr/sbin/isnsd
 /usr/sbin/isnsdd
 /usr/sbin/isnsadm
