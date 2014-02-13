@@ -1006,12 +1006,7 @@ setup_full_feature_phase(iscsi_conn_t *conn)
 
 	actor_delete(&conn->login_timer);
 
-	if (iscsi_session_set_params(conn)) {
-		iscsi_login_eh(conn, c->qtask, ISCSI_ERR_LOGIN);
-		return;
-	}
-
-	if (iscsi_host_set_params(session)) {
+	if (iscsi_session_set_neg_params(conn)) {
 		iscsi_login_eh(conn, c->qtask, ISCSI_ERR_LOGIN);
 		return;
 	}
@@ -1465,6 +1460,11 @@ static void setup_offload_login_phase(iscsi_conn_t *conn)
 		return;
 	}
 
+	if (iscsi_session_set_neg_params(conn)) {
+		iscsi_login_eh(conn, c->qtask, ISCSI_ERR_LOGIN);
+		return;
+	}
+
 	if (iscsi_host_set_params(session)) {
 		iscsi_login_eh(conn, c->qtask, ISCSI_ERR_LOGIN);
 		return;
@@ -1573,6 +1573,16 @@ static void session_conn_poll(void *data)
 
 		if (session->t->caps & CAP_LOGIN_OFFLOAD) {
 			setup_offload_login_phase(conn);
+			return;
+		}
+
+		if (iscsi_session_set_params(conn)) {
+			iscsi_login_eh(conn, qtask, ISCSI_ERR_LOGIN);
+			return;
+		}
+
+		if (iscsi_host_set_params(session)) {
+			iscsi_login_eh(conn, qtask, ISCSI_ERR_LOGIN);
 			return;
 		}
 
