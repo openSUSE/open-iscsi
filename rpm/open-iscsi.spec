@@ -66,6 +66,7 @@ Authors:
 %package -n open-isns
 Summary: Linux iSNS server
 Version: 0.90
+Group: Productivity/Networking/Other
 Obsoletes: isns <= 2.1.02
 Provides: isns = 2.1.03
 
