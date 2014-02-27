@@ -1,12 +1,13 @@
 [Unit]
 Description=Open-iSCSI
-Documentation=man:iscsid(8) man:iscsiadm(8)
-After=network.target network-online.target tgtd.service targetcli.service
+Documentation=man:iscsid(8) man:iscsiuio(8) man:iscsiadm(8)
+After=network.target network-online.target iscsiuio.service tgtd.service targetcli.service
 
 [Service]
 Type=forking
 PIDFile=/var/run/iscsid.pid
 ExecStart=/sbin/iscsid
+ExecStop=/sbin/iscsiadm -k 0 2
 
 [Install]
 WantedBy=multi-user.target

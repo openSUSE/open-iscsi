@@ -236,7 +236,7 @@ fi
 %dir /etc/isns
 %attr(0600,root,root) %config(noreplace) /etc/isns/isnsd.conf
 %attr(0600,root,root) %config(noreplace) /etc/isns/isnsdd.conf
-%config %{_unitdir}/isnsd.service
+%{_unitdir}/isnsd.service
 %{_unitdir}/isnsd.socket
 /usr/sbin/isnsd
 /usr/sbin/isnsdd
