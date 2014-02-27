@@ -7,7 +7,6 @@ ConditionPathExists=/etc/iscsi/initiatorname.iscsi
 [Service]
 Type=oneshot
 ExecStart=/sbin/iscsiadm -m node --loginall=automatic
-ExecStop=/bin/sync
 ExecStop=/sbin/iscsiadm -m session --logout
 SuccessExitStatus=21
 RemainAfterExit=true

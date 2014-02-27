@@ -114,7 +114,6 @@ Authors:
 %setup -n %{name}-2.0-%{iscsi_release}
 %patch1 -p1
 %patch2 -p1
-%patch3 -p1
 
 %build
 %{__make} OPTFLAGS="${RPM_OPT_FLAGS} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"/etc/iscsi\\\"" LDFLAGS="" user
@@ -176,9 +175,9 @@ fi
 %dir /etc/iscsi/ifaces
 %config /etc/iscsi/ifaces/iface.example
 /etc/iscsid.conf
-%config %{_unitdir}/iscsid.service
+%{_unitdir}/iscsid.service
 %{_unitdir}/iscsid.socket
-%config %{_unitdir}/iscsi.service
+%{_unitdir}/iscsi.service
 /sbin/iscsid
 /sbin/iscsiadm
 /sbin/iscsi-iname
@@ -198,7 +197,7 @@ fi
 %dir /etc/isns
 %attr(0600,root,root) %config(noreplace) /etc/isns/isnsd.conf
 %attr(0600,root,root) %config(noreplace) /etc/isns/isnsdd.conf
-%config %{_unitdir}/isnsd.service
+%{_unitdir}/isnsd.service
 %{_unitdir}/isnsd.socket
 /usr/sbin/isnsd
 /usr/sbin/isnsdd
