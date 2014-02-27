@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Mon Apr 28 10:51:35 PDT 2014 - lduncan@suse.com
+
+- Updated systemd unit files (bnc#847953)
+- Split iscsiuio out as separate package
+   (part of bnc#858972)
+
+-------------------------------------------------------------------
 Mon Apr 28 10:29:26 PDT 2014 - lduncan@suse.com
 
 - Ported Hannes' open-isns changes fro SLE12, setting up
