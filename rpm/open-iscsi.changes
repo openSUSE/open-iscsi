@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu Feb 27 11:06:00 PST 2014 - lduncan@suse.com
+
+- Updated systemd unit files (bnc#847953)
+- Split iscsiuio out as separate package
+   (part of bnc#858972)
+
+-------------------------------------------------------------------
 Thu Jan 30 10:55:36 CET 2014 - hare@suse.de
 
 - Systemd integration for open-isns (FATE#316901)
