@@ -1,7 +1,7 @@
 #
 # spec file for package open-iscsi
 #
-# Copyright (c) 2013 SUSE LINUX Products GmbH, Nuernberg, Germany.
+# Copyright (c) 2014 SUSE LINUX Products GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -17,23 +17,27 @@
 
 
 Name:           open-iscsi
+BuildRequires:  autoconf
+BuildRequires:  automake
 BuildRequires:  bison
 BuildRequires:  db-devel
 BuildRequires:  flex
+BuildRequires:  libtool
+BuildRequires:  make
 BuildRequires:  openssl-devel
-BuildRequires:  autoconf automake libtool make
 %if 0%{?suse_version} >= 1230
 BuildRequires:  systemd
 %endif
 Url:            http://www.open-iscsi.org
-License:        GPL-2.0+
-Group:          Productivity/Networking/Other
 PreReq:         %fillup_prereq %insserv_prereq
 Version:        2.0.873
 Release:        0
 %{?systemd_requires}
+Recommends:     logrotate
 %define iscsi_release 873
 Summary:        Linux* Open-iSCSI Software Initiator
+License:        GPL-2.0+
+Group:          Productivity/Networking/Other
 Source:         %{name}-2.0-%{iscsi_release}.tar.bz2
 Patch1:         %{name}-git-update.diff.bz2
 Patch2:         %{name}-sles12-update.diff.bz2
@@ -65,11 +69,12 @@ Authors:
     open-iscsi@googlegroups.com
 
 %package -n open-isns
-Summary: Linux iSNS server
-Version: 0.90
-Group: Productivity/Networking/Other
-Obsoletes: isns <= 2.1.02
-Provides: isns = 2.1.03
+Summary:        Linux iSNS server
+Group:          Productivity/Networking/Other
+Version:        0.90
+Release:        0
+Obsoletes:      isns <= 2.1.02
+Provides:       isns = 2.1.03
 
 %description -n open-isns
 This is a partial implementation of iSNS, according to RFC4171.
@@ -80,14 +85,46 @@ Authors:
 --------
     Olaf Kirch <okir@suse.de>
 
+%package -n iscsiuio
+Summary:        Linux Broadcom NetXtremem II iscsi server
+Group:          Productivity/Networking/Other
+Version:        0.7.8.2
+Release:        0
+
+%description -n iscsiuio
+This tool is to be used in conjunction with the Broadcom NetXtreme II Linux
+driver (Kernel module name: 'bnx2' and 'bnx2x'), Broadcom CNIC driver,
+and the Broadcom iSCSI driver (Kernel module name: 'bnx2i').
+This user space tool is used in conjunction with the following
+Broadcom Network Controllers:
+  bnx2:  BCM5706, BCM5708, BCM5709 devices
+  bnx2x: BCM57710, BCM57711, BCM57711E, BCM57712, BCM57712E,
+         BCM57800, BCM57810, BCM57840 devices
+
+This utility will provide the ARP and DHCP functionality for the iSCSI offload.
+The communication to the driver is done via Userspace I/O (Kernel module name
+'uio').
+
+Authors:
+--------
+    Eddie Wai <eddie.wai@broadcom.com>
+    Benjamin Li <benli@broadcom.com>
+
 %prep
 %setup -n %{name}-2.0-%{iscsi_release}
 %patch1 -p1
 %patch2 -p1
+%patch3 -p1
 
 %build
 %{__make} OPTFLAGS="${RPM_OPT_FLAGS} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"/etc/iscsi\\\"" LDFLAGS="" user
 %{__make} OPTFLAGS="${RPM_OPT_FLAGS}" -C utils/open-isns programs
+cd iscsiuio
+touch NEWS
+touch AUTHORS
+autoreconf --install
+%configure --sbindir=/sbin
+make CFLAGS="${RPM_OPT_FLAGS}"
 
 %install
 make DESTDIR=${RPM_BUILD_ROOT} install_user
@@ -97,6 +134,7 @@ make DESTDIR=${RPM_BUILD_ROOT} install_initd_suse
 touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 install -m 0755 usr/iscsistart %{buildroot}/sbin
 make DESTDIR=${RPM_BUILD_ROOT} -C utils/open-isns install
+make DESTDIR=${RPM_BUILD_ROOT} -C iscsiuio install
 
 %clean
 [ "${RPM_BUILD_ROOT}" != "/" -a -d ${RPM_BUILD_ROOT} ] && rm -rf ${RPM_BUILD_ROOT}
@@ -145,7 +183,6 @@ fi
 /sbin/iscsiadm
 /sbin/iscsi-iname
 /sbin/iscsistart
-/sbin/iscsiuio
 /sbin/iscsi-gen-initiatorname
 /sbin/iscsi_offload
 /sbin/iscsi_discovery
@@ -153,7 +190,6 @@ fi
 %doc %{_mandir}/man8/iscsiadm.8.gz
 %doc %{_mandir}/man8/iscsid.8.gz
 %doc %{_mandir}/man8/iscsi_discovery.8.gz
-%doc %{_mandir}/man8/iscsiuio.8.gz
 %doc %{_mandir}/man8/iscsistart.8.gz
 %doc %{_mandir}/man8/iscsi-iname.8.gz
 
@@ -171,5 +207,12 @@ fi
 %doc %{_mandir}/man8/isnsd.8.gz
 %doc %{_mandir}/man8/isnsdd.8.gz
 %doc %{_mandir}/man5/isns_config.5.gz
+
+%files -n iscsiuio
+%defattr(-,root,root)
+/sbin/iscsiuio
+/sbin/brcm_iscsiuio
+%doc %{_mandir}/man8/iscsiuio.8.gz
+%config /etc/logrotate.d/iscsiuiolog
 
 %changelog
