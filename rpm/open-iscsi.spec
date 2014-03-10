@@ -134,9 +134,9 @@ fi
 %config /etc/iscsi/ifaces/iface.example
 /etc/iscsid.conf
 %if 0%{?suse_version} >= 1230
-%config %{_unitdir}/iscsid.service
+%{_unitdir}/iscsid.service
 %{_unitdir}/iscsid.socket
-%config %{_unitdir}/iscsi.service
+%{_unitdir}/iscsi.service
 %else
 %config /etc/init.d/iscsid
 %config /etc/init.d/boot.iscsid-early

@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Mon Mar 10 10:45:43 PDT 2014 - lduncan@suse.com
+
+- Cleaned up systemd unit files and spec entries (bnc#847953)
+
+-------------------------------------------------------------------
 Tue Jan 28 11:40:16 PST 2014 - lduncan@suse.com
 
 - Replaced 8 patches with one, to clean up. Added patch:
