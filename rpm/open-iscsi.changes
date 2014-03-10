@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Mon Mar 10 10:45:43 PDT 2014 - lduncan@suse.com
+
+- Cleaned up systemd unit files and spec entries (bnc#847953)
+
+-------------------------------------------------------------------
 Fri Oct  4 16:07:47 CEST 2013 - ohering@suse.de
 
 - Remove usage of iscsiuio from mkinitrd scripts
