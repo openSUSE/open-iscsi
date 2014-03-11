@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Tue Mar 11 11:32:34 PDT 2014 - lduncan@suse.com
+
+- Added two patches from QLogic, accepted up stream (bnc#866866):
+  iscsiadm-fix-the-hostno-check-for-stats-submode-of-host-mode
+  iscsiadm-fix-the-compile-time-warning
+
+-------------------------------------------------------------------
 Thu Feb 27 11:06:00 PST 2014 - lduncan@suse.com
 
 - Updated systemd unit files (bnc#847953)
