@@ -113,6 +113,10 @@ install_initd_suse:
 		$(DESTDIR)$(systemddir)
 	$(INSTALL) -m 644 etc/systemd/iscsi.service \
 		$(DESTDIR)$(systemddir)
+	$(INSTALL) -m 644 etc/systemd/iscsiuio.service \
+		$(DESTDIR)$(systemddir)
+	$(INSTALL) -m 644 etc/systemd/iscsiuio.socket \
+		$(DESTDIR)$(systemddir)
 
 install_initd_redhat:
 	$(INSTALL) -d $(DESTDIR)$(initddir)

@@ -213,5 +213,7 @@ fi
 /sbin/brcm_iscsiuio
 %doc %{_mandir}/man8/iscsiuio.8.gz
 %config /etc/logrotate.d/iscsiuiolog
+%{_unitdir}/iscsiuio.service
+%{_unitdir}/iscsiuio.socket
 
 %changelog
