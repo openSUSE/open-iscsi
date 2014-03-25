@@ -142,6 +142,10 @@ install_service_suse:
 		$(DESTDIR)$(systemddir)
 	$(INSTALL) -m 644 etc/systemd/iscsi.service \
 		$(DESTDIR)$(systemddir)
+	$(INSTALL) -m 644 etc/systemd/iscsiuio.service \
+		$(DESTDIR)$(systemddir)
+	$(INSTALL) -m 644 etc/systemd/iscsiuio.socket \
+		$(DESTDIR)$(systemddir)
 
 install_iface: $(IFACEFILES)
 	$(INSTALL) -d $(DESTDIR)$(etcdir)/iscsi/ifaces

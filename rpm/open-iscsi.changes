@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Tue Mar 25 15:51:20 PDT 2014 - lduncan@suse.com
+
+- Added two not-yet-upstream patches for iscsiuio/systemd activation
+  from Chris Leech (bnc#869567):
+    iscsiuio-systemd-socket-activation-support.patch
+    iscsiuio-systemd-unit-files.patch
+  Updated spec file to handle install/package of new files.
+
+-------------------------------------------------------------------
 Mon Apr 28 10:59:09 PDT 2014 - lduncan@suse.com
 
 - Added an upstream patch from Mike Christie (bnc#869356):
