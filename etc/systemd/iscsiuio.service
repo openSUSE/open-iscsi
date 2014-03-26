@@ -11,7 +11,7 @@ Before=remote-fs-pre.target iscsid.service
 [Service]
 Type=forking
 PIDFile=/var/run/iscsiuio.pid
-ExecStart=/usr/sbin/iscsiuio
+ExecStart=/sbin/iscsiuio
 
 [Install]
 WantedBy=multi-user.target
