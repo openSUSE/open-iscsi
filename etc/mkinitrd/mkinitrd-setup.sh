@@ -40,58 +40,8 @@ function check_iscsi()
     ip="$(echo ${sysfs_path}/connection*)"
     verify_path "${devname}" "${ip}" || return 1	# no, return false
 
-    # check for node startup value of "onboot", else print a warning
-    check_for_node_onboot $ip
-
     # attached ot an iSCSI device
     return 0						# success
-}
-
-
-check_for_node_onboot()
-{
-    local ip="$1" startup target
-
-    # get persistent address and port, for iscsiadm command
-    ip="${ip}/iscsi_connection/${ip##*/}/persistent_"
-    if [[ ! -r "${ip}address" || ! -r "${ip}port" ]] ; then
-	echo >&2 "Warning: iSCSI device ${devname} connected to iSCSI target without any persistent_{address,port}!"
-	return
-    fi
-    ip="$(< "${ip}address"):$(< "${ip}port")"
-
-    # is there a session directory?
-    target=$(echo ${sysfs_path}/iscsi_session/*)
-    verify_path "${devname}" "${target}" || return	# no session: return
-
-    target="${target}/targetname"
-    if [[ ! -r "${target}" ]] ; then
-	echo >&2 "Warning: iSCSI device ${devname} connected to iSCSI target without any targetname!"
-	return
-    fi
-    target="$(< ${target})"
-
-    # figure out whether it has been correctly configured
-    if [[ ! -x "${_iadm_}" ]] ; then
-	echo >&2 "Warning: iSCSI device ${devname} connected to iSCSI target, but no ${_iadm_} command available!"
-	return
-    fi
-
-    startup="$(
-	${_iadm_} -m node -p "${ip}" -T "${target}" 2>/dev/null | grep 'node.conn\[0\].startup'
-    )"
-
-    startup="${startup##* }"
-    startup="${startup%% *}"
-    if [[ "${startup}" != "onboot" ]] ; then
-	[[ -z "${startup}" ]] && return		# No parameter - either iBFT or not iSCSI: return
-
-	## Note: could set "onboot" ourselves here, but that seems heavy-handed
-	echo >&2 "Warning: iSCSI device ${devname} is using 'node.conn[0].startup = ${startup}'"
-	echo >&2 "         System may not be bootable with this setting,"
-	echo >&2 "         need to be set to 'onboot' instead, using:"
-	echo >&2 "   ${_iadm_} -m node -p '${ip}' -T '${target}' -o update -n 'node.conn[0].startup' -v onboot"
-    fi
 }
 
 _iadm_="/sbin/iscsiadm"

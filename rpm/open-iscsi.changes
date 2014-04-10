@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu Apr 10 10:22:38 PDT 2014 - lduncan@suse.com
+
+- Removed problematic check_for_node_onboot() in mkinitrd setup
+  script (bnc#834256)
+
+-------------------------------------------------------------------
 Fri Aug  9 17:31:28 PDT 2013 - lduncan@suse.com
 
 - update mkinitrd open-iscsi setup script to handle both
