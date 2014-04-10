@@ -99,11 +99,15 @@ touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 if [ ! -f /etc/iscsi/initiatorname.iscsi ] ; then
     /sbin/iscsi-gen-initiatorname
 fi
-[ -x /sbin/mkinitrd ] && /sbin/mkinitrd
+if [ -x /sbin/mkinitrd ] ; then
+    /sbin/mkinitrd || :
+fi
 
 %postun
 %{insserv_cleanup}
-[ -x /sbin/mkinitrd ] && /sbin/mkinitrd
+if [ -x /sbin/mkinitrd ] ; then
+    /sbin/mkinitrd || :
+fi
 
 %preun
 %{stop_on_removal open-iscsi}
