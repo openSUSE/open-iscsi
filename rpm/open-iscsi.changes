@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu Apr 10 12:02:16 PDT 2014 - lduncan@suse.com
+
+- initd script now handles LVM stacked use of partitions
+  (bnc#867934)
+
+-------------------------------------------------------------------
 Thu Apr 10 11:56:16 PDT 2014 - lduncan@suse.com
 
 - Fix init script module load logic, removing bogus

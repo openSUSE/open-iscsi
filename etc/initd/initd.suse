@@ -281,7 +281,7 @@ iscsi_unwind_stack()
 
     m=$(iscsi_check_if_mounted $d)
     if [ -z "$m" ] ; then
-	for s in $p/holders/* ; do
+	for s in $p/holders/* $p/${d}*/holders/* ; do
 	    [ -e $s ] || continue
 	    p=$(cd -P $s; echo $PWD)
 	    u=$(iscsi_unwind_stack $p)
