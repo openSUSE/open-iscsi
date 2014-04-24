@@ -75,48 +75,7 @@ static void iscsiuio_startup(void)
 
 #define MAXSLEEP 128
 
-static int ipc_connect(int *fd, char *unix_sock_name)
-{
-	int nsec;
-	struct sockaddr_un addr;
-
-	*fd = socket(AF_LOCAL, SOCK_STREAM, 0);
-	if (*fd < 0) {
-		log_error("can not create IPC socket (%d) for iSCSI uio!", errno);
-		return ISCSI_ERR_ISCSID_NOTCONN;
-	}
-
-	memset(&addr, 0, sizeof(addr));
-	addr.sun_family = AF_LOCAL;
-	memcpy((char *) &addr.sun_path + 1, unix_sock_name,
-		strlen(unix_sock_name));
-	/*
-	 * Trying to connect with exponential backoff
-	 */
-	for (nsec = 1; nsec <= MAXSLEEP; nsec <<= 1) {
-		if (connect(*fd, (struct sockaddr *) &addr, sizeof(addr)) == 0)
-			/* Connection established */
-			return ISCSI_SUCCESS;
-
-		/* If iscsiuio isn't there, there's no sense
-		 * in retrying. */
-		if (errno == ECONNREFUSED) {
-			if (nsec == 1)
-				iscsiuio_startup();
-			else
-				break;
-		}
-		/*
-		 * Delay before trying again
-		 */
-		if (nsec <= MAXSLEEP/2)
-			sleep(nsec);
-	}
-	log_error("can not connect to iSCSI uio daemon (%d)!", errno);
-	return ISCSI_ERR_ISCSID_NOTCONN;
-}
-
-static int iscsid_connect(int *fd, int start_iscsid)
+static int ipc_connect(int *fd, char *unix_sock_name, int start_iscsid)
 {
 	int nsec, addr_len;
 	struct sockaddr_un addr;
@@ -131,7 +90,8 @@ static int iscsid_connect(int *fd, int start_iscsid)
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_LOCAL;
-	memcpy((char *) &addr.sun_path + 1, ISCSIADM_NAMESPACE, addr_len);
+	memcpy((char *) &addr.sun_path + 1, unix_sock_name,
+	       strlen(unix_sock_name));
 
 	/*
 	 * Trying to connect with exponential backoff
@@ -158,6 +118,11 @@ static int iscsid_connect(int *fd, int start_iscsid)
 	}
 	log_error("can not connect to iSCSI daemon (%d)!", errno);
 	return ISCSI_ERR_ISCSID_NOTCONN;
+}
+
+static int iscsid_connect(int *fd, int start_iscsid)
+{
+	return ipc_connect(fd, ISCSIADM_NAMESPACE, start_iscsid);
 }
 
 int iscsid_request(int *fd, iscsiadm_req_t *req, int start_iscsid)
@@ -259,21 +224,7 @@ int iscsid_req_by_sid(iscsiadm_cmd_e cmd, int sid)
 
 static int uip_connect(int *fd)
 {
-	return ipc_connect(fd, ISCSID_UIP_NAMESPACE);
-}
-
-int uip_query(void)
-{
-	int fd, err;
-
-	err = uip_connect(&fd);
-	if (err) {
-		log_warning("uIP daemon is not up");
-		return err;
-	}
-	close(fd);
-
-	return err;
+	return ipc_connect(fd, ISCSID_UIP_NAMESPACE, 0);
 }
 
 int uip_broadcast(void *buf, size_t buf_len)
@@ -290,13 +241,18 @@ int uip_broadcast(void *buf, size_t buf_len)
 		return err;
 	}
 
+	log_debug(3, "connected to uIP daemon");
+
 	/*  Send the data to uIP */
-	if ((err = write(fd, buf, buf_len)) != buf_len) {
+	err = write(fd, buf, buf_len);
+	if (err != buf_len) {
 		log_error("got write error (%d/%d), daemon died?",
-			err, errno);
+			  err, errno);
 		close(fd);
-		return -EIO;
+		return ISCSI_ERR_ISCSID_COMM_ERR;
 	}
+
+	log_debug(3, "send iface config to uIP daemon");
 
 	/*  Set the socket to a non-blocking read, this way if there are
 	 *  problems waiting for uIP, iscsid can bailout early */
@@ -304,35 +260,43 @@ int uip_broadcast(void *buf, size_t buf_len)
 	if (flags == -1)
 		flags = 0;
 	err = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-	if(err != 0) {
+	if (err) {
 		log_error("could not set uip broadcast to non-blocking: %d",
 			  errno);
 		close(fd);
-		return -EIO;
+		return ISCSI_ERR;
 	}
 
 #define MAX_UIP_BROADCAST_READ_TRIES 3
-	for(count = 0; count < MAX_UIP_BROADCAST_READ_TRIES; count++) {
+	for (count = 0; count < MAX_UIP_BROADCAST_READ_TRIES; count++) {
 		/*  Wait for the response */
 		err = read(fd, &rsp, sizeof(rsp));
 		if (err == sizeof(rsp)) {
-			log_debug(3, "Broadcasted to uIP with length: %ld\n",
-				  buf_len);
+			log_debug(3, "Broadcasted to uIP with length: %ld "
+				     "cmd: 0x%x rsp: 0x%x\n", buf_len,
+				     rsp.command, rsp.err);
+			err = 0;
 			break;
-		} else if((err == -1) && (errno == EAGAIN)) {
+		} else if ((err == -1) && (errno == EAGAIN)) {
 			usleep(250000);
 			continue;
 		} else {
-			log_error("Could not read response (%d/%d), daemon died?",
-				  err, errno);
+			log_error("Could not read response (%d/%d), daemon "
+				  "died?", err, errno);
+			err = ISCSI_ERR;
 			break;
 		}
 	}
 
-	if(count == MAX_UIP_BROADCAST_READ_TRIES)
-		log_error("Could not broadcast to uIP");
+	if (count == MAX_UIP_BROADCAST_READ_TRIES) {
+		log_error("Could not broadcast to uIP after %d tries",
+			  count);
+		err = ISCSI_ERR_AGAIN;
+	} else if (rsp.err != ISCSID_UIP_MGMT_IPC_DEVICE_UP) {
+		log_debug(3, "Device is not ready\n");
+		err = ISCSI_ERR_AGAIN;
+	}
 
 	close(fd);
-
-	return 0;
+	return err;
 }

@@ -55,6 +55,8 @@ typedef enum iscsid_uip_mgmt_ipc_err {
         ISCISD_UIP_MGMT_IPC_ERR                    = 1,
         ISCISD_UIP_MGMT_IPC_ERR_NOT_FOUND          = 2,
         ISCISD_UIP_MGMT_IPC_ERR_NOMEM              = 3,
+        ISCSID_UIP_MGMT_IPC_DEVICE_UP              = 4,
+        ISCSID_UIP_MGMT_IPC_DEVICE_INITIALIZING    = 5,
 } iscsid_uip_mgmt_ipc_err_e;
 
 /* IPC Response */
@@ -66,7 +68,6 @@ typedef struct iscsid_uip_mgmt_rsp {
 extern int uip_broadcast_params(struct iscsi_transport *t,
 				struct iface_rec *iface,
 				struct iscsi_session *session);
-extern int uip_broadcast(void *buf, size_t buf_len);
 
 
 #endif /* UIP_MGMT_IPC_H */
