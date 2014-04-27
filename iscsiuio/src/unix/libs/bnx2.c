@@ -295,7 +295,7 @@ static int bnx2_uio_verify(nic_t *nic)
 
 	LOG_INFO(PFX "%s: Verified is a cnic_uio device", nic->log_name);
 
-      error:
+error:
 	return rc;
 }
 
@@ -396,7 +396,7 @@ static void bnx2_free(nic_t *nic)
 /**
  *  bnx2_alloc() - Used to allocate a bnx2 structure
  */
-static bnx2_t *bnx2_alloc(nic_t * nic)
+static bnx2_t *bnx2_alloc(nic_t *nic)
 {
 	bnx2_t *bp = malloc(sizeof(*bp));
 	if (bp == NULL) {
@@ -712,6 +712,10 @@ error_alloc_rx_pkt_ring:
 	bp->rx_ring = NULL;
 
 error_alloc_rx_ring:
+	if (nic->fd != INVALID_FD) {
+		close(nic->fd);
+		nic->fd = INVALID_FD;
+	}
 	bnx2_free(nic);
 
 	return errno;
