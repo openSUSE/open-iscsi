@@ -183,7 +183,7 @@ int iscsi_login_portal(void *data, struct list_head *list, struct node_rec *rec)
 			  rec->iface.name, rec->session.nr_sessions,
 			  rec->session.nr_sessions == 1 ? "" : "s",
 			  session_count);
-		rc = ISCSI_ERR_LOGIN_FAILED;
+		rc = ISCSI_ERR_SESS_EXISTS;
 		goto done;
 	}
 
