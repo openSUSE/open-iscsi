@@ -54,25 +54,6 @@ static void iscsid_startup(void)
 			  startup_cmd, errno);
 }
 
-static void iscsiuio_startup(void)
-{
-	char *startup_cmd;
-
-	startup_cmd = cfg_get_string_param(CONFIG_FILE, "iscsiuio.startup");
-	if (!startup_cmd) {
-		log_error("iscsiuio is not running. Could not start it up "
-			  "automatically using the startup command in the "
-			  "/etc/iscsi/iscsid.conf iscsiuio.startup setting. "
-			  "Please check that the file exists or that your "
-			  "init scripts have started iscsid.");
-		return;
-	}
-
-	if (system(startup_cmd) < 0)
-		log_error("Couldn't execute '%s' (err %d)",
-			  startup_cmd, errno);
-}
-
 #define MAXSLEEP 128
 
 static int ipc_connect(int *fd, char *unix_sock_name, int start_iscsid)
