@@ -49,7 +49,6 @@
 #include "sysdeps.h"
 #include "iscsi_err.h"
 #include "kern_err_table.h"
-#include "iscsid_req.h"
 
 #define ISCSI_CONN_ERR_REOPEN_DELAY	3
 #define ISCSI_INTERNAL_ERR_REOPEN_DELAY	5
@@ -631,11 +630,6 @@ __session_conn_reopen(iscsi_conn_t *conn, queue_task_t *qtask, int do_stop,
 
 	if (!redirected)
 		session->reopen_cnt++;
-
-	/* uIP will needs to be re-triggered on the connection re-open */
-	if (iface_setup_netdev(conn->session->t, conn->session,
-			       &conn->session->nrec.iface) != 0)
-		goto queue_reopen;
 
 	/* uIP will needs to be re-triggered on the connection re-open */
 	if (iscsi_set_net_config(conn->session->t, conn->session,
