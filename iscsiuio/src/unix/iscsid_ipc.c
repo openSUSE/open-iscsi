@@ -100,6 +100,7 @@ struct iface_rec_decode {
 	uint16_t		mtu;
 };
 
+
 /******************************************************************************
  *  iscsid_ipc Constants
  *****************************************************************************/
@@ -191,6 +192,7 @@ static int decode_cidr(char *in_ipaddr_str, struct iface_rec_decode *ird)
 			if (keepbits < 32) {
 				ia6.s6_addr32[i] = keepbits > 0 ?
 				    0x00 - (1 << (32 - keepbits)) : 0;
+				ia6.s6_addr32[i] = htonl(ia6.s6_addr32[i]);
 				break;
 			} else
 				ia6.s6_addr32[i] = 0xFFFFFFFF;
@@ -229,13 +231,13 @@ static int decode_iface(struct iface_rec_decode *ird, struct iface_rec *rec)
 	rc = decode_cidr(rec->ipaddress, ird);
 	if (rc && !ird->ip_type) {
 		LOG_ERR(PFX "cidr decode err: rc=%d, ip_type=%d",
-			rc, ird->ip_type)
+			rc, ird->ip_type);
 		/* Can't decode address, just exit */
 		return rc;
 	}
 	rc = 0;
-
 	ird->iface_num = rec->iface_num;
+	ird->vlan_id = rec->vlan_id;
 	if (rec->iface_num != IFACE_NUM_INVALID) {
 		ird->mtu = rec->mtu;
 		if (rec->vlan_id && strcmp(rec->vlan_state, "disable")) {
@@ -333,11 +335,11 @@ static int parse_iface(void *arg)
 	int request_type = 0;
 	struct iface_rec *rec;
 	struct iface_rec_decode ird;
+	struct in_addr src_match, dst_match;
 	pthread_attr_t attr;
 
 	data = (iscsid_uip_broadcast_t *) arg;
 	rec = &data->u.iface_rec.rec;
-
 	LOG_INFO(PFX "Received request for '%s' to set IP address: '%s' "
 		 "VLAN: '%d'",
 		 rec->netdev,
@@ -351,7 +353,7 @@ static int parse_iface(void *arg)
 		goto early_exit;
 	}
 	if (rc && !ird.ip_type) {
-		LOG_ERR(PFX "iface err: rc=%d, ip_type=%d", rc,	ird.ip_type);
+		LOG_ERR(PFX "iface err: rc=%d, ip_type=%d", rc, ird.ip_type);
 		goto early_exit;
 	}
 
@@ -371,6 +373,7 @@ static int parse_iface(void *arg)
 		rc = -EIO;
 		goto early_exit;
 	}
+
 	/* nic_list_mutex locked */
 
 	/*  Check if we can find the NIC device using the netdev
@@ -404,7 +407,8 @@ static int parse_iface(void *arg)
 
 		nic_add(nic);
 	} else {
-		LOG_INFO(PFX " %s, using existing NIC", rec->netdev);
+		LOG_INFO(PFX " %s, using existing NIC",
+			 rec->netdev);
 	}
 
 	pthread_mutex_lock(&nic->nic_mutex);
@@ -457,7 +461,8 @@ static int parse_iface(void *arg)
 			    transport_name_size) != 0) {
 			LOG_ERR(PFX "%s Transport name is not equal "
 				"expected: %s got: %s",
-				nic->log_name, rec->transport_name,
+				nic->log_name,
+				rec->transport_name,
 				transport_name);
 		}
 	} else {
@@ -624,6 +629,9 @@ static int parse_iface(void *arg)
 		LOG_INFO(PFX "%s: IP configuration didn't change using 0x%x",
 			 nic->log_name, nic_iface->ustack.ip_config);
 		/* No need to acquire the IP address */
+		inet_ntop(AF_INET6, &ird.ipv6_addr, ipv6_buf_str,
+			  sizeof(ipv6_buf_str));
+
 		goto enable_nic;
 	}
 reacquire:
@@ -662,10 +670,17 @@ reacquire:
 		LOG_INFO(PFX " netmask: %s", inet_ntoa(ird.ipv4_subnet_mask));
 
 		/* Default route */
-		if (ird.ipv4_gateway.s_addr)
-			memcpy(nic_iface->ustack.default_route_addr,
-			       &ird.ipv4_gateway, sizeof(struct in_addr));
-
+		if (ird.ipv4_gateway.s_addr) {
+			/* Check for validity */
+			src_match.s_addr = ird.ipv4_addr.s_addr &
+					   ird.ipv4_subnet_mask.s_addr;
+			dst_match.s_addr = ird.ipv4_gateway.s_addr &
+					   ird.ipv4_subnet_mask.s_addr;
+			if (src_match.s_addr == dst_match.s_addr)
+				memcpy(nic_iface->ustack.default_route_addr,
+				       &ird.ipv4_gateway,
+				       sizeof(struct in_addr));
+		}
 		nic_iface->ustack.ip_config = IPV4_CONFIG_STATIC;
 		break;
 
@@ -687,6 +702,8 @@ reacquire:
 		if (ird.router_autocfg == IPV6_RTR_AUTOCFG_OFF)
 			memcpy(nic_iface->ustack.default_route_addr6,
 			       &ird.ipv6_router, sizeof(struct in6_addr));
+		inet_ntop(AF_INET6, &ird.ipv6_addr, ipv6_buf_str,
+			  sizeof(ipv6_buf_str));
 		LOG_INFO(PFX "%s: configuring using DHCPv6",
 			 nic->log_name);
 		nic_iface->ustack.ip_config = IPV6_CONFIG_DHCP;
@@ -797,7 +814,7 @@ int process_iscsid_broadcast(int s2)
 	}
 
 	/*  This will be freed by parse_iface_thread() */
-	data = (iscsid_uip_broadcast_t *) malloc(sizeof(*data));
+	data = (iscsid_uip_broadcast_t *) calloc(1, sizeof(*data));
 	if (data == NULL) {
 		LOG_ERR(PFX "Couldn't allocate memory for iface data");
 		rc = -ENOMEM;

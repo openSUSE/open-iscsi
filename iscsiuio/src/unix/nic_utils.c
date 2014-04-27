@@ -65,7 +65,7 @@
  *****************************************************************************/
 static const char nic_uio_sysfs_name_tempate[] = "/sys/class/uio/uio%i/name";
 static const char cnic_sysfs_uio_event_template[] =
-    "/sys/class/uio/uio%d/event";
+	"/sys/class/uio/uio%d/event";
 static const char base_uio_sysfs_name[] = "/sys/class/uio/";
 static const char uio_name[] = "uio";
 
@@ -77,9 +77,9 @@ static const char base_iscsi_host_name[] = "/sys/class/iscsi_host/";
 static const char host_template[] = "host%d";
 static const char iscsi_host_path_template[] = "/sys/class/iscsi_host/host%d";
 static const char iscsi_host_path_netdev_template[] =
-    "/sys/class/iscsi_host/host%d/netdev";
+	"/sys/class/iscsi_host/host%d/netdev";
 static const char cnic_uio_sysfs_resc_template[] =
-    "/sys/class/uio/uio%i/device/resource%i";
+	"/sys/class/uio/uio%i/device/resource%i";
 
 /**
  *  manually_trigger_uio_event() - If the uio file node doesn't exist then
@@ -1104,10 +1104,10 @@ error:
  *  nic_set_all_nic_iface_mac_to_parent() - This is a utility function used to
  *      intialize all the MAC addresses of the network interfaces for a given
  *      CNIC UIO device
- * Call with nic mutex held
+ *  Call with nic mutex held
  *  @param dev - CNIC UIO device to initialize
  */
-void nic_set_all_nic_iface_mac_to_parent(nic_t * nic)
+void nic_set_all_nic_iface_mac_to_parent(nic_t *nic)
 {
 	nic_interface_t *current, *vlan_current;
 

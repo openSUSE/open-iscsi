@@ -43,7 +43,7 @@
 
 #include <stdint.h>
 #include <netinet/if_ether.h>
-#include <linux/if.h>
+#include <net/if.h>
 #include <linux/limits.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -337,11 +337,11 @@ typedef struct nic {
 int load_all_nic_libraries();
 
 nic_t *nic_init();
-void nic_add(nic_t * nic);
-int nic_remove(nic_t * nic);
+void nic_add(nic_t *nic);
+int nic_remove(nic_t *nic);
 
-int nic_add_nic_iface(nic_t * nic, nic_interface_t * nic_iface);
-int nic_process_intr(nic_t * nic, int discard_check);
+int nic_add_nic_iface(nic_t *nic, nic_interface_t *nic_iface);
+int nic_process_intr(nic_t *nic, int discard_check);
 
 nic_interface_t *nic_iface_init();
 

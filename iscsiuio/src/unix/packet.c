@@ -88,7 +88,7 @@ void free_packet(struct packet *pkt)
  *  reset_packet() - This will reset the packet fields to default values
  *  @param pkt - the packet to reset
  */
-void reset_packet(packet_t * pkt)
+void reset_packet(packet_t *pkt)
 {
 	pkt->next = NULL;
 
@@ -101,7 +101,7 @@ void reset_packet(packet_t * pkt)
 	pkt->network_layer = NULL;
 }
 
-int alloc_free_queue(nic_t * nic, size_t num_of_packets)
+int alloc_free_queue(nic_t *nic, size_t num_of_packets)
 {
 	int rc, i;
 

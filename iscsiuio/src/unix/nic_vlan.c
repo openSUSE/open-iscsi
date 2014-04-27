@@ -52,8 +52,6 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include <linux/if.h>
-
 #include "logger.h"
 #include "nic.h"
 #include "nic_utils.h"

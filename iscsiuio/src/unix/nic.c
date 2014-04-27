@@ -402,7 +402,7 @@ nic_t *nic_init()
 	nic->pci_id = NULL;
 	nic->page_size = getpagesize();
 
-	/* nic_mutex is used to protect nic_ops */
+	/* nic_mutex is used to protect nic ops */
 	pthread_mutex_init(&nic->nic_mutex, NULL);
 	pthread_mutex_init(&nic->xmit_mutex, NULL);
 	pthread_mutex_init(&nic->free_packet_queue_mutex, NULL);
@@ -648,7 +648,7 @@ nic_interface_t *nic_iface_init()
 }
 
 /**
- *  nic_add_nic_iface() - This function is used to add an interface to the 
+ *  nic_add_nic_iface() - This function is used to add an interface to the
  *                        nic structure
  *  Called with nic_mutex held
  *  @param nic - struct nic device to add the interface to
@@ -717,13 +717,13 @@ int nic_process_intr(nic_t *nic, int discard_check)
 	struct timeval tv;
 
 	/*  Simple sanity checks */
-	if ((discard_check != 1) && nic->state != NIC_RUNNING) {
+	if (discard_check != 1 && nic->state != NIC_RUNNING) {
 		LOG_ERR(PFX "%s: Couldn't process interupt NIC not running",
 			nic->log_name);
 		return -EBUSY;
 	}
 
-	if ((discard_check != 1) && (nic->fd == INVALID_FD)) {
+	if (discard_check != 1 && nic->fd == INVALID_FD) {
 		LOG_ERR(PFX "%s: NIC fd not valid", nic->log_name);
 		return -EIO;
 	}
@@ -903,8 +903,10 @@ int do_timers_per_nic_iface(nic_t *nic, nic_interface_t *nic_iface,
 			 * set to a value > 0. */
 			if (ustack->uip_len > 0) {
 				pkt->buf_size = ustack->uip_len;
+
 				prepare_ipv4_packet(nic, nic_iface, ustack,
 						    pkt);
+
 				(*nic->ops->write) (nic, nic_iface, pkt);
 				ustack->uip_len = 0;
 			}
@@ -1356,6 +1358,7 @@ error:
 	return -EIO;
 }
 
+
 void *nic_loop(void *arg)
 {
 	nic_t *nic = (nic_t *) arg;
@@ -1407,7 +1410,7 @@ void *nic_loop(void *arg)
 			else
 				nic->flags &= ~NIC_ENABLED;
 
-			/*  Signal that the device enable is done */
+			/* Signal that the device enable is done */
 			pthread_cond_broadcast(&nic->enable_done_cond);
 			pthread_mutex_unlock(&nic->nic_mutex);
 			goto dev_close;
@@ -1462,7 +1465,7 @@ void *nic_loop(void *arg)
 			LOG_WARN(PFX "%s: nic was disabled during nic loop, "
 				 "closing flag 0x%x",
 				 nic->log_name, nic->flags);
-			/* Signal that the device enable is done */
+			/*  Signal that the device enable is done */
 			pthread_cond_broadcast(&nic->enable_done_cond);
 			pthread_mutex_unlock(&nic->nic_mutex);
 			goto dev_close_free;
