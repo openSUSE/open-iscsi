@@ -391,7 +391,7 @@ int ndpc_request(struct uip_stack *ustack, void *in, void *out, int request)
 		return -EINVAL;
 	}
 	while (s->state != NDPC_STATE_BACKGROUND_LOOP) {
-		LOG_DEBUG("%s: ndpc state not in background loop, run handler ",
+		LOG_DEBUG("%s: ndpc state not in background loop, run handler "
 			  "request = %d", s->nic->log_name, request);
 		handle_ndp(ustack, 1);
 	}
@@ -415,7 +415,9 @@ int ndpc_request(struct uip_stack *ustack, void *in, void *out, int request)
 	case GET_HOST_ADDR:
 		*(struct ipv6_addr **)out = ipv6_find_longest_match(ipv6c,
 							(struct ipv6_addr *)in);
+		break;
 	default:
+		ret = -EINVAL;
 		break;
 	}
 	return ret;
