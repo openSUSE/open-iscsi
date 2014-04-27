@@ -30,7 +30,7 @@ typedef enum iscsid_uip_cmd {
 	ISCSID_UIP_IPC_UNKNOWN			= 0,
 	ISCSID_UIP_IPC_GET_IFACE		= 1,
 
-        __ISCSID_UIP_IPC_MAX_COMMAND
+	__ISCSID_UIP_IPC_MAX_COMMAND
 } iscsid_uip_cmd_e;
 
 typedef struct iscsid_uip_broadcast_header {
@@ -52,11 +52,11 @@ typedef struct iscsid_uip_broadcast {
 
 typedef enum iscsid_uip_mgmt_ipc_err {
 	ISCSID_UIP_MGMT_IPC_OK                     = 0,
-        ISCISD_UIP_MGMT_IPC_ERR                    = 1,
-        ISCISD_UIP_MGMT_IPC_ERR_NOT_FOUND          = 2,
-        ISCISD_UIP_MGMT_IPC_ERR_NOMEM              = 3,
-        ISCSID_UIP_MGMT_IPC_DEVICE_UP              = 4,
-        ISCSID_UIP_MGMT_IPC_DEVICE_INITIALIZING    = 5,
+	ISCSID_UIP_MGMT_IPC_ERR                    = 1,
+	ISCSID_UIP_MGMT_IPC_ERR_NOT_FOUND          = 2,
+	ISCSID_UIP_MGMT_IPC_ERR_NOMEM              = 3,
+	ISCSID_UIP_MGMT_IPC_DEVICE_UP              = 4,
+	ISCSID_UIP_MGMT_IPC_DEVICE_INITIALIZING    = 5,
 } iscsid_uip_mgmt_ipc_err_e;
 
 /* IPC Response */

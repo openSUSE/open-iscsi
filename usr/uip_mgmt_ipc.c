@@ -18,7 +18,7 @@
 
 #include "log.h"
 #include "uip_mgmt_ipc.h"
-#include "util.h"
+#include "iscsid_req.h"
 
 int uip_broadcast_params(struct iscsi_transport *t,
 			 struct iface_rec *iface,
@@ -26,7 +26,7 @@ int uip_broadcast_params(struct iscsi_transport *t,
 {
 	struct iscsid_uip_broadcast broadcast;
 
-        log_debug(3, "broadcasting to uip\n");
+	log_debug(3, "broadcasting to uip\n");
 
 	memset(&broadcast, 0, sizeof(broadcast));
 
