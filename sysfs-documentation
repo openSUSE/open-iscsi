@@ -80,7 +80,7 @@ DHCP Alternate Client ID
 When dhcp_alt_client_id_en is set to enable, use value set in dhcp_alt_client_id
 for Client ID in DHCP messages.
 
-Valid values: 11-byte Client ID
+Valid values: 11-byte Client ID 
 
 dhcp_req_vendor_id_en
 ---------------------
@@ -107,7 +107,7 @@ DHCP Vendor ID
 When dhcp_req_vendor_id_en or dhcp_use_vendor_id_en is set to enable,
 use value set in dhcp_vendor_id for Vendor ID in DHCP messages.
 
-Valid values: 11-byte Client ID
+Valid values: 11-byte Client ID 
 
 dhcp_learn_iqn_en
 -----------------
@@ -233,7 +233,7 @@ Valid range: 8-bit value. [0-255]
 
 nd_reachable_tmo
 ----------------
-This attribute specifies the time (in milliseconds) that a node assumes
+This attribute specifies the time (in milliseconds) that a node assumes 
 that the neighbor is reachable after confirmation.
 
 Valid range: 4-byte value. [0-4294967295]
@@ -320,7 +320,7 @@ Valid values: Unconfigured, Acquiring, Tentative, Valid, Disabling, Invalid,
 delayed_ack_en
 --------------
 When this attribute is set to enable, TCP delayed ACK is enabled.
-
+  
 Valid values: "enable" or "disable"
 
 tcp_nagle_disable

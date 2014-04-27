@@ -16,9 +16,9 @@ initddir = $(etcdir)/init.d
 mkinitrd = $(exec_prefix)/lib/mkinitrd/scripts
 systemddir = /usr/lib/systemd/system
 
-MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8 doc/iscsi_discovery.8 iscsiuio/docs/iscsiuio.8
+MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8 iscsiuio/docs/iscsiuio.8
 PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi_discovery utils/iscsi-iname iscsiuio/src/unix/iscsiuio
-SCRIPTS = utils/iscsi_discovery utils/iscsi_offload utils/iscsi-gen-initiatorname
+SCRIPTS = utils/iscsi_offload utils/iscsi-gen-initiatorname
 INSTALL = install
 ETCFILES = etc/iscsid.conf
 IFACEFILES = etc/iface.example
