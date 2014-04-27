@@ -43,8 +43,6 @@
 #include "iscsi_err.h"
 #include "iscsi_netlink.h"
 
-#define	OFFLOAD_BOOT_SUPPORTED	/* for SUSE */
-
 /*
  * Default ifaces for use with transports that do not bind to hardware
  * by defaults (transports that let the interconnect layer to the routing

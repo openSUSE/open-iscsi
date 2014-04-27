@@ -69,7 +69,7 @@ Authors:
 %patch1 -p1
 
 %build
-%{__make} OPTFLAGS="${RPM_OPT_FLAGS} -fno-strict-aliasing -DLOCK_DIR=\\\"/etc/iscsi\\\"" user
+%{__make} OPTFLAGS="${RPM_OPT_FLAGS} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"/etc/iscsi\\\"" user
 
 %install
 make DESTDIR=${RPM_BUILD_ROOT} install_user
