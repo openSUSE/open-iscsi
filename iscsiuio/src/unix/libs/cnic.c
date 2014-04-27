@@ -167,15 +167,6 @@ static int cnic_neigh_soliciation_send(nic_t *nic,
 	memcpy(ipv6_hdr->ip6_dst.s6_addr, addr6_dst->s6_addr,
 	       sizeof(struct in6_addr));
 
-	LOG_DEBUG(PFX "dst ip addr %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
-		  ipv6_hdr->ip6_dst.s6_addr16[0],
-		  ipv6_hdr->ip6_dst.s6_addr16[1],
-		  ipv6_hdr->ip6_dst.s6_addr16[2],
-		  ipv6_hdr->ip6_dst.s6_addr16[3],
-		  ipv6_hdr->ip6_dst.s6_addr16[4],
-		  ipv6_hdr->ip6_dst.s6_addr16[5],
-		  ipv6_hdr->ip6_dst.s6_addr16[6],
-		  ipv6_hdr->ip6_dst.s6_addr16[7]);
 	nic_fill_ethernet_header(nic_iface, eth, nic->mac_addr, nic->mac_addr,
 				 &pkt_size, (void *)&ipv6_hdr, ETHERTYPE_IPV6);
 	req_ptr.eth = (void *)eth;
@@ -437,6 +428,7 @@ done:
 
 	cnic_nl_neigh_rsp(nic, fd, ev, path, mac_addr,
 			  nic_iface, status, AF_INET);
+
 	return rc;
 }
 
@@ -510,21 +502,15 @@ int cnic_handle_ipv6_iscsi_path_req(nic_t *nic, int fd,
 		memcpy(&netmask.s6_addr, all_zeroes_addr6,
 		       sizeof(struct in6_addr));
 
-	LOG_DEBUG(PFX "src addr %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
-		  src_addr.s6_addr16[0], src_addr.s6_addr16[1],
-		  src_addr.s6_addr16[2], src_addr.s6_addr16[3],
-		  src_addr.s6_addr16[4], src_addr.s6_addr16[5],
-		  src_addr.s6_addr16[6], src_addr.s6_addr16[7]);
-	LOG_DEBUG(PFX "dst addr %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
-		  dst_addr.s6_addr16[0], dst_addr.s6_addr16[1],
-		  dst_addr.s6_addr16[2], dst_addr.s6_addr16[3],
-		  dst_addr.s6_addr16[4], dst_addr.s6_addr16[5],
-		  dst_addr.s6_addr16[6], dst_addr.s6_addr16[7]);
-	LOG_DEBUG(PFX "nm addr %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
-		  netmask.s6_addr16[0], netmask.s6_addr16[1],
-		  netmask.s6_addr16[2], netmask.s6_addr16[3],
-		  netmask.s6_addr16[4], netmask.s6_addr16[5],
-		  netmask.s6_addr16[6], netmask.s6_addr16[7]);
+	inet_ntop(AF_INET6, &src_addr.s6_addr16, addr_dst_str,
+		  sizeof(addr_dst_str));
+	LOG_DEBUG(PFX "src IP addr %s", addr_dst_str);
+	inet_ntop(AF_INET6, &dst_addr.s6_addr16, addr_dst_str,
+		  sizeof(addr_dst_str));
+	LOG_DEBUG(PFX "dst IP addr %s", addr_dst_str);
+	inet_ntop(AF_INET6, &netmask.s6_addr16, addr_dst_str,
+		  sizeof(addr_dst_str));
+	LOG_DEBUG(PFX "prefix mask %s", addr_dst_str);
 
 	for (i = 0; i < 4; i++) {
 		src_matching_addr.s6_addr32[i] = src_addr.s6_addr32[i] &
@@ -534,24 +520,22 @@ int cnic_handle_ipv6_iscsi_path_req(nic_t *nic, int fd,
 		if (src_matching_addr.s6_addr32[i] !=
 		    dst_matching_addr.s6_addr32[i]) {
 			/* No match with the prefix mask, use default route */
-			if (ndpc_request(&nic_iface->ustack, NULL, &addr,
-					 GET_DEFAULT_ROUTER_ADDR)) {
-				neighbor_retry = MAX_ARP_RETRY;
-				goto done;
-			}
-			if (memcmp(addr, all_zeroes_addr6, sizeof(*addr)))
-				memcpy(&dst_addr, addr, sizeof(dst_addr));
-			else {
+			if (memcmp(nic_iface->ustack.default_route_addr6,
+				   all_zeroes_addr6, sizeof(*addr))) {
+				memcpy(&dst_addr,
+				       nic_iface->ustack.default_route_addr6,
+				       sizeof(dst_addr));
+				inet_ntop(AF_INET6, &dst_addr.s6_addr16,
+					  addr_dst_str, sizeof(addr_dst_str));
+				LOG_DEBUG(PFX "Use default router IP addr %s",
+					  addr_dst_str);
+				break;
+			} else {
 				neighbor_retry = MAX_ARP_RETRY;
 				goto done;
 			}
 		}
 	}
-	LOG_DEBUG(PFX "dst addr %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
-		  dst_addr.s6_addr16[0], dst_addr.s6_addr16[1],
-		  dst_addr.s6_addr16[2], dst_addr.s6_addr16[3],
-		  dst_addr.s6_addr16[4], dst_addr.s6_addr16[5],
-		  dst_addr.s6_addr16[6], dst_addr.s6_addr16[7]);
 
 #define MAX_ARP_RETRY 4
 	neighbor_retry = 0;
@@ -564,6 +548,8 @@ int cnic_handle_ipv6_iscsi_path_req(nic_t *nic, int fd,
 		goto done;
 	}
 	if (!rc) {
+		inet_ntop(AF_INET6, &dst_addr.s6_addr16,
+			  addr_dst_str, sizeof(addr_dst_str));
 		LOG_DEBUG(PFX
 			  "%s: Preparing to send IPv6 neighbor solicitation "
 			  "to dst: '%s'", nic->log_name, addr_dst_str);

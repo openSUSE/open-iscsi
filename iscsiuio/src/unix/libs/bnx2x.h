@@ -535,7 +535,7 @@ struct client_init_general_data {
 
 #define USTORM_RX_PRODS_OFFSET(port, client_id) \
 	(IS_E1H_OFFSET ? (0x4000 + (port * 0x360) + (client_id * 0x30)) \
-	: (0x1000 + (port * 0x680) + (client_id * 0x40)))
+	:(0x1000 + (port * 0x680) + (client_id * 0x40)))
 
 struct iro {
 	__u32 base;

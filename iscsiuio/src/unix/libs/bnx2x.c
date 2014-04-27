@@ -115,7 +115,6 @@ static const char brcm_57840_4_10[] = "Broadcom NetXtreme II BCM57840 4x"
 static const char brcm_57840_2_20[] = "Broadcom NetXtreme II BCM57840 2x"
 				      "20-Gigabit";
 
-
 /*******************************************************************************
  * PCI ID constants
  ******************************************************************************/
@@ -631,7 +630,7 @@ static void bnx2x_free(nic_t *nic)
 /**
  *  bnx2x_alloc() - Used to allocate a bnx2x structure
  */
-static bnx2x_t *bnx2x_alloc(nic_t * nic)
+static bnx2x_t *bnx2x_alloc(nic_t *nic)
 {
 	bnx2x_t *bp = malloc(sizeof(*bp));
 
@@ -694,7 +693,7 @@ static int bnx2x_open(nic_t *nic)
 		if (rc)
 			goto open_error;
 	} else {
-		/* Version is not unknown, jsut use it */
+		/* Version is not unknown, just use it */
 		bnx2x_version.major = bp->version.major;
 		bnx2x_version.minor = bp->version.minor;
 		bnx2x_version.sub_minor = bp->version.sub_minor;
@@ -1057,6 +1056,7 @@ static int bnx2x_open(nic_t *nic)
 			mac[4] = (__u8) (val >> 8);
 			mac[5] = (__u8) val;
 			memcpy(nic->mac_addr, mac, 6);
+
 		}
 	}
 SF:
@@ -1112,6 +1112,10 @@ open_error:
 	if (bp->bar0_fd != INVALID_FD) {
 		close(bp->bar0_fd);
 		bp->bar0_fd = INVALID_FD;
+	}
+	if (nic->fd != INVALID_FD) {
+		close(nic->fd);
+		nic->fd = INVALID_FD;
 	}
 	bnx2x_free(nic);
 
