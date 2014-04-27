@@ -36,7 +36,6 @@
 #include "iscsi_net_util.h"
 #include "iscsi_err.h"
 #include "config.h"
-#include "transport.h"
 #include "iface.h"
 
 /**
