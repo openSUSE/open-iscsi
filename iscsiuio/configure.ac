@@ -1,13 +1,13 @@
 dnl iscsiuio uIP user space stack configure.ac file
 dnl
-dnl Copyright (c) 2004-2012 Broadcom Corporation
+dnl Copyright (c) 2004-2013 Broadcom Corporation
 dnl
 dnl This program is free software; you can redistribute it and/or modify
 dnl it under the terms of the GNU General Public License as published by
 dnl the Free Software Foundation.
 dnl
-dnl Written by: Benjamin Li  (benli@broadcom.com)
-dnl             Eddie Wai (eddie.wai@broadcom.com)
+dnl Written by: Eddie Wai (eddie.wai@broadcom.com)
+dnl             Benjamin Li  (benli@broadcom.com)
 dnl
 
 PACKAGE=iscsiuio
@@ -62,7 +62,7 @@ AC_ARG_ENABLE(debug,
     fi])
 AM_CONDITIONAL([DEBUG], [test x$debug = xtrue])
 
-AC_CONFIG_COMMANDS([default],[[ echo 'char *build_date ="'`date`'";' > src/unix/build_date.c  && echo 'char *build_date; '> src/unix/build_date.h]],[[]])
+AC_CONFIG_COMMANDS([default],[[ echo 'char *build_date = "'`date`'";' > src/unix/build_date.c  && echo 'char *build_date;'> src/unix/build_date.h]],[[]])
 
 AC_PREFIX_DEFAULT()
 

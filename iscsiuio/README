@@ -1,12 +1,12 @@
-iscsiuio iSCSI Userspace Tools
+Iscsiuio Userspace Tool
 Version 0.7.8.2
 Dec 10, 2013
 ------------------------------------------------------
 
 This tool is to be used in conjunction with the Broadcom NetXtreme II Linux
 driver (Kernel module name: 'bnx2' and 'bnx2x'), Broadcom CNIC driver,
-and the Broadcom iSCSI driver (Kernel module name: 'bnx2i'). 
-This user space tool is used  in conjunction with the following
+and the Broadcom iSCSI driver (Kernel module name: 'bnx2i').
+This user space tool is used in conjunction with the following
 Broadcom Network Controllers:
   bnx2:  BCM5706, BCM5708, BCM5709 devices
   bnx2x: BCM57710, BCM57711, BCM57711E, BCM57712, BCM57712E,
@@ -67,10 +67,6 @@ using the iface files:
 
       iscsiadm -m iface -I <iface name> --op=new
 
-Note that discovery via iSCSI HBA was made possible in RHEL5.8+ and RHEL6.1+.
-Because of this, the user should update the iface file (in step 3) prior to
-doing the discovery of the targes (in step 2).
-
 2.  Discover the targets associated with the new iface
 
      iscsiadm -m discovery -t st -p <iSCSI target IP address> -I <iface name>
@@ -88,7 +84,7 @@ doing the discovery of the targes (in step 2).
   To specify the bnx2i as the transport:
       iscsiadm -m iface -I <iface name> --op=update --name=iface.transport_name --value=bnx2i
 
-  To specify the network interface to offload with, do either (a) or (b):
+  To specify the network interface to offload with:
 
   a.  Specify the physical network interface name <ie. eth0, eth1, eth2 ...>
       iscsiadm -m iface -I <iface name> --op=update --name=iface.net_ifacename --value=<network interface name>
@@ -100,90 +96,6 @@ doing the discovery of the targes (in step 2).
     desired iSCSI target.
 
       iscsiadm -m node -p <iSCSI target IP address> -T <target name> -I <iface name> --login
-
-
-New Iface Network Parameters Support:
-=======================================
-For RHEL5.9+, and RHEL6.3+, newly defined network parameters can now be
-specified in the iface file.
-
-The newly supported parameters are listed below:
-
-iface.subnet_mask
-- Specifies the static IPv4 subnet mask and static IPv6 prefix length
-override.
-- Valid values:  IPv4/IPv6 address format
-- The class default mask will be used if not specified.
-
-iface.gateway
-- Specifies the static IPv4 gateway address override.
-- Valid values:  IPv4 address format
-
-iface.ipv6_autocfg
-- Specifies the config to use for IPv6
-- Valid values:  "dhcpv6", "nd", or else/not specified
-- For dhcpv6/nd, the IP address specified will be ignored.
-
-iface.linklocal_autocfg
-- Specifies the config to override the static IPv6 linklocal address.
-- Valid values:  "auto", else/not specified.
-
-iface.ipv6_linklocal
-- Specifies the IPv6 linklocal address for the override
-- Valid values:  IPv6 address format
-
-iface.router_autocfg
-- Specifies the config to override the static IPv6 router address.
-- Valid values:  "auto", else/not specified.
-
-iface.ipv6_router
-- Specifies the IPv6 router address for the override
-- Valid values:  IPv6 address format
-
-iface.vlan_state
-- Specifies the config to employ the VLAN priority/id
-- Valid values:  "disable" or else/not specified = enable
-- To enable, specify "enable" and set the iface.vlan_id field (1-4095)
-- To disable, specify "disable" or set iface.vlan_id to 0
-
-iface.vlan_id
-- Specifies the VLAN id to use
-- Valid values:  "0" = disabled, "1" to "4095" will activate VLAN tagging
-
-iface.iface_num
-- Specifies the unique ID handle for this iface file.
-- Valid values:  Any value from 0 to 4294967295 (32 bit max)
-- This is only used as an identifier.
-- Please make sure no two iface files use the same iface_num.
-
-iface.mtu
-- Specifies the MTU to use
-- Valid values: "46" to "9000"
-
-Unsupported iface parameters:
-
-iface.bootproto
-- Specifies the HBA protocol to use at startup
-- Valid values:  "dhcp" or else/not specified = static
-
-iface.state
-- Specifies the config for this iface file
-- Valid values:  "disable" or else/not specified = enable
-
-iface.vlan_priority
-- Specifies the VLAN priority to use
-- Valid values:  "0" to "7"
-
-iface.port
-- Specifies the TCP port to use
-- Valids values:  Any value from 0 to 65535 (16 bit max)
-
-iface.port_state
-- Read-only.  Indicates the state of the port used.
-
-iface.port_speed
-- Read-only.  Indicates the speed of the port used.
-
 
 bnx2 Limitations:
 =======================================
@@ -203,7 +115,7 @@ bnx2x Limitations:
       *  default ring size of 1 entry
       *  default buffer size is 0x400 bytes
 
-Other Limitations:
+Other Limiations:
 
 Any packets larger then the buffer size will not be sent/received by the
 hardware and will be dropped.
@@ -217,16 +129,13 @@ assigned link local address.
 
 VLAN support:
 
-VLAN for DHCPv4/v6 and Static IPv4/v6 are now supported for RHEL5.9+ and
-RHEL6.3+.  Please consult the 'New Feature Support' section for details.
-
-For legacy distros, VLAN support is only supported when using static IP
-addresses. Also, only 1 VLAN is supported per physical network interface.
-Either non-VLAN offloaded traffic is allowed or VLAN offloaded
-traffic is allowed.  This implementation does not support both at the
+VLAN support is only supported when using static IP addresses.
+Also, currently only 1 VLAN is supported per physical network interface.
+Either non-VLAN offloaded traffic is allowed or VLAN offloaded traffic
+is allowed.  The current implementation does not support both at the
 same time.
 
-For legacy distros, there is no explicit VLAN attributes in the iface file.
+Currently there is no explicit VLAN attributes in the iface file.
 To configure the VLAN offload, the iface.hwaddress attribute or
 physical net_ifacename (without the VLAN identifier) must be used
 to specify the HBA device.  For the proper CNIC routing, the
@@ -243,7 +152,7 @@ VLAN interface:
 
 Setting IP address:
 
-On RHEL5.4, RHEL5.5+, RHEL5.6+, and SLES11SP1+ distributions,
+On RHEL5.4, RHEL5.5+, RHEL6.0+, and SLES11SP1 distributions,
 discovery login is done over the Linux TCP/IP stack and L2 network
 interface.  The ethx interface corresponding to the HBA must
 therefore be in the same IP subnet in order to reach the iSCSI
@@ -259,9 +168,8 @@ as described above.
 
 Setting Netmask and Gateway addresses:
 
-For legacy distros (RHEL5.8 and older, RHEL6.2 and older),
-there are no entries in the iface file to allow the user to enter
-a netmask or gateway IP address.
+With the current limitations of the iface file, there are no entries
+to allow the user to enter a netmask or gateway IP address.
 
 The only way to explicitly configure these options is to use DHCP
 addressing.  Then the netmask/gateway are set on the DHCP server.
@@ -277,14 +185,14 @@ By default, the iscsiuio daemon does not output any messages to the log file,
 '/var/log/iscsiuio.log'.  Message logging is only enabled when the daemon is
 run under debug mode.
 
-To run the daemon in debug mode, please pass the parameter '-d <debug_level>'
+To run the daemon in debug mode please pass the parameter  '-d <debug level>'
 
 where the following debug levels are defined:
 
-DEBUG		4 - Print debug messages
-INFO		3 - Print messages needed to follow the uIP code
-WARN		2 - Print warning messages
-ERROR		1 - Only print critical errors
+DEBUG         4 - Print all messages
+INFO          3 - Print messages needed to follow the uIP code (default)
+WARN          2 - Print warning messages
+ERROR         1 - Only print critical errors
 
 A sample banner message:
 
@@ -312,5 +220,5 @@ Warning:  If full debug is enabled, this may quickly fill the partition
 containing the iscsiuio logs.  This is because full debugging will log
 packet activity which on a busy network will quickly fill the logs.
 
-Note:  If the bnx2i and cnic drivers are unloaed, then iscsiuio will also
+Note:  If the bnx2i and cnic drivers are unloaded, then iscsiuio will also
 need to be restarted so that it can determine the iscsid version.
