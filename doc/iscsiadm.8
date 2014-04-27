@@ -47,6 +47,12 @@ daemon (iscsid) be running.
 This option is only valid for ping submode.
 
 .TP
+\fB\-A\fR, \fB\-\-portal_type=\fI[ipv4|ipv6]\fR
+Specify the portal type for the new flash node entry to be created.
+.IP
+This option is only valid for flashnode submode of host mode and only with \fInew\fR operation.
+
+.TP
 \fB\-b\fR, \fB\-\-packetsize=\fIpacketsize\fP
 Specify the ping \fIpacketsize\fR.
 
@@ -57,12 +63,6 @@ This option is only valid for ping submode.
 \fIcount\fR specify number of ping iterations.
 
 This option is only valid for ping submode.
-
-.TP
-\fB\-A\fR, \fB\-\-portal_type=\fI[ipv4|ipv6]\fR
-Specify the portal type for the new flash node entry to be created.
-.IP
-This option is only valid for flashnode submode of host mode and only with \fInew\fR operation.
 
 .TP
 \fB\-C\fR, \fB\-\-submode=\fIop\fP
