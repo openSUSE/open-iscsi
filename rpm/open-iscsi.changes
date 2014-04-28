@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Mon Apr 28 10:59:09 PDT 2014 - lduncan@suse.com
+
+- Added an upstream patch from Mike Christie (bnc#869356):
+  iscsi-tools-set-non-negotiated-params-early
+
+-------------------------------------------------------------------
 Mon Apr 28 10:52:58 PDT 2014 - <michaelc@cs.wisc.edu>
 
    iscsid: Fix handling of iscsi async events.
