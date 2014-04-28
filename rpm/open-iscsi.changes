@@ -1,4 +1,15 @@
 -------------------------------------------------------------------
+Mon Apr 28 10:29:26 PDT 2014 - lduncan@suse.com
+
+- Ported Hannes' open-isns changes fro SLE12, setting up
+  open-isns as a separate sub-package and integrating it
+  with open-iscsi
+- Updated Factory to match latest upstream code base,
+  including changse to open-iscsi and iscsiuio. These changes
+  include bug fixes as well as systemd integration for
+  open-iscsi.
+
+-------------------------------------------------------------------
 Mon Mar 10 10:45:43 PDT 2014 - lduncan@suse.com
 
 - Cleaned up systemd unit files and spec entries (bnc#847953)
