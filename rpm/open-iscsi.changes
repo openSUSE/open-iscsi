@@ -1,4 +1,22 @@
 -------------------------------------------------------------------
+Mon Apr 28 10:52:58 PDT 2014 - <michaelc@cs.wisc.edu>
+
+   iscsid: Fix handling of iscsi async events.
+
+   When iscsi targets send 32 or more iscsi async event pdus the
+   initiator will run out of memory for events and this message:
+
+   BUG: iscsid: Can not allocate memory for receive context.
+
+   will be logged non stop. iscsid will then not be able to
+   complate any more requests because it is stuck in a endless loop
+   printing that message.
+
+   This fixes the problem by having iscsid handle an event after it
+   has read it in from netlink or the mgmt ipc. Previously we would
+   queue all events then handle them.
+
+-------------------------------------------------------------------
 Mon Apr 28 10:51:35 PDT 2014 - lduncan@suse.com
 
 - Updated systemd unit files (bnc#847953)
