@@ -145,7 +145,7 @@ touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 install -m 0755 usr/iscsistart %{buildroot}/sbin
 make DESTDIR=${RPM_BUILD_ROOT} -C utils/open-isns install
 %if 0%{?suse_version} >= 1230
-make DESTDIR=${RPM_BUILD_ROOT} install_service
+make DESTDIR=${RPM_BUILD_ROOT} -C utils/open-isns install_service
 %endif
 make DESTDIR=${RPM_BUILD_ROOT} -C iscsiuio install
 
