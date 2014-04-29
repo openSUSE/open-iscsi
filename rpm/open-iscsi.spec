@@ -28,7 +28,6 @@ BuildRequires:  openssl-devel
 %if 0%{?suse_version} >= 1230
 BuildRequires:  systemd
 %endif
-BuildRequires:  zypper
 Url:            http://www.open-iscsi.org
 PreReq:         %fillup_prereq %insserv_prereq
 Version:        2.0.873
@@ -145,6 +144,9 @@ ln -sf ../../etc/init.d/iscsid ${RPM_BUILD_ROOT}/usr/sbin/rciscsid
 touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 install -m 0755 usr/iscsistart %{buildroot}/sbin
 make DESTDIR=${RPM_BUILD_ROOT} -C utils/open-isns install
+%if 0%{?suse_version} >= 1230
+make DESTDIR=${RPM_BUILD_ROOT} install_service
+%endif
 make DESTDIR=${RPM_BUILD_ROOT} -C iscsiuio install
 
 %clean
@@ -181,17 +183,46 @@ fi
 %endif
 
 %post -n open-isns
+%if 0%{?suse_version} >= 1230
 %{service_add_post isnsd.socket isnsd.service}
+%endif
 
 %postun -n open-isns
+%if 0%{?suse_version} >= 1230
 %{service_add_post isnsd.socket isnsd.service}
+%endif
 
 %pre -n open-isns
+%if 0%{?suse_version} >= 1230
 %{service_add_pre isnsd.socket isnsd.service}
+%endif
 
 %preun -n open-isns
 %{stop_on_removal isnsd isnsdd}
+%if 0%{?suse_version} >= 1230
 %{service_del_preun isnsd.socket isnsd.service}
+%endif
+
+%post -n iscsiuio
+%if 0%{?suse_version} >= 1230
+%{service_add_post iscsiuio.socket iscsiuio.service}
+%endif
+
+%postun -n iscsiuio
+%if 0%{?suse_version} >= 1230
+%{service_add_post iscsiuio.socket iscsiuio.service}
+%endif
+
+%pre -n iscsiuio
+%if 0%{?suse_version} >= 1230
+%{service_add_pre iscsiuio.socket iscsiuio.service}
+%endif
+
+%preun -n iscsiuio
+%{stop_on_removal isnsd isnsdd}
+%if 0%{?suse_version} >= 1230
+%{service_del_preun iscsiuio.socket iscsiuio.service}
+%endif
 
 %files
 %defattr(-,root,root)
@@ -217,13 +248,11 @@ fi
 /sbin/iscsi-gen-initiatorname
 /sbin/iscsi_offload
 /sbin/iscsi_discovery
-%if %(zypper --terse vcmp %{kernel_ver} 3.11) < 0
 %dir /lib/mkinitrd
 %dir /lib/mkinitrd/scripts
 /lib/mkinitrd/scripts/setup-iscsi.sh
 /lib/mkinitrd/scripts/boot-iscsi.sh
 /lib/mkinitrd/scripts/boot-killiscsi.sh
-%endif
 %doc COPYING README
 %doc %{_mandir}/man8/iscsiadm.8.gz
 %doc %{_mandir}/man8/iscsid.8.gz
@@ -236,8 +265,10 @@ fi
 %dir /etc/isns
 %attr(0600,root,root) %config(noreplace) /etc/isns/isnsd.conf
 %attr(0600,root,root) %config(noreplace) /etc/isns/isnsdd.conf
+%if 0%{?suse_version} >= 1230
 %{_unitdir}/isnsd.service
 %{_unitdir}/isnsd.socket
+%endif
 /usr/sbin/isnsd
 /usr/sbin/isnsdd
 /usr/sbin/isnsadm
@@ -252,7 +283,9 @@ fi
 /sbin/brcm_iscsiuio
 %doc %{_mandir}/man8/iscsiuio.8.gz
 %config /etc/logrotate.d/iscsiuiolog
+%if 0%{?suse_version} >= 1230
 %{_unitdir}/iscsiuio.service
 %{_unitdir}/iscsiuio.socket
+%endif
 
 %changelog

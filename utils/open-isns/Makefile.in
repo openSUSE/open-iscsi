@@ -12,6 +12,7 @@ ETCDIR	= $(DESTDIR)$(etcdir)
 CFGDIR	= $(ETCDIR)/isns
 MANDIR	= $(DESTDIR)$(mandir)
 VARDIR	= $(DESTDIR)$(vardir)
+SDSDIR  = $(DESTDIR)$(systemddir)
 
 CC	= @CC@
 CPPFLAGS= @CPPFLAGS@
@@ -25,7 +26,6 @@ ISNSDD	= isnsdd
 ISNSDDOBJS = isnsdd.o local.o
 ISNSADM	= isnsadm
 ISNSADMOBJS	= isnsadm.o
-SYSTEMD = isnsd.service isnsd.socket
 
 SRV	= $(ISNSD) $(ISNSDD) $(ISNSADM)
 LIB	= libisns.a
@@ -79,12 +79,9 @@ all: $(LIB)
 
 programs: $(SRV)
 
-install: $(SRV) $(SYSTEMD)
+install: $(SRV)
 	$(INSTALL) -d $(SBINDIR)
 	$(INSTALL) -m 755 $(SRV) $(SBINDIR)
-	$(INSTALL) -d $(DESTDIR)$(systemddir)
-	$(INSTALL) -m 644 isnsd.service $(DESTDIR)$(systemddir)
-	$(INSTALL) -m 644 isnsd.socket $(DESTDIR)$(systemddir)
 	$(INSTALL) -d $(MANDIR)/man8
 	$(INSTALL) -m 644 doc/isnsadm.8 $(MANDIR)/man8
 	$(INSTALL) -m 644 doc/isnsd.8 $(MANDIR)/man8
@@ -94,6 +91,11 @@ install: $(SRV) $(SYSTEMD)
 	$(INSTALL) -d $(CFGDIR)
 	$(INSTALL) -m 644 etc/isnsd.conf $(CFGDIR)
 	$(INSTALL) -m 644 etc/isnsdd.conf $(CFGDIR)
+
+install_service:
+	$(INSTALL) -d $(SDSDIR)
+	$(INSTALL) -m 644 isnsd.service $(SDSDIR)
+	$(INSTALL) -m 644 isnsd.socket $(SDSDIR)
 
 clean distclean::
 	rm -f *.o $(LIB) $(SRV) *~
