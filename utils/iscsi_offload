@@ -217,8 +217,11 @@ if iscsiadm -m iface -I $ioe_iface > /dev/null 2>&1 ; then
     if [ "$ipaddr" == "<empty>" ] ; then
 	ipaddr=
     fi
+elif [ "$mod" = "be2iscsi" ] ; then
+    ioe_mac=$mac
+    ioe_mod=$mod
 else
-    iscsiadm -m iface -I $ioe_iface --op=new
+    iscsiadm -m iface -I $ioe_iface --op=new 2> /dev/null
     ioe_mac=
     ioe_mod=
     ipaddr=
@@ -245,29 +248,39 @@ elif [ "$ioe_mod" != "$mod" ] ; then
 fi
 
 # Check iBFT setting
-if [ -d /sys/firmware/ibft ] ; then
-    for if in /sys/firmware/ibft/ethernet* ; do
+for d in /sys/firmware/* ; do
+    [ -d $d ] || continue
+    [ -d $d/ethernet0 ] || continue
+    iboot_dir=$d
+done
+if [ -n "$iboot_dir" ] && [ -d "$iboot_dir" ] ; then
+    for if in ${iboot_dir}/ethernet* ; do
 	read ibft_mac < $if/mac
 	[ "$ibft_mac" = "$mac" ] || continue
-	read ibft_origin < $if/origin
+	ibft_origin=0
+	[ -f ${if}/origin ] && read ibft_origin < $if/origin
 	if [ "$ibft_origin" -eq 1 ] ; then
-	    ibft_mode=static
+	    ibft_mode="static"
 	elif [ "$ibft_origin" -eq 3 ] ; then
-	    ibft_mode=dhcp
+	    ibft_mode="dhcp"
+	else
+	    ibft_mode="unknown"
 	fi
-	read ibft_dhcp < $if/dhcp
-	if [ "$ibft_dhcp" -a "$ibft_mode" != "dhcp" ] ; then
+	[ -f $if/dhcp ] && read ibft_dhcp < $if/dhcp
+	if [ -n "$ibft_dhcp" -a "$ibft_mode" != "dhcp" ] ; then
 	    ibft_mode=dhcp
 	fi
 	if [ "$ibft_mode" = "dhcp" ] ; then
 	    ibft_ipaddr="0.0.0.0"
-	else
-	    read ibft_ipaddr < $if/ip-addr
-	    read ibft_gateway < $if/gateway
-	    read ibft_mask < $if/subnet-mask
+	    break
 	fi
+	[ -f $if/ip-addr ] && read ibft_ipaddr < $if/ip-addr
+	[ -f $if/gateway ] && read ibft_gateway < $if/gateway
+	[ -f $if/subnet-mask ] && read ibft_mask < $if/subnet-mask
+	break
     done
 fi
+
 if [ -z "$optaddr" ] && [ "$ibft_ipaddr" ] ; then
     optaddr=$ibft_ipaddr
 fi
@@ -297,7 +310,6 @@ elif [ "$mode" = "static" ] && [ "$ipaddr" = "$optaddr" ] ; then
 fi
 
 if [ "$mod" = "be2iscsi" ] ; then
-    echo "Cannot configure $mod, please use the BIOS setup"
     exit 4
 fi
 
