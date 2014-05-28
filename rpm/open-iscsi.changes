@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed May 28 15:26:29 CEST 2014 - hare@suse.de
+
+- iscsi.service: do not logout from all sessions during shutdown
+  (bnc#880338)
+- iscsid.service: Fixup dependencies (bnc#880338)
+
+-------------------------------------------------------------------
 Fri May 2 15:07:14 2014 +0200 - hare@suse.de
 
 - iscsi_offload: do not print error messages for be2iscsi
