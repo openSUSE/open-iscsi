@@ -1,13 +1,13 @@
 [Unit]
 Description=Login and scanning of iSCSI devices
 Documentation=man:iscsiadm(8) man:iscsid(8)
-After=network.target NetworkManager-wait-online.service iscsid.service
+After=network.target network-online.target iscsid.service
 ConditionPathExists=/etc/iscsi/initiatorname.iscsi
 
 [Service]
 Type=oneshot
 ExecStart=/sbin/iscsiadm -m node --loginall=automatic
-ExecStop=/sbin/iscsiadm -m session --logout
+ExecStop=/sbin/iscsiadm -m node --logoutall=automatic
 SuccessExitStatus=21
 RemainAfterExit=true
 
