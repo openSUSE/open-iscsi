@@ -178,6 +178,7 @@ fi
 %{_unitdir}/iscsid.service
 %{_unitdir}/iscsid.socket
 %{_unitdir}/iscsi.service
+/usr/lib/systemd/system-generators/ibft-rule-generator
 /sbin/iscsid
 /sbin/iscsiadm
 /sbin/iscsi-iname
