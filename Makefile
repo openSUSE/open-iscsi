@@ -14,7 +14,7 @@ mandir = $(prefix)/share/man
 etcdir = /etc
 initddir = $(etcdir)/init.d
 mkinitrd = $(exec_prefix)/lib/mkinitrd/scripts
-systemddir = $(prefix)/lib/systemd/system
+systemddir = $(prefix)/lib/systemd
 
 MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8 iscsiuio/docs/iscsiuio.8 doc/iscsistart.8 doc/iscsi-iname.8
 PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi_discovery utils/iscsi-iname iscsiuio/src/unix/iscsiuio
@@ -135,17 +135,20 @@ install_initd_debian:
 
 # install systemd service files for openSUSE
 install_service_suse:
-	$(INSTALL) -d $(DESTDIR)$(systemddir)
+	$(INSTALL) -d $(DESTDIR)$(systemddir)/system
 	$(INSTALL) -m 644 etc/systemd/iscsid.service \
-		$(DESTDIR)$(systemddir)
+		$(DESTDIR)$(systemddir)/system
 	$(INSTALL) -m 644 etc/systemd/iscsid.socket \
-		$(DESTDIR)$(systemddir)
+		$(DESTDIR)$(systemddir)/system
 	$(INSTALL) -m 644 etc/systemd/iscsi.service \
-		$(DESTDIR)$(systemddir)
+		$(DESTDIR)$(systemddir)/system
 	$(INSTALL) -m 644 etc/systemd/iscsiuio.service \
-		$(DESTDIR)$(systemddir)
+		$(DESTDIR)$(systemddir)/system
 	$(INSTALL) -m 644 etc/systemd/iscsiuio.socket \
-		$(DESTDIR)$(systemddir)
+		$(DESTDIR)$(systemddir)/system
+	$(INSTALL) -d $(DESTDIR)$(systemddir)/system-generators
+	$(INSTALL) -m 755 utils/ibft-rule-generator \
+		$(DESTDIR)$(systemddir)/system-generators
 
 install_iface: $(IFACEFILES)
 	$(INSTALL) -d $(DESTDIR)$(etcdir)/iscsi/ifaces
