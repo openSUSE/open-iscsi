@@ -236,6 +236,7 @@ fi
 %{_unitdir}/iscsid.service
 %{_unitdir}/iscsid.socket
 %{_unitdir}/iscsi.service
+/usr/lib/systemd/system-generators/ibft-rule-generator
 %else
 %config /etc/init.d/iscsid
 %config /etc/init.d/boot.iscsid-early
