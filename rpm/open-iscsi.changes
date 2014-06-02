@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Fri May 2 15:07:14 2014 +0200 - hare@suse.de
+
+- iscsi_offload: do not print error messages for be2iscsi
+
+  be2iscsi HBAs display the firmware settings in
+  /sys/firmware/iscsi_boot1 and only provide a subset
+  of the iBFT settings (bnc#876137)
+
+-------------------------------------------------------------------
 Mon Apr 28 11:00:03 PDT 2014 - lduncan@suse.com
 
 - Added two not-yet-upstream patches for iscsiuio/systemd activation
