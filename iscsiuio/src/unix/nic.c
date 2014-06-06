@@ -1492,13 +1492,13 @@ void *nic_loop(void *arg)
 
 		/*  Signal that the device enable is done */
 		pthread_cond_broadcast(&nic->enable_done_cond);
-		pthread_mutex_unlock(&nic->nic_mutex);
 
 		LOG_INFO(PFX "%s: entering main nic loop", nic->log_name);
 
 		while ((nic->state == NIC_RUNNING) &&
 		       (event_loop_stop == 0) &&
 		       !(nic->flags & NIC_GOING_DOWN)) {
+			pthread_mutex_unlock(&nic->nic_mutex);
 			/*  Check the periodic and ARP timer */
 			check_timers(nic, &periodic_timer, &arp_timer);
 			rc = nic_process_intr(nic, 0);
@@ -1509,6 +1509,7 @@ void *nic_loop(void *arg)
 						     &periodic_timer,
 						     &arp_timer, NULL);
 			}
+			pthread_mutex_lock(&nic->nic_mutex);
 		}
 
 		LOG_INFO(PFX "%s: exited main processing loop", nic->log_name);
@@ -1516,7 +1517,6 @@ void *nic_loop(void *arg)
 dev_close_free:
 		free_free_queue(nic);
 dev_close:
-		pthread_mutex_lock(&nic->nic_mutex);
 
 		if (nic->flags & NIC_GOING_DOWN) {
 			nic_close(nic, 1, FREE_NO_STRINGS);
