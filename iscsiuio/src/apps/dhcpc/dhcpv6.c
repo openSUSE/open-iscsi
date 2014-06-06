@@ -62,14 +62,19 @@ static void dhcpv6_parse_vendor_option(struct dhcpv6_context *context,
 
 void dhcpv6_init(struct dhcpv6_context *context)
 {
+	u32_t tid;
+
 	context->seconds = 0;
 	context->our_mac_addr =
 	    ipv6_get_link_addr(context->ipv6_context);
 
 	/* Use the last four bytes of MAC address as base of the transaction
 	   ID */
-	context->dhcpv6_transaction_id =
-	    *((u32_t *) &context->our_mac_addr->addr[2]) & 0xffffffL;
+	tid = (context->our_mac_addr->addr[2] << 24) |
+		(context->our_mac_addr->addr[3] << 16) |
+		(context->our_mac_addr->addr[4] << 8) |
+		context->our_mac_addr->addr[5];
+	context->dhcpv6_transaction_id = tid & 0xffffffL;
 
 	context->dhcpv6_done = FALSE;
 	strcpy(context->dhcp_vendor_id, "BRCM ISAN");
@@ -124,6 +129,7 @@ static u16_t dhcpv6_init_packet(struct dhcpv6_context *context, u8_t type)
 	union dhcpv6_hdr *dhcpv6;
 	struct dhcpv6_option *opt;
 	u16_t len;
+	u32_t tid;
 
 	/* Initialize dest IP with well-known DHCP server address */
 	dhcpv6_init_dhcpv6_server_addr(&context->ipv6->ipv6_dst);
@@ -208,8 +214,12 @@ static u16_t dhcpv6_init_packet(struct dhcpv6_context *context, u8_t type)
 	/* Add IA_NA option */
 	opt->hdr.type = HOST_TO_NET16(DHCPV6_OPT_IA_NA);
 	opt->hdr.length = HOST_TO_NET16(sizeof(struct dhcpv6_opt_id_assoc_na));
-	opt->type.ida_na.iaid =
-	    htonl(*((u32_t *) &context->our_mac_addr->addr[2]));
+
+	tid = (context->our_mac_addr->addr[2] << 24) |
+		(context->our_mac_addr->addr[3] << 16) |
+		(context->our_mac_addr->addr[4] << 8) |
+		context->our_mac_addr->addr[5];
+	opt->type.ida_na.iaid = htonl(tid);
 	opt->type.ida_na.t1 = 0;
 	opt->type.ida_na.t2 = 0;
 	pkt_len += sizeof(struct dhcpv6_opt_id_assoc_na) +
