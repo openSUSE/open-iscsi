@@ -39,6 +39,7 @@ Summary:        Linux* Open-iSCSI Software Initiator
 License:        GPL-2.0+
 Group:          Productivity/Networking/Other
 Source:         %{name}-2.0-%{iscsi_release}.tar.bz2
+Source1:        %{name}-firewall.service
 Patch1:         %{name}-git-update.diff.bz2
 Patch2:         %{name}-sles12-update.diff.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
@@ -134,6 +135,8 @@ touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 install -m 0755 usr/iscsistart %{buildroot}/sbin
 make DESTDIR=${RPM_BUILD_ROOT} -C utils/open-isns install
 make DESTDIR=${RPM_BUILD_ROOT} -C iscsiuio install
+# install firewall file for isns server
+install -vD %{S:1} %{buildroot}/etc/sysconfig/SuSEfirewall2.d/services/isns
 
 %clean
 [ "${RPM_BUILD_ROOT}" != "/" -a -d ${RPM_BUILD_ROOT} ] && rm -rf ${RPM_BUILD_ROOT}
@@ -198,6 +201,7 @@ fi
 %dir /etc/isns
 %attr(0600,root,root) %config(noreplace) /etc/isns/isnsd.conf
 %attr(0600,root,root) %config(noreplace) /etc/isns/isnsdd.conf
+%attr(0644,root,root) %config /etc/sysconfig/SuSEfirewall2.d/services/isns
 %{_unitdir}/isnsd.service
 %{_unitdir}/isnsd.socket
 /usr/sbin/isnsd
