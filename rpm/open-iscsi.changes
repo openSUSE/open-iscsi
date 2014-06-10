@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Fri Jun  6 16:49:19 CEST 2014 - hare@suse.de
+
+- Valgrind fixes for iscsiuio (bnc#881692)
+
+-------------------------------------------------------------------
 Wed Jun  4 09:58:53 PDT 2014 - lduncan@suse.com
 
 - Added firewall service file for isns server (bnc#880305)
