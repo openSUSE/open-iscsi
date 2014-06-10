@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Wed Jun  4 09:58:53 PDT 2014 - lduncan@suse.com
+
+- Added firewall service file for isns server (bnc#880305)
+
+-------------------------------------------------------------------
 Fri May 30 11:50:36 CEST 2014 - hare@suse.de
 
 - Install ibft-rule-generator (bnc#880336)
