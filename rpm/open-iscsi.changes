@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Tue Jul  8 16:27:39 CEST 2014 - hare@suse.de
+
+- Remove unused variable 'path'
+- Parse 'origin' value from iBFT
+- iscsi_offload: fix detection of bnx2i (bnc#886198)
+
+-------------------------------------------------------------------
 Fri Jun  6 16:49:19 CEST 2014 - hare@suse.de
 
 - Valgrind fixes for iscsiuio (bnc#881692)
