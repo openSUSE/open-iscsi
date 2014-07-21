@@ -35,6 +35,7 @@ struct boot_context {
 	char boot_target[BOOT_NAME_MAXLEN];
 
 	/* target settings */
+	int target_flags;
 	int target_port;
 	char targetname[TARGET_NAME_MAXLEN + 1];
 	char target_ipaddr[NI_MAXHOST];
@@ -48,7 +49,9 @@ struct boot_context {
 	char initiatorname[TARGET_NAME_MAXLEN + 1];
 
 	/* network settings */
-	char origin[2];
+	int nic_flags;
+	int origin;
+	int prefix;
 	char dhcp[NI_MAXHOST];
 	char iface[IF_NAMESIZE];
 	char mac[18];
