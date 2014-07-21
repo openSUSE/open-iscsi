@@ -66,16 +66,16 @@ int fw_setup_nics(void)
 	 * For each target in iBFT bring up required NIC and use routing
 	 * to force iSCSI traffic through correct NIC
 	 */
-	list_for_each_entry(context, &targets, list) {			
-	        /* if it is a offload nic ignore it */
-	        if (!net_get_transport_name_from_netdev(context->iface,
+	list_for_each_entry(context, &targets, list) {
+		/* if it is a offload nic ignore it */
+		if (!net_get_transport_name_from_netdev(context->iface,
 							transport))
 			continue;
 
 		if (iface_prev == NULL || strcmp(context->iface, iface_prev)) {
 			/* Note: test above works because there is a
- 			 * maximum of two targets in the iBFT
- 			 */
+			 * maximum of two targets in the iBFT
+			 */
 			iface_prev = context->iface;
 			needs_bringup = 1;
 		}
@@ -196,13 +196,15 @@ static void dump_network(struct boot_context *context)
 	 * Otherwise evaluate the 'dhcp' field, if this has a valid
 	 * address then DHCP was used (broadcom sends 0.0.0.0).
 	 */
-	if ((strlen(context->origin) && !strcmp(context->origin, "3")) ||
+	if ((context->origin == 3) ||
 	    (strlen(context->dhcp) && strcmp(context->dhcp, "0.0.0.0")))
 		printf("%s = DHCP\n", IFACE_BOOT_PROTO);
 	else
 		printf("%s = STATIC\n", IFACE_BOOT_PROTO);
 	if (strlen(context->ipaddr))
 		printf("%s = %s\n", IFACE_IPADDR, context->ipaddr);
+	if (context->prefix)
+		printf("%s = %d\n", IFACE_PREFIX_LEN, context->prefix);
 	if (strlen(context->mask))
 		printf("%s = %s\n", IFACE_SUBNET_MASK, context->mask);
 	if (strlen(context->gateway))

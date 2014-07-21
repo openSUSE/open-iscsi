@@ -170,6 +170,13 @@ static int fill_nic_context(char *subsys, char *id,
 {
 	int rc;
 
+	rc = sysfs_get_int(id, subsys, "flags", &context->nic_flags);
+	/* Bit 1 is 'target block valid' */
+	if (!rc && !(context->nic_flags & 1))
+		rc = ENODEV;
+	if (rc)
+		return rc;
+
 	rc = sysfs_get_str(id, subsys, "mac", context->mac,
 			   sizeof(context->mac));
 	if (rc)
@@ -209,6 +216,7 @@ static int fill_nic_context(char *subsys, char *id,
 		      sizeof(context->vlan));
 	sysfs_get_str(id, subsys, "subnet-mask", context->mask,
 		      sizeof(context->mask));
+	sysfs_get_int(id, subsys, "prefix-len", &context->prefix);
 	sysfs_get_str(id, subsys, "gateway", context->gateway,
 		      sizeof(context->gateway));
 	sysfs_get_str(id, subsys, "primary-dns", context->primary_dns,
@@ -217,8 +225,7 @@ static int fill_nic_context(char *subsys, char *id,
 		      sizeof(context->secondary_dns));
 	sysfs_get_str(id, subsys, "dhcp", context->dhcp,
 		      sizeof(context->dhcp));
-	sysfs_get_str(id, subsys, "origin", context->origin,
-		      sizeof(context->origin));
+	sysfs_get_int(id, subsys, "origin", &context->origin);
 	return 0;
 }
 
@@ -232,10 +239,18 @@ static void fill_initiator_context(char *subsys, struct boot_context *context)
 
 	strlcpy(context->boot_root, subsys, sizeof(context->boot_root));
 }
+
 static int fill_tgt_context(char *subsys, char *id,
 			    struct boot_context *context)
 {
 	int rc;
+
+	rc = sysfs_get_int(id, subsys, "flags", &context->target_flags);
+	/* Bit 1 is 'target block valid' */
+	if (!rc && !(context->target_flags & 1))
+		rc = ENODEV;
+	if (rc)
+		return rc;
 
 	rc = sysfs_get_str(id, subsys, "target-name", context->targetname,
 			   sizeof(context->targetname));
@@ -401,7 +416,7 @@ static int get_targets(struct list_head *list, char *rootdir, char *subsys)
 	nic_cnt = 0;
 	tgt_cnt = 0;
 
-	/* Find the target's and the ethernet's */
+	/* Find the targets and the ethernets */
 	nftw(rootdir, find_sysfs_dirs, 20, 1);
 	for (i = 0; i < tgt_cnt; i++) {
 		context = calloc(1, sizeof(*context));
