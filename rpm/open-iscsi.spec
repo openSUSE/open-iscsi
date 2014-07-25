@@ -170,6 +170,19 @@ fi
 %{stop_on_removal isnsd isnsdd}
 %{service_del_preun isnsd.socket isnsd.service}
 
+%post -n iscsiuio
+%{service_add_post iscsiuio.socket iscsiuio.service}
+
+%postun -n iscsiuio
+%{service_add_post iscsiuio.socket iscsiuio.service}
+
+%pre -n iscsiuio
+%{service_add_pre iscsiuio.socket iscsiuio.service}
+
+%preun -n iscsiuio
+%{stop_on_removal iscsiuio}
+%{service_del_preun iscsiuio.socket iscsiuio.service}
+
 %files
 %defattr(-,root,root)
 %dir /etc/iscsi
