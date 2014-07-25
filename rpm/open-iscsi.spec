@@ -222,7 +222,7 @@ fi
 %endif
 
 %preun -n iscsiuio
-%{stop_on_removal isnsd isnsdd}
+%{stop_on_removal iscsiuio}
 %if 0%{?suse_version} >= 1230
 %{service_del_preun iscsiuio.socket iscsiuio.service}
 %endif
