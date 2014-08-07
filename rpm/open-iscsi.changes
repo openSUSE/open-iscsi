@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu Aug  7 11:53:52 PDT 2014 - lduncan@suse.com
+
+- Allow support of multiple boot devices (bnc#885566), updating
+  patch open-iscsi-sles11-sp3-general-updates-1.diff.bz2 for BS
+
+-------------------------------------------------------------------
 Thu Apr 10 13:40:55 PDT 2014 - lduncan@suse.com
 
 - Fixed compiler error with upstream fix (no bug)

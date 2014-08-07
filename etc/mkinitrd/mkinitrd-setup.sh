@@ -56,21 +56,6 @@ for bd in $blockdev ; do
     check_iscsi $bd && root_iscsi=1
 done
 
-# Are any of the defined file partitions to be mounted at system boot
-# attached to iSCSI devices? In case they are, ensure:
-# (1) the iSCSI gets included in "initrd", and
-# (2) the iSCSI sessions have been configured with
-#     "node.conn[0].startup = onboot".
-if [[ -z "${root_iscsi}" ]] ; then
-    for bd in $(awk '/^[[:space:]]*(\/dev\/|(LABEL|UUID)=)/ { print $1 }' /etc/fstab) ; do
-	bd="${bd/LABEL=//dev/disk/by-label/}"
-	bd="${bd/UUID=//dev/disk/by-uuid/}"
-	update_blockdev $bd
-	check_iscsi $bd && root_iscsi=1
-    done
-fi
-
-
 # Include the iSCSI stack, when at least one active iSCSI session has
 # been configured with "node.conn[0].startup = onboot", even if it was
 # not used for a system device or mounted partition.
