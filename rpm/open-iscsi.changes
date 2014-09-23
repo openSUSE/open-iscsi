@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Tue Sep 23 14:09:33 PDT 2014 - lduncan@suse.com
+
+- Added fix from hannes to fixup IPv6 iBFT interface
+  description
+- Also cherry-picked commit fro sle12 from hannes:
+  Allow modifications for iface.gateway and iface.subnet_mask,
+  needed for today's fix
+
+-------------------------------------------------------------------
 Fri Jul 25 10:03:00 PDT 2014 - lduncan@suse.com
 
 - Fixed spec file to stop correct service on iscsiuio removal
