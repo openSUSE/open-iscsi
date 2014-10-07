@@ -327,10 +327,10 @@ isns_bitvector_is_empty(const isns_bitvector_t *bv)
 	wp = bv->ib_words;
 	end = wp + bv->ib_count;
 	while (wp < end) {
-		unsigned int	base, rlen;
+		unsigned int	rlen;
 
-		base = *wp++;
-		rlen = *wp++;
+		rlen = wp[1];
+		wp += 2;
 
 		while (rlen--) {
 			if (*wp++)
