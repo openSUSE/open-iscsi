@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Tue Oct 28 10:59:28 PDT 2014 - lduncan@suse.com
+
+- Added fix from Hannes to properly boot all iSCSI CNAs,
+  fixing previous change (bnc#902183)
+
+-------------------------------------------------------------------
 Tue Sep 23 13:27:10 PDT 2014 - lduncan@suse.com
 
 - Added fix from hannes to fixup IPv6 iBFT interface
