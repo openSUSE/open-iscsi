@@ -9,7 +9,7 @@
 #
 
 RPM="open-iscsi"
-BRANCH="sles12"
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
 VERSION="2.0-873"
 MASTER_TAG="2.0.873"
 MASTER_HEAD="sles12-base"
@@ -76,8 +76,6 @@ while [ $# -gt 0 ] ; do
             ;;
     esac
 done
-
-RELEASE=$(sed -n 's/.* iscsi_release *\(.*\)/\1/p' rpm/$RPM.spec)
 
 if ! which git > /dev/null ; then
     echo "git not found, cannot continue"
