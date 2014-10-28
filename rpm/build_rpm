@@ -9,7 +9,7 @@
 #
 
 RPM="open-iscsi"
-BRANCH="openSUSE-Factory"
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
 VERSION="2.0-873"
 PATCH1_END_TAG="HEAD"
 DESTDIR=
@@ -74,8 +74,6 @@ while [ $# -gt 0 ] ; do
             ;;
     esac
 done
-
-RELEASE=$(sed -n 's/.* iscsi_release *\(.*\)/\1/p' rpm/$RPM.spec)
 
 if ! which git > /dev/null ; then
     echo "git not found, cannot continue"
