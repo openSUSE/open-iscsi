@@ -2,7 +2,7 @@
 Tue Oct 28 09:56:55 PDT 2014 - lduncan@suse.com
 
 - Added fix from Hannes to properly boot all iBFT cards,
-  fixing previous update
+  fixing previous update (bnc#902183)
 
 -------------------------------------------------------------------
 Tue Sep 23 14:09:33 PDT 2014 - lduncan@suse.com
