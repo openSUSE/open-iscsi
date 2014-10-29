@@ -345,7 +345,7 @@ static int get_boot_info(struct boot_context *context, char *rootdir,
 	nic_cnt = 0;
 	tgt_cnt = 0;
 	if (file_exist(initiator_dir)) {
-		/* Find the target's and the ethernet's */
+		/* Find the targets and the ethernets */
 		rc = nftw(rootdir, find_sysfs_dirs, 20, 1);
 
 		/* Find wihch target and which ethernet have
