@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Tue Nov 18 14:58:07 PST 2014 - lduncan@suse.com
+
+- Speed up session search by sorting current session
+  to top of list (bnc#901441)
+
+-------------------------------------------------------------------
 Thu Aug  7 11:53:52 PDT 2014 - lduncan@suse.com
 
 - Allow support of multiple boot devices (bnc#885566), updating
