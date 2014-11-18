@@ -1165,6 +1165,28 @@ int iscsi_sysfs_get_sessioninfo_by_id(struct session_info *info, char *session)
 	return 0;
 }
 
+/*
+ * If one of the names being sorted matches 'last_valid_session',
+ * return a value which makes the last_valid_session appear to be the
+ * 'lowest' string (in sort order). This will sort last_valid_session
+ * so it will be the first item on the list to speed up the session
+ * lookup. Otherwise, let alphasort() return a normal sort-order
+ * result.
+ */
+static char *last_valid_session;
+int valid_session_alphasort(const struct dirent **s1, const struct dirent **s2)
+{
+	if (last_valid_session &&
+	    !strcmp(last_valid_session, (*s1)->d_name)) {
+		return -1;
+	}
+	if (last_valid_session &&
+	    !strcmp(last_valid_session, (*s2)->d_name)) {
+		return 1;
+	}
+	return alphasort(s1, s2);
+}
+
 int iscsi_sysfs_for_each_session(void *data, int *nr_found,
 				 iscsi_sysfs_session_op_fn *fn)
 {
@@ -1177,7 +1199,7 @@ int iscsi_sysfs_for_each_session(void *data, int *nr_found,
 		return ISCSI_ERR_NOMEM;
 
 	n = scandir(ISCSI_SESSION_DIR, &namelist, trans_filter,
-		    alphasort);
+		    valid_session_alphasort);
 	if (n <= 0)
 		goto free_info;
 
@@ -1200,6 +1222,34 @@ int iscsi_sysfs_for_each_session(void *data, int *nr_found,
 		else
 			/* if less than zero it means it was not a match */
 			rc = 0;
+	}
+
+	/*
+	 * If rc > 0 then a session ID match has been found. If there
+	 * is already a session ID in last_valid_session see if the
+	 * session ID is changing. If so, then delete the old
+	 * last_valid_session number and mark last_valid_session as
+	 * NULL. It will be filled in directly.
+	 *
+	 * If last_valid_session is NULL update it with the current
+	 * session ID that was found and flush the lookup cache. The
+	 * cache will get repopulated on the next lookup cycle but
+	 * the cache will get filled with information from just the
+	 * current session ID since it will be sorted to the top of
+	 * the scan list so it will be the first session scanned and
+	 * matched.
+	 */
+	if (rc > 0) {
+		if (last_valid_session &&
+		    strcmp(last_valid_session, namelist[i]->d_name)) {
+			free(last_valid_session);
+			last_valid_session = NULL;
+		}
+
+		if (last_valid_session == NULL) {
+			last_valid_session = strdup(namelist[i]->d_name);
+			sysfs_cleanup();
+		}
 	}
 
 	for (i = 0; i < n; i++)
