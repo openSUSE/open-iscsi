@@ -20,7 +20,7 @@ Name:           open-iscsi
 BuildRequires:  autoconf
 BuildRequires:  automake
 BuildRequires:  bison
-BuildRequires:  db-devel
+BuildRequires:  db-devel < 5
 BuildRequires:  flex
 BuildRequires:  libtool
 BuildRequires:  make

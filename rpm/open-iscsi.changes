@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Tue Nov 25 13:44:28 PST 2014 - lduncan@suse.com
+
+- Fixed spec file: db-devel < 5, to fix SLE 12 and SP3 builds
+
+-------------------------------------------------------------------
 Tue Nov 25 11:43:03 PST 2014 - lduncan@suse.com
 
 - Fix isns server to allow legal registration sequence,
