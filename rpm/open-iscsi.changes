@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Tue Nov 25 11:43:03 PST 2014 - lduncan@suse.com
+
+- Fix isns server to allow legal registration sequence,
+  including portal group (bsc#905670)
+
+-------------------------------------------------------------------
 Tue Oct 28 09:56:55 PDT 2014 - lduncan@suse.com
 
 - Added fix from Hannes to properly boot all iBFT cards,
