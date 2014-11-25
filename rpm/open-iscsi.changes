@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Mon Nov 24 17:08:01 PST 2014 - lduncan@suse.com
+
+- Fix isns server to allow legal registration sequence,
+  including portal group (bsc#905670)
+
+-------------------------------------------------------------------
 Tue Oct 28 10:59:28 PDT 2014 - lduncan@suse.com
 
 - Added fix from Hannes to properly boot all iSCSI CNAs,
