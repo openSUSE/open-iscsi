@@ -28,12 +28,15 @@ BuildRequires:  openssl-devel
 %if 0%{?suse_version} >= 1230
 BuildRequires:  systemd
 %endif
+%if 0%{?suse_version} >= 1320
+BuildRequires:  suse-module-tools
+%endif
 Url:            http://www.open-iscsi.org
 PreReq:         %fillup_prereq %insserv_prereq
 Version:        2.0.873
 Release:        0
 %{?systemd_requires}
-Recommends:     logrotate
+Requires:       logrotate
 %define iscsi_release 873
 Summary:        Linux* Open-iSCSI Software Initiator
 License:        GPL-2.0+
@@ -126,7 +129,9 @@ make CFLAGS="${RPM_OPT_FLAGS}"
 
 %install
 make DESTDIR=${RPM_BUILD_ROOT} install_user
+%if 0%{?suse_version} < 1320
 make DESTDIR=${RPM_BUILD_ROOT} install_mkinitrd_suse
+%endif
 # install service files
 %if 0%{?suse_version} >= 1230
 make DESTDIR=${RPM_BUILD_ROOT} install_service_suse
@@ -156,7 +161,11 @@ install -vD %{S:1} %{buildroot}/etc/sysconfig/SuSEfirewall2.d/services/isns
 [ "${RPM_BUILD_ROOT}" != "/" -a -d ${RPM_BUILD_ROOT} ] && rm -rf ${RPM_BUILD_ROOT}
 
 %post
+%if 0%{?suse_version} < 1320
 [ -x /sbin/mkinitrd_setup ] && mkinitrd_setup
+%else
+%{?regenerate_initrd_post}
+%endif
 if [ ! -f /etc/iscsi/initiatorname.iscsi ] ; then
     /sbin/iscsi-gen-initiatorname
 fi
@@ -166,8 +175,15 @@ fi
 %{fillup_and_insserv -Y boot.iscsid-early}
 %endif
 
+%posttrans
+%if 0%{?suse_version} >= 1320
+%{?regenerate_initrd_posttrans}
+%endif
+
 %postun
+%if 0%{?suse_version} < 1320
 [ -x /sbin/mkinitrd_setup ] && mkinitrd_setup
+%endif
 %if 0%{?suse_version} >= 1230
 %{service_del_postun iscsid.socket iscsid.service iscsi.service}
 %else
@@ -192,7 +208,7 @@ fi
 
 %postun -n open-isns
 %if 0%{?suse_version} >= 1230
-%{service_add_post isnsd.socket isnsd.service}
+%{service_del_postun isnsd.socket isnsd.service}
 %endif
 
 %pre -n open-isns
@@ -213,7 +229,7 @@ fi
 
 %postun -n iscsiuio
 %if 0%{?suse_version} >= 1230
-%{service_add_post iscsiuio.socket iscsiuio.service}
+%{service_del_postun iscsiuio.socket iscsiuio.service}
 %endif
 
 %pre -n iscsiuio
@@ -252,11 +268,13 @@ fi
 /sbin/iscsi-gen-initiatorname
 /sbin/iscsi_offload
 /sbin/iscsi_discovery
+%if 0%{?suse_version} < 1320
 %dir /lib/mkinitrd
 %dir /lib/mkinitrd/scripts
 /lib/mkinitrd/scripts/setup-iscsi.sh
 /lib/mkinitrd/scripts/boot-iscsi.sh
 /lib/mkinitrd/scripts/boot-killiscsi.sh
+%endif
 %doc COPYING README
 %doc %{_mandir}/man8/iscsiadm.8.gz
 %doc %{_mandir}/man8/iscsid.8.gz
