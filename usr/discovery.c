@@ -1109,7 +1109,7 @@ static int iscsi_create_leading_conn(struct iscsi_session *session)
 
 	rc = iscsi_host_set_net_params(iface, session);
 	if (rc) {
-		log_error("Could not set host net params (err %d)\n",
+		log_error("Could not set host net params (err %d)",
 			  rc);
 		/*
 		 * if a transport returns ISCSI_ERR_AGAIN, pass
