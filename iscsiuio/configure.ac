@@ -11,9 +11,9 @@ dnl             Eddie Wai (eddie.wai@broadcom.com)
 dnl
 
 PACKAGE=iscsiuio
-VERSION=0.7.6.2
+VERSION=0.7.6.3
 
-AC_INIT([iscsiuio], [0.7.6.2], [QLogic-Storage-Upstream@qlogic.com])
+AC_INIT([iscsiuio], [0.7.6.3], [QLogic-Storage-Upstream@qlogic.com])
 
 AM_INIT_AUTOMAKE($PACKAGE, $VERSION)
 AC_CONFIG_HEADER(config.h)

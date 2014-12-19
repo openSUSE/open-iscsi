@@ -1,7 +1,7 @@
                               Release Notes
                         QLogic uIP Linux Driver
-                            Version 0.7.6.2
-                               12/07/2012
+                            Version 0.7.6.3
+                               12/19/2014
 
                           QLogic Corporation
                          26650 Aliso Viejo Pkwy,
@@ -10,15 +10,30 @@
                Copyright (c) 2014 QLogic Corporation
                            All rights reserved
 
-uIP v0.7.10.2 (Feb 12, 2014)
+uIP v0.7.6.3 (Dec 19, 2014)
 =======================================================
    Fixes
    -----
-   1. Problem: Cont00072504 - ifconfig shows allocation failure after
-               up/down few hours with iSCSI + L2 traffic
-      Cause:   A memory leak was discovered in the ongoing pthread creation
-               destruction code during the connection recovery process
-      Change:  Fixed the pthread creation code
+      Change: Inline all the critical upstream bug fixes
+		iscsiuio: Change socket bind to use the same struct size as iscsid
+		ISCSIUIO: Added tx doorbell override mechanism
+		ISCSIUIO: Added fix for the iface.subnet_mask decoding for IPv6
+		ISCSIUIO: Added fix for the ARP cache flush mechanism
+		ISCSIUIO: Fixed a pthread resc leak from excessive session recovery
+		iscsiuio: Rebranding iscsiuio
+		Allow modifications for iface.gateway and iface.subnet_mask
+		fwparam_ibft: Check iBFT target and NIC flags
+		Represent DHCP "origin" as an enum, not a string.
+		Code cleanup: no functional changes
+		iscsiuio: Check return value from nic_queue_tx_packet
+		iscsiuio: Remove set but unused variables
+		iscsiuio: Change nic_disable to return void
+		iscsiuio: Use attribute(unused) for *icmpv6_hdr
+		iscsiuio: Use attribute(unused) for variables that are unused but needed
+		iscsiuio: Fix aliasing issue with IPV6_IS_ADDR_UNSPECIFIED
+		iscsiuio: Resolve strict aliasing issue in iscsiuio/src/unix/nic.c
+		iscsiuio: Fix strict-aliasing warning with struct mac_address
+		iscsiuio: Fix warning about non-matching types
       Impact:  All
 
 uIP v0.7.6.2 (Dec 07, 2012)
