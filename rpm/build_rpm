@@ -9,15 +9,8 @@
 #
 
 RPM="open-iscsi"
-BRANCH="sles11-sp3"
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
 VERSION="2.0-873"
-BRANCH_TAG="sles11-sp2-update"
-PATCH2_END_TAG="sles11-sp2-update2"
-PATCH3_END_TAG="sles11-sp3-update-iscsiuio"
-PATCH4_END_TAG="sles11-sp3-update-flash"
-PATCH5_END_TAG="HEAD"
-NUM_PATCHES=5
-let NEXT_PATCH=$NUM_PATCHES+1
 DESTDIR=
 uncommitted_changes=0
 
@@ -81,8 +74,6 @@ while [ $# -gt 0 ] ; do
     esac
 done
 
-RELEASE=$(sed -n 's/.* iscsi_release *\(.*\)/\1/p' rpm/$RPM.spec)
-
 if ! which git > /dev/null ; then
     echo "git not found, cannot continue"
     exit 1
@@ -136,25 +127,9 @@ git show $BRANCH:rpm/$RPM.changes > $DESTDIR/$RPM.changes
 git archive --format=tar --prefix=$RPM-$VERSION/ "$VERSION" \
     | bzip2 > $DESTDIR/$RPM-$VERSION.tar.bz2
 
-# patch1: create a diff file for changes between the base version
-# and the update tag
-git diff $VERSION..$BRANCH_TAG | bzip2 > $DESTDIR/$RPM-sles11-sp2-update.diff.bz2
-
-# patch2: create a diff for everything since the update tag
-git diff $BRANCH_TAG..$PATCH2_END_TAG | \
-	bzip2 > $DESTDIR/$RPM-sles11-sp2-latest.diff.bz2
-
-# patch3: some iscsiuio changes for SP3
-git diff $PATCH2_END_TAG..$PATCH3_END_TAG | \
-	bzip2 > $DESTDIR/$RPM-sles11-sp3-iscsiuio-update.diff.bz2
-
-# patch4: some iscsiuio changes for flash support
-git diff $PATCH3_END_TAG..$PATCH4_END_TAG | \
-	bzip2 > $DESTDIR/$RPM-sles11-sp3-flash-update.diff.bz2
-
-# patch5: changes since patch4
-git diff $PATCH4_END_TAG..$PATCH5_END_TAG | \
-	bzip2 > $DESTDIR/$RPM-sles11-sp3-general-updates-1.diff.bz2
+# create a diff file for changes between the base version HEAD
+git diff $VERSION..END | \
+	bzip2 > $DESTDIR/$RPM-sles11-sp4-latest.diff.bz2
 
 # if the user specified this then get all changes not even checked in
 # and patch them into the spec file as "Patch$NEXT_PATCH"
@@ -173,7 +148,9 @@ if (( $uncommitted_changes )) ; then
     	$DESTDIR/$RPM.spec
 fi
 
-echo "$RPM src rpm copied to $DESTDIR"
+echo '***'
+echo '***' "$RPM src rpm copied to $DESTDIR"
+echo '***'
 
 if [ -n "$use_osc" ] ; then
     pushd $DESTDIR
