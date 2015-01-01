@@ -128,7 +128,7 @@ git archive --format=tar --prefix=$RPM-$VERSION/ "$VERSION" \
     | bzip2 > $DESTDIR/$RPM-$VERSION.tar.bz2
 
 # create a diff file for changes between the base version HEAD
-git diff $VERSION..END | \
+git diff $VERSION..HEAD | \
 	bzip2 > $DESTDIR/$RPM-sles11-sp4-latest.diff.bz2
 
 # if the user specified this then get all changes not even checked in
