@@ -1,4 +1,45 @@
 -------------------------------------------------------------------
+Thu Jan  1 00:05:11 UTC 2015 - lduncan@suse.com
+
+- Branched sle11-sp4 from sle11-sp3 branch
+
+- Updated for SP4 as per bsc#909612/FATE#317527, adding 29
+  patches, showin in order applied:
+
+  3cb55ba93993 ISCSISTART: Saved ibft boot info to the session
+  b35b6502e53d ISCSID: Added the extraction of the session boot info
+  4cd7de90dd72 ISCSID: Added iface content override fix
+  2911b2ebe8ad ISCSID: Passing more net params from ibft to iface
+  e90d8b4e0fb6 iscsiuio: Change socket bind to use the same struct size as iscsid
+  1261e58096f2 ISCSIUIO: Added tx doorbell override mechanism
+  4dc85063c539 ISCSIUIO: Added fix for the iface.subnet_mask decoding for IPv6
+  b17fcf66f75d ISCSIUIO: Added fix for the ARP cache flush mechanism
+  ba5e17247955 iscsiuio: Do not memcpy identical locations
+  3a4ec273e99e iscsiuio: Clear memory after allocation
+  efb8a11ed0e7 iscsiuio: fixup race condition
+  72b4379beb80 ISCSIUIO: Fixed a pthread resc leak from excessive session recovery
+  c12063483458 iscsiuio: Rebranding iscsiuio
+  fd4b22bbf711 iscsiuio: Fix warning about non-matching types
+  b9e29cad5ff9 iscsiuio: Fix strict-aliasing warning with struct mac_address
+  708d757122a1 iscsiuio: Resolve strict aliasing issue in iscsiuio/src/unix/nic.c
+  1ae8660afec7 iscsiuio: Fix aliasing issue with IPV6_IS_ADDR_UNSPECIFIED
+  b8d670f78d20 iscsiuio: Use attribute(unused) for variables that are unused but needed
+  faa376e0adfb iscsiuio: Use attribute(unused) for *icmpv6_hdr
+  805bf11d84c3 iscsiuio: Change nic_disable to return void
+  06b51245148c iscsiuio: Remove set but unused variables
+  f35f2ee6a14d iscsiuio: Check return value from nic_queue_tx_packet
+  be3ca1588995 iscsiuio: v0.7.6.3
+  70158a437fc9 iscsiadm: Correctly check for invalid hostno and flashnode index
+  4c0c01491271 iscsi tools: Print additional session info for flashnode session
+  273c2416ab30 flashnode: Add support to set ISCSI_FLASHNODE_CHAP_OUT_IDX param
+  d9a22213b2b2 iscsi tools: Correctly get username_in and password_in flashnode params
+  6a2f0f790111 iscsi tools: Setup iface conf file with all iface attrs exported in sysfs
+  cc3a7f2c5a57 iscsi tools: Let default type of iface be ipv4
+
+- Updated rpm/build_rpm to generate just one diff file plus the original
+  dist tar ball, and to use "current" branch
+
+-------------------------------------------------------------------
 Thu Aug  7 11:53:52 PDT 2014 - lduncan@suse.com
 
 - Allow support of multiple boot devices (bnc#885566), updating
