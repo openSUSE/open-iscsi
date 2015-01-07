@@ -9,7 +9,7 @@
 #
 
 RPM="open-iscsi"
-BRANCH="sles11-sp3"
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
 VERSION="2.0-873"
 BRANCH_TAG="sles11-sp2-update"
 PATCH2_END_TAG="sles11-sp2-update2"

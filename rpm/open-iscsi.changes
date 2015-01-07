@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Jan  7 19:33:58 UTC 2015 - lduncan@suse.com
+
+- Updated build_rpm to use "current branch"
+
+- Now using this SLE 11 SP3 branch for SP1_LTSS as well
+
+-------------------------------------------------------------------
 Tue Nov 18 14:58:07 PST 2014 - lduncan@suse.com
 
 - Speed up session search by sorting current session
