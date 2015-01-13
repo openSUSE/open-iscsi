@@ -1,7 +1,8 @@
 -------------------------------------------------------------------
-Thu Jan  1 00:05:11 UTC 2015 - lduncan@suse.com
+Tue Jan 13 11:18:24 PST 2015 - lduncan@suse.com
 
-- Branched sle11-sp4 from sle11-sp3 branch
+- Branched git sle11-sp4 from sle11-sp3, and
+  osc SUSE:SLE-11-SP3:Update:Test -> SUSE:SLE-11-SP4
 
 - Updated for SP4 as per bsc#909612/FATE#317527, adding 29
   patches, showin in order applied:
@@ -36,8 +37,18 @@ Thu Jan  1 00:05:11 UTC 2015 - lduncan@suse.com
   6a2f0f790111 iscsi tools: Setup iface conf file with all iface attrs exported in sysfs
   cc3a7f2c5a57 iscsi tools: Let default type of iface be ipv4
 
-- Updated rpm/build_rpm to generate just one diff file plus the original
-  dist tar ball, and to use "current" branch
+-------------------------------------------------------------------
+Wed Jan  7 19:33:58 UTC 2015 - lduncan@suse.com
+
+- Updated build_rpm to use "current branch"
+
+- Now using this SLE 11 SP3 branch for SP1_LTSS as well
+
+-------------------------------------------------------------------
+Tue Nov 18 14:58:07 PST 2014 - lduncan@suse.com
+
+- Speed up session search by sorting current session
+  to top of list (bnc#901441)
 
 -------------------------------------------------------------------
 Thu Aug  7 11:53:52 PDT 2014 - lduncan@suse.com
