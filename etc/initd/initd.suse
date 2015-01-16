@@ -388,7 +388,7 @@ iscsi_stop_sessions()
 iscsi_list_all_nodes()
 {
     # Check for active sessions
-    if $ISCSIADM -m session > /dev/null; then
+    if ! $ISCSIADM -m session > /dev/null 2>&1; then
 	echo "No active connections."
 	return 0
     fi
