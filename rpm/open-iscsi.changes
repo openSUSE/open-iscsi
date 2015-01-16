@@ -3,6 +3,8 @@ Fri Jan 16 18:47:48 UTC 2015 - lduncan@suse.com
 
 - Fixed backwards check for 'rcopen-iscsi status' (bsc#913255)
 
+- Updated SPEC file comment date to 2015
+
 -------------------------------------------------------------------
 Wed Jan  7 19:33:58 UTC 2015 - lduncan@suse.com
 
