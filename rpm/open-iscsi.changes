@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Jan 21 23:28:32 UTC 2015 - lduncan@suse.com
+
+- Fixed backwards check for 'rcopen-iscsi status' (bsc#913255)
+
+- Updated Spec file comment date to 2015
+
+-------------------------------------------------------------------
 Tue Jan 13 11:18:24 PST 2015 - lduncan@suse.com
 
 - Branched git sle11-sp4 from sle11-sp3, and
