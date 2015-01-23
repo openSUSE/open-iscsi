@@ -1,9 +1,4 @@
 -------------------------------------------------------------------
-Thu Jan 22 21:41:38 UTC 2015 - lduncan@suse.com
-
-- Added the extraction of the session boot info (bsc#914355)
-
--------------------------------------------------------------------
 Fri Jan 16 18:47:48 UTC 2015 - lduncan@suse.com
 
 - Fixed backwards check for 'rcopen-iscsi status' (bsc#913255)
