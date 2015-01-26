@@ -117,9 +117,10 @@ static struct option const long_options[] =
 	{"interval", required_argument, NULL, 'i'},
 	{"flashnode_idx", optional_argument, NULL, 'x'},
 	{"portal_type", optional_argument, NULL, 'A'},
+	{"stop_children", no_argument, NULL, 'K'},
 	{NULL, 0, NULL, 0},
 };
-static char *short_options = "RlDVhm:a:b:c:C:p:P:T:H:i:I:U:k:L:d:r:n:v:o:sSt:ux:A:";
+static char *short_options = "RlDVhm:a:b:c:C:p:P:T:H:i:I:U:k:L:d:r:n:v:o:sSt:ux:A:K";
 
 static void usage(int status)
 {
@@ -276,6 +277,14 @@ static void kill_iscsid(int priority)
 		log_error("Could not stop iscsid. Trying sending iscsid "
 			  "SIGTERM or SIGKILL signals manually\n");
 	}
+}
+
+/*
+ * send a TERM signal to all iSCSI children
+ */
+static void kill_children(void)
+{
+	
 }
 
 /*
@@ -2802,6 +2811,7 @@ main(int argc, char **argv)
 	int rc=0, sid=-1, op=OP_NOOP, type=-1, do_logout=0, do_stats=0;
 	int do_login_all=0, do_logout_all=0, info_level=-1, num_ifaces = 0;
 	int tpgt = PORTAL_GROUP_TAG_UNKNOWN, killiscsid=-1, do_show=0;
+	int stop_children=0;
 	int packet_size=32, ping_count=1, ping_interval=0;
 	int do_discover = 0, sub_mode = -1;
 	int flashnode_idx = -1, portal_type = -1;
@@ -2844,6 +2854,9 @@ main(int argc, char **argv)
 				rc = ISCSI_ERR_INVAL;
 				goto free_ifaces;
 			}
+			break;
+		case 'K':
+			stop_children = 1;
 			break;
 		case 't':
 			type = str_to_type(optarg);
@@ -2984,6 +2997,11 @@ main(int argc, char **argv)
 
 	if (killiscsid >= 0) {
 		kill_iscsid(killiscsid);
+		goto free_ifaces;
+	}
+
+	if (stop_children) {
+		kill_children();
 		goto free_ifaces;
 	}
 
