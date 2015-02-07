@@ -98,7 +98,8 @@ actor_insert_on_pend_list(actor_t *thread, uint32_t delay_secs)
 			log_debug(7, "new thread %p is before (%lld), inserting", thread,
 			  (long long)thread->ttschedule);
 
-			list_add(&thread->list, &next_thread->list);
+			/* insert new thread before the next thread */
+			__list_add(&thread->list, next_thread->list.prev, &next_thread->list);
 			goto inserted;
 		}
 	}
