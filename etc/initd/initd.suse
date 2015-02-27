@@ -105,10 +105,10 @@ case "$1" in
 	;;
     stop)
 	echo -n "Stopping iSCSI initiator service: "
-	# to kill iscsid discovery children -- should not be needed
-	#pids=$(/bin/ps --no-heading -fC iscsid | /usr/bin/awk '{if ($3!=1) print $2}')
-	#for pid in $pids; do kill -KILL $pid; done
-	$ISCSIADM -m session -U all >/dev/null 2>&1
+	# to kill iscsid discovery children
+	pids=$(/bin/ps --no-heading -fC iscsid | /usr/bin/awk '{if ($3!=1) print $2}')
+	for pid in $pids; do kill -KILL $pid; done
+	$ISCSIADM -m session -u >/dev/null 2>&1
 	killproc -KILL $DAEMON
 	RETVAL=$?
 	if grep -q bnx2i /proc/modules && [ -x $ISCSIUIO ]; then
