@@ -20,6 +20,7 @@
 
 Name:           open-iscsi
 BuildRequires:  autoconf bison db-devel flex openssl-devel
+BuildRequires:  libstdc++6
 Url:            http://www.open-iscsi.org
 License:        GPL v2 or later
 Group:          Productivity/Networking/Other
