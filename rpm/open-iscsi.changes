@@ -4,6 +4,8 @@ Wed Jan 28 18:26:44 UTC 2015 - lduncan@suse.com
 - Simplify iscsid service termination in init.d
   service-control script (bsc#908902)
 
+- Updated version string to reflect TD branch
+
 -------------------------------------------------------------------
 Fri Jan 16 18:47:48 UTC 2015 - lduncan@suse.com
 
