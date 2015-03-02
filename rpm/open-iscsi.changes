@@ -33,6 +33,11 @@ Thu Aug  7 11:53:52 PDT 2014 - lduncan@suse.com
   patch open-iscsi-sles11-sp3-general-updates-1.diff.bz2 for BS
 
 -------------------------------------------------------------------
+Fri Jul 11 02:22:34 CEST 2014 - lchiquitto@suse.de
+
+- Update to version from SLE 11-SP3 (bnc#867850)
+
+-------------------------------------------------------------------
 Thu Apr 10 13:40:55 PDT 2014 - lduncan@suse.com
 
 - Fixed compiler error with upstream fix (no bug)
