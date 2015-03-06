@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Fri Mar  6 16:28:32 UTC 2015 - lduncan@suse.com
+
+- Fixed iscsi.service start to ignore iscsiadm
+  return value so that systemd knows service is
+  running and can still shut it down (bsc#897565)
+
+-------------------------------------------------------------------
 Mon Nov 24 17:08:01 PST 2014 - lduncan@suse.com
 
 - Fix isns server to allow legal registration sequence,
