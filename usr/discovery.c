@@ -1111,7 +1111,13 @@ static int iscsi_create_leading_conn(struct iscsi_session *session)
 	if (rc) {
 		log_error("Could not set host net params (err %d)\n",
 			  rc);
-		rc = ISCSI_ERR_INTERNAL;
+		/*
+		 * if a transport returns ISCSI_ERR_AGAIN, pass
+		 * that on, otherwise all unexpected errors
+		 * are bad
+		 */
+		if (rc != ISCSI_ERR_AGAIN)
+			rc = ISCSI_ERR_INTERNAL;
 		goto close_ipc;
 	}
 
