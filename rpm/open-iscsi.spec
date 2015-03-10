@@ -1,7 +1,7 @@
 #
 # spec file for package open-iscsi
 #
-# Copyright (c) 2014 SUSE LINUX Products GmbH, Nuernberg, Germany.
+# Copyright (c) 2015 SUSE LINUX Products GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -27,12 +27,13 @@ BuildRequires:  make
 BuildRequires:  openssl-devel
 %if 0%{?suse_version} >= 1230
 BuildRequires:  systemd
+%else
+PreReq:         %fillup_prereq %insserv_prereq
 %endif
 %if 0%{?suse_version} >= 1320
 BuildRequires:  suse-module-tools
 %endif
 Url:            http://www.open-iscsi.org
-PreReq:         %fillup_prereq %insserv_prereq
 Version:        2.0.873
 Release:        0
 %{?systemd_requires}
@@ -65,12 +66,6 @@ processing, iSNS, SLP, Radius, etc.
 The user space Open-iSCSI consists of a daemon process called iscsid,
 and a management utility iscsiadm.
 
-
-
-Authors:
---------
-    open-iscsi@googlegroups.com
-
 %package -n open-isns
 Summary:        Linux iSNS server
 Group:          Productivity/Networking/Other
@@ -83,10 +78,6 @@ Provides:       isns = 2.1.03
 This is a partial implementation of iSNS, according to RFC4171.
 The implementation is still somewhat incomplete, but I am releasing
 it for your reading pleasure.
-
-Authors:
---------
-    Olaf Kirch <okir@suse.de>
 
 %package -n iscsiuio
 Summary:        Linux Broadcom NetXtremem II iscsi server
@@ -107,11 +98,6 @@ Broadcom Network Controllers:
 This utility will provide the ARP and DHCP functionality for the iSCSI offload.
 The communication to the driver is done via Userspace I/O (Kernel module name
 'uio').
-
-Authors:
---------
-    Eddie Wai <eddie.wai@broadcom.com>
-    Benjamin Li <benli@broadcom.com>
 
 %prep
 %setup -n %{name}-2.0-%{iscsi_release}
@@ -157,9 +143,6 @@ make DESTDIR=${RPM_BUILD_ROOT} -C iscsiuio install
 # install firewall file for isns server
 install -vD %{S:1} %{buildroot}/etc/sysconfig/SuSEfirewall2.d/services/isns
 
-%clean
-[ "${RPM_BUILD_ROOT}" != "/" -a -d ${RPM_BUILD_ROOT} ] && rm -rf ${RPM_BUILD_ROOT}
-
 %post
 %if 0%{?suse_version} < 1320
 [ -x /sbin/mkinitrd_setup ] && mkinitrd_setup
@@ -196,9 +179,10 @@ fi
 %endif
 
 %preun
-%{stop_on_removal iscsid}
 %if 0%{?suse_version} >= 1230
 %{service_del_preun iscsid.socket iscsid.service iscsi.service}
+%else
+%{stop_on_removal iscsid}
 %endif
 
 %post -n open-isns
@@ -217,9 +201,10 @@ fi
 %endif
 
 %preun -n open-isns
-%{stop_on_removal isnsd isnsdd}
 %if 0%{?suse_version} >= 1230
 %{service_del_preun isnsd.socket isnsd.service}
+%else
+%{stop_on_removal isnsd isnsdd}
 %endif
 
 %post -n iscsiuio
@@ -238,9 +223,10 @@ fi
 %endif
 
 %preun -n iscsiuio
-%{stop_on_removal iscsiuio}
 %if 0%{?suse_version} >= 1230
 %{service_del_preun iscsiuio.socket iscsiuio.service}
+%else
+%{stop_on_removal iscsiuio}
 %endif
 
 %files
@@ -255,7 +241,7 @@ fi
 %{_unitdir}/iscsid.service
 %{_unitdir}/iscsid.socket
 %{_unitdir}/iscsi.service
-/usr/lib/systemd/system-generators/ibft-rule-generator
+%{_libexecdir}/systemd/system-generators/ibft-rule-generator
 %else
 %config /etc/init.d/iscsid
 %config /etc/init.d/boot.iscsid-early

@@ -6,6 +6,19 @@ Mon Mar  9 21:29:30 UTC 2015 - lduncan@suse.com
   (bsc#903729)
 
 -------------------------------------------------------------------
+Fri Mar  6 23:41:12 UTC 2015 - p.drouand@gmail.com
+
+- Do not depend on fillup and insserv if the package build with
+  systemd support; it's redundant
+- Remove obsolete %clean and AUTHORS sections
+
+-------------------------------------------------------------------
+Fri Dec  5 22:54:32 UTC 2014 - lduncan@suse.com
+
+- Fixed spec file to support dracut on newers versions (bsc#893578)
+- Also cleaned up spec file a bit for rpmlint
+
+-------------------------------------------------------------------
 Tue Nov 25 13:44:28 PST 2014 - lduncan@suse.com
 
 - Fixed spec file: db-devel < 5, to fix SLE 12 and SP3 builds
