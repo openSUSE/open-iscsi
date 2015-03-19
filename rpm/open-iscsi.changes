@@ -1,4 +1,53 @@
 -------------------------------------------------------------------
+Thu Mar 19 16:30:26 UTC 2015 - lduncan@suse.com
+
+- Updated to latest upstream, adding 42 patches. See
+  git@github.com:hreinecke/open-iscsi.git, openSUSE-Factory
+  branch, for details:
+  * iscsid: retry login for ISCSI_ERR_HOST_NOT_FOUND
+  * iscsid: Fix double close of mgmt ipc fd
+  * iscsiadm: Initialize param_count in set_host_chap_info
+  * iscsiuio: Rebranding iscsiuio
+  * iscsiadm : make iface.ipaddress optional in iface
+  * isns: Add docs for deregistering discovery domains.
+  * iscsid: don't round up when modifying padding len
+  * Fix build warnings for unused variables
+  * Fix warning about possibly-uninitialized variable
+  * Fix bad sizeof in memset
+  * Fix missing header
+  * iscsiuio: Fix warning about non-matching types
+  * iscsiuio: Fix strict-aliasing warning with struct
+  * iscsiuio: Resolve strict aliasing issue in
+  * iscsiuio: Fix aliasing issue with
+  * iscsiuio: Use attribute(unused) for variables that are
+  * iscsiuio: Use attribute(unused) for *icmpv6_hdr
+  * iscsiuio: Change nic_disable to return void
+  * iscsiuio: Remove set but unused variables
+  * iscsiuio: Check return value from nic_queue_tx_packet
+  * Code cleanup: no functional changes
+  * Represent DHCP "origin" as an enum, not a string.
+  * Allow modifications for iface.gateway and
+  * actor: Mark actor_check static
+  * actor: simplify actor_check
+  * actor: s/ACTOR_TICKS/actor_jiffies/
+  * actor: Remove ACTOR_TICKS_10MS()
+  * actor: Unobfuscate ACTOR_MAX_LOOPS
+  * actor: Simplify actor_poll a little
+  * Remove actor_init and rename actor_new to actor_init
+  * Make running actors event-driven
+  * Wake up to reap children
+  * fix regression in iscsi_tcp iface binding
+  * guard against NULL ptr during discovery from unexpected
+  * add discovery as a valid mode in iscsiadm.8
+  * iscsid: fix order of setting uid/gid and drop
+  * iscsiuio CFLAGS fixes
+  * Fix incorrect list operation leading to out-of-order
+  * Prevent spinning over poll() when reconnecting to an
+  * Add some more debug logging to actor.c
+  * iscsid safe session logout
+  * iscsid: don't re-read config file for every session
+
+-------------------------------------------------------------------
 Mon Mar  9 21:29:30 UTC 2015 - lduncan@suse.com
 
 - Supply strings for newly-added error numbers
