@@ -1,7 +1,7 @@
 #
 # spec file for package open-iscsi
 #
-# Copyright (c) 2015 SUSE LINUX Products GmbH, Nuernberg, Germany.
+# Copyright (c) 2015 SUSE LINUX GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -33,10 +33,12 @@ PreReq:         %fillup_prereq %insserv_prereq
 %if 0%{?suse_version} >= 1320
 BuildRequires:  suse-module-tools
 %endif
+BuildRequires:  libmount-devel
 Url:            http://www.open-iscsi.org
 Version:        2.0.873
 Release:        0
 %{?systemd_requires}
+Requires:       libmount1
 Requires:       logrotate
 %define iscsi_release 873
 Summary:        Linux* Open-iSCSI Software Initiator
