@@ -251,8 +251,13 @@ static int fill_tgt_context(char *subsys, char *id,
 	int rc;
 
 	rc = sysfs_get_int(id, subsys, "flags", &context->target_flags);
-	/* Bit 1 is 'target block valid' */
-	if (!rc && !(context->target_flags & 1))
+	/*
+	 * Per spec we would need to check against Bit 0
+	 * (Block Valid Flag), but some firmware only
+	 * sets Bit 1 (Firmware Booting Selected).
+	 * So any setting is deemed okay.
+	 */
+	if (!rc && (context->nic_flags == 0))
 		rc = ENODEV;
 	if (rc)
 		return rc;
