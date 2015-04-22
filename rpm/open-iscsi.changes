@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Wed Apr 22 21:09:46 UTC 2015 - lduncan@suse.com
+
+- Double the size of the iscsiuio ARP tables,
+  making it faster when switches present (bsc#922311)
+
+-------------------------------------------------------------------
 Wed Apr 22 18:42:22 UTC 2015 - lduncan@suse.com
 
 - Fixing ibft boot, completing commit 26020764daf70,
