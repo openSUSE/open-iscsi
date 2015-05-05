@@ -14,6 +14,7 @@ mandir = $(prefix)/share/man
 etcdir = /etc
 initddir = $(etcdir)/init.d
 mkinitrd = $(exec_prefix)/lib/mkinitrd/scripts
+rulesdir = $(etcdir)/udev/rules.d
 
 MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8 \
 	doc/iscsi_fw_login.8
@@ -24,6 +25,7 @@ INSTALL = install
 ETCFILES = etc/iscsid.conf
 IFACEFILES = etc/iface.example
 OPTFLAGS ?= -O2 -g
+RULESFILES =  utils/50-iscsi-firmware-login.rules 
 
 # Random comments:
 # using '$(MAKE)' instead of just 'make' allows make to run in parallel
@@ -80,7 +82,11 @@ install: install_programs install_doc install_etc \
 	install_initd install_iname install_iface
 
 install_user: install_programs install_doc install_etc \
-	install_initd install_iface
+	install_initd install_iface install_udev_rules
+
+install_udev_rules:
+	$(INSTALL) -d $(DESTDIR)$(rulesdir)
+	$(INSTALL) -m 644 $(RULESFILES) $(DESTDIR)/$(rulesdir)
 
 install_programs:  $(PROGRAMS) $(SCRIPTS)
 	$(INSTALL) -d $(DESTDIR)$(sbindir)
