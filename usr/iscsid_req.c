@@ -77,7 +77,7 @@ static void iscsiuio_startup(void)
 
 static int ipc_connect(int *fd, char *unix_sock_name)
 {
-	int nsec;
+	int nsec, addr_len;
 	struct sockaddr_un addr;
 
 	*fd = socket(AF_LOCAL, SOCK_STREAM, 0);
@@ -90,11 +90,15 @@ static int ipc_connect(int *fd, char *unix_sock_name)
 	addr.sun_family = AF_LOCAL;
 	memcpy(addr.sun_path + 1, unix_sock_name,
 		strlen(unix_sock_name));
+
+	addr_len = offsetof(struct sockaddr_un, sun_path)
+		+ strlen(unix_sock_name) + 1;
+
 	/*
 	 * Trying to connect with exponential backoff
 	 */
 	for (nsec = 1; nsec <= MAXSLEEP; nsec <<= 1) {
-		if (connect(*fd, (struct sockaddr *) &addr, sizeof(addr)) == 0)
+		if (connect(*fd, (struct sockaddr *) &addr, addr_len) == 0)
 			/* Connection established */
 			return ISCSI_SUCCESS;
 
@@ -120,6 +124,7 @@ static int iscsid_connect(int *fd, int start_iscsid)
 {
 	int nsec;
 	struct sockaddr_un addr;
+	int addr_len;
 
 	*fd = socket(AF_LOCAL, SOCK_STREAM, 0);
 	if (*fd < 0) {
@@ -129,13 +134,16 @@ static int iscsid_connect(int *fd, int start_iscsid)
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_LOCAL;
-	memcpy((char *) &addr.sun_path + 1, ISCSIADM_NAMESPACE,
+	memcpy(addr.sun_path + 1, ISCSIADM_NAMESPACE,
 		strlen(ISCSIADM_NAMESPACE));
+
+	addr_len = offsetof(struct sockaddr_un, sun_path)
+	  + strlen(ISCSIADM_NAMESPACE) + 1;
 	/*
 	 * Trying to connect with exponential backoff
 	 */
 	for (nsec = 1; nsec <= MAXSLEEP; nsec <<= 1) {
-		if (connect(*fd, (struct sockaddr *) &addr, sizeof(addr)) == 0)
+		if (connect(*fd, (struct sockaddr *) &addr, addr_len) == 0)
 			/* Connection established */
 			return ISCSI_SUCCESS;
 

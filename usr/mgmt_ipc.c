@@ -45,6 +45,7 @@ mgmt_ipc_listen(void)
 {
 	int fd, err;
 	struct sockaddr_un addr;
+	int addr_len;
 
 	fd = socket(AF_LOCAL, SOCK_STREAM, 0);
 	if (fd < 0) {
@@ -57,7 +58,10 @@ mgmt_ipc_listen(void)
 	memcpy((char *)addr.sun_path + 1, ISCSIADM_NAMESPACE,
 		strlen(ISCSIADM_NAMESPACE));
 
-	if ((err = bind(fd, (struct sockaddr *) &addr, sizeof(addr))) < 0) {
+	addr_len = offsetof(struct sockaddr_un, sun_path)
+	  + strlen(ISCSIADM_NAMESPACE) + 1;
+
+	if ((err = bind(fd, (struct sockaddr *) &addr, addr_len)) < 0) {
 		log_error("Can not bind IPC socket");
 		close(fd);
 		return err;
