@@ -959,7 +959,7 @@ int iscsid_init()
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_LOCAL;
-	memcpy((char *)&addr.sun_path + 1, ISCSID_UIP_NAMESPACE,
+	memcpy((char *) addr.sun_path + 1, ISCSID_UIP_NAMESPACE,
 	       strlen(ISCSID_UIP_NAMESPACE));
 
 	rc = bind(iscsid_opts.fd, (struct sockaddr *)&addr, addr_len);

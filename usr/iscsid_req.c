@@ -88,7 +88,7 @@ static int ipc_connect(int *fd, char *unix_sock_name)
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_LOCAL;
-	memcpy((char *) &addr.sun_path + 1, unix_sock_name,
+	memcpy(addr.sun_path + 1, unix_sock_name,
 		strlen(unix_sock_name));
 	/*
 	 * Trying to connect with exponential backoff

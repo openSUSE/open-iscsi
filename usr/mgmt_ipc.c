@@ -54,7 +54,7 @@ mgmt_ipc_listen(void)
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_LOCAL;
-	memcpy((char *) &addr.sun_path + 1, ISCSIADM_NAMESPACE,
+	memcpy((char *)addr.sun_path + 1, ISCSIADM_NAMESPACE,
 		strlen(ISCSIADM_NAMESPACE));
 
 	if ((err = bind(fd, (struct sockaddr *) &addr, sizeof(addr))) < 0) {
