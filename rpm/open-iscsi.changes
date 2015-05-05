@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Tue May  5 23:03:50 UTC 2015 - lduncan@suse.com
+
+- Added iscsi_fw_login helper script, and new udev
+  rule to call script when iBFT/iscsi boot targets
+  added (bsc#869278)
+
+-------------------------------------------------------------------
 Fri Jan 16 18:47:48 UTC 2015 - lduncan@suse.com
 
 - Fixed backwards check for 'rcopen-iscsi status' (bsc#913255)
