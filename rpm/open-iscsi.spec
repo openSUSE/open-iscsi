@@ -132,5 +132,8 @@ fi
 /lib/mkinitrd/scripts/boot-killiscsi.sh
 %doc COPYING README
 %doc %{_mandir}/man8/*
+%dir %{_sysconfdir}/udev
+%dir %{_sysconfdir}/udev/rules.d
+%config %{_sysconfdir}/udev/rules.d/50-iscsi-firmware-login.rules
 
 %changelog
