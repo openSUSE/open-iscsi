@@ -413,6 +413,9 @@ int ndpc_request(struct uip_stack *ustack, void *in, void *out, int request)
 			(struct ipv6_addr *)((struct ndpc_reqptr *)in)->ipv6,
 			(struct mac_address *)((struct ndpc_reqptr *)in)->eth);
 		break;
+	case GET_DEFAULT_ROUTER_ADDR:
+		ipv6_get_default_router_ip_addrs(ipv6c, *(struct ipv6_addr **)out);
+		break;
 	case GET_HOST_ADDR:
 		*(struct ipv6_addr **)out = ipv6_find_longest_match(ipv6c,
 							(struct ipv6_addr *)in);
