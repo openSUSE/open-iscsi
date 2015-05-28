@@ -24,6 +24,17 @@ ETCFILES = etc/iscsid.conf
 IFACEFILES = etc/iface.example
 OPTFLAGS ?= -O2 -g
 
+# Compatibility: parse old OPTFLAGS argument
+ifdef OPTFLAGS
+CFLAGS = $(OPTFLAGS)
+endif
+
+# Export it so configure of iscsiuio & open-isns will
+# pick it up.
+ifneq (,$(CFLAGS))
+export CFLAGS
+endif
+
 # Random comments:
 # using '$(MAKE)' instead of just 'make' allows make to run in parallel
 # over multiple makefile.
