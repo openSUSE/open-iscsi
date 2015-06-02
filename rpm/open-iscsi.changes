@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Tue Jun  2 00:37:39 UTC 2015 - lduncan@suse.com
+
+- Backported two upstream commits to enable IB/iser
+  sendtargets (bsc#920907)
+
+-------------------------------------------------------------------
 Fri May 08 13:38:59 CEST 2015 - jthumshirn@suse.de
 
 - Allow lookup of IPv6 default gateway (bnc#921716)
