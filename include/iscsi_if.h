@@ -504,8 +504,15 @@ enum iscsi_param {
 	ISCSI_PARAM_BOOT_NIC,
 	ISCSI_PARAM_BOOT_TARGET,
 
+#if 0
+	/*
+	 * disable most of these new params,
+	 * since they are disabled in kernel for kabi reasons
+	 */
 	ISCSI_PARAM_AUTO_SND_TGT_DISABLE,
+#endif
 	ISCSI_PARAM_DISCOVERY_SESS,
+#if 0
 	ISCSI_PARAM_PORTAL_TYPE,
 	ISCSI_PARAM_CHAP_AUTH_EN,
 	ISCSI_PARAM_DISCOVERY_LOGOUT_EN,
@@ -536,6 +543,7 @@ enum iscsi_param {
 
 	ISCSI_PARAM_DISCOVERY_PARENT_IDX,
 	ISCSI_PARAM_DISCOVERY_PARENT_TYPE,
+#endif
 	/* must always be last */
 	ISCSI_PARAM_MAX,
 };
