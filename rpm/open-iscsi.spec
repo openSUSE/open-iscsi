@@ -38,8 +38,6 @@ Url:            http://www.open-iscsi.org
 Version:        2.0.873
 Release:        0
 %{?systemd_requires}
-Requires:       libmount1
-Requires:       logrotate
 %define iscsi_release 873
 Summary:        Linux* Open-iSCSI Software Initiator
 License:        GPL-2.0+
@@ -86,6 +84,7 @@ Summary:        Linux Broadcom NetXtremem II iscsi server
 Group:          Productivity/Networking/Other
 Version:        0.7.8.2
 Release:        0
+Requires:       logrotate
 
 %description -n iscsiuio
 This tool is to be used in conjunction with the Broadcom NetXtreme II Linux
