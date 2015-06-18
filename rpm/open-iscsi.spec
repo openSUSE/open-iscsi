@@ -123,6 +123,12 @@ make DESTDIR=${RPM_BUILD_ROOT} install_mkinitrd_suse
 # install service files
 %if 0%{?suse_version} >= 1230
 make DESTDIR=${RPM_BUILD_ROOT} install_service_suse
+# create rc symlinks
+[ -d ${RPM_BUILD_ROOT}/usr/sbin ] || mkdir -p ${RPM_BUILD_ROOT}/usr/sbin
+ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsi
+ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsid
+ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsiuio
+ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rcisnsd
 %else
 make DESTDIR=${RPM_BUILD_ROOT} install_initd_suse
 # rename open-iscsi service to iscsid for openSUSE
@@ -244,11 +250,12 @@ fi
 %{_unitdir}/iscsid.socket
 %{_unitdir}/iscsi.service
 %{_libexecdir}/systemd/system-generators/ibft-rule-generator
+%{_sbindir}/rciscsi
 %else
 %config /etc/init.d/iscsid
 %config /etc/init.d/boot.iscsid-early
-/usr/sbin/rciscsid
 %endif
+%{_sbindir}/rciscsid
 /sbin/iscsid
 /sbin/iscsiadm
 /sbin/iscsi-iname
@@ -279,6 +286,7 @@ fi
 %if 0%{?suse_version} >= 1230
 %{_unitdir}/isnsd.service
 %{_unitdir}/isnsd.socket
+%{_sbindir}/rcisnsd
 %endif
 /usr/sbin/isnsd
 /usr/sbin/isnsdd
@@ -297,6 +305,7 @@ fi
 %if 0%{?suse_version} >= 1230
 %{_unitdir}/iscsiuio.service
 %{_unitdir}/iscsiuio.socket
+%{_sbindir}/rciscsiuio
 %endif
 
 %changelog
