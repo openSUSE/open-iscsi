@@ -25,16 +25,13 @@ BuildRequires:  flex
 BuildRequires:  libtool
 BuildRequires:  make
 BuildRequires:  openssl-devel
-%if 0%{?suse_version} >= 1230
 BuildRequires:  systemd
-%endif
 BuildRequires:  libmount-devel
 Url:            http://www.open-iscsi.org
 PreReq:         %fillup_prereq %insserv_prereq
 Version:        2.0.873
 Release:        0
 %{?systemd_requires}
-Recommends:     logrotate
 %define iscsi_release 873
 Summary:        Linux* Open-iSCSI Software Initiator
 License:        GPL-2.0+
@@ -92,6 +89,7 @@ Summary:        Linux Broadcom NetXtremem II iscsi server
 Group:          Productivity/Networking/Other
 Version:        0.7.8.2
 Release:        0
+Requires:       logrotate
 
 %description -n iscsiuio
 This tool is to be used in conjunction with the Broadcom NetXtreme II Linux
@@ -131,6 +129,12 @@ make CFLAGS="${RPM_OPT_FLAGS}"
 make DESTDIR=${RPM_BUILD_ROOT} install_user
 # install service files
 make DESTDIR=${RPM_BUILD_ROOT} install_initd_suse
+# create rc symlinks
+[ -d ${RPM_BUILD_ROOT}/usr/sbin ] || mkdir -p ${RPM_BUILD_ROOT}/usr/sbin
+ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsi
+ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsid
+ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsiuio
+ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rcisnsd
 (cd ${RPM_BUILD_ROOT}/etc; ln -sf iscsi/iscsid.conf iscsid.conf)
 touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 install -m 0755 usr/iscsistart %{buildroot}/sbin
@@ -162,7 +166,7 @@ fi
 %{service_add_post isnsd.socket isnsd.service}
 
 %postun -n open-isns
-%{service_add_post isnsd.socket isnsd.service}
+%{service_add_postun isnsd.socket isnsd.service}
 
 %pre -n open-isns
 %{service_add_pre isnsd.socket isnsd.service}
@@ -175,7 +179,7 @@ fi
 %{service_add_post iscsiuio.socket iscsiuio.service}
 
 %postun -n iscsiuio
-%{service_add_post iscsiuio.socket iscsiuio.service}
+%{service_add_postun iscsiuio.socket iscsiuio.service}
 
 %pre -n iscsiuio
 %{service_add_pre iscsiuio.socket iscsiuio.service}
@@ -196,6 +200,8 @@ fi
 %{_unitdir}/iscsid.socket
 %{_unitdir}/iscsi.service
 /usr/lib/systemd/system-generators/ibft-rule-generator
+%{_sbindir}/rciscsi
+%{_sbindir}/rciscsid
 /sbin/iscsid
 /sbin/iscsiadm
 /sbin/iscsi-iname
@@ -218,6 +224,7 @@ fi
 %attr(0644,root,root) %config /etc/sysconfig/SuSEfirewall2.d/services/isns
 %{_unitdir}/isnsd.service
 %{_unitdir}/isnsd.socket
+%{_sbindir}/rcisnsd
 /usr/sbin/isnsd
 /usr/sbin/isnsdd
 /usr/sbin/isnsadm
@@ -234,5 +241,6 @@ fi
 %config /etc/logrotate.d/iscsiuiolog
 %{_unitdir}/iscsiuio.service
 %{_unitdir}/iscsiuio.socket
+%{_sbindir}/rciscsiuio
 
 %changelog
