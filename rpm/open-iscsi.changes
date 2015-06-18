@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu Jun 18 17:29:56 UTC 2015 - lduncan@suse.com
+
+- Add rcsymlinks (bnc#932814) (from mpluskal@suse.com)
+  Cleaned up spec file rpmlint commplaints
+
+-------------------------------------------------------------------
 Thu Mar 19 16:30:26 UTC 2015 - lduncan@suse.com
 
 - Updated to latest upstream, adding 42 patches. See
