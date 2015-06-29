@@ -28,6 +28,7 @@ BuildRequires:  openssl-devel
 %if 0%{?suse_version} >= 1230
 BuildRequires:  systemd
 %endif
+BuildRequires:  libmount-devel
 Url:            http://www.open-iscsi.org
 PreReq:         %fillup_prereq %insserv_prereq
 Version:        2.0.873
