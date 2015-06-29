@@ -1,4 +1,68 @@
 -------------------------------------------------------------------
+Sun Jun 28 01:58:10 UTC 2015 - lduncan@suse.com
+
+- Updated open-iscsi to match upstream, as per bsc#936114,
+  FATE#318770
+
+  The following is a summary of changes. See
+  git@github.com:hreinecke/open-iscsi.git for details of commits:
+
+   a068906448ef Removing duplicate LDFLAGS from incorrect patch
+   85ed2b4a1cb5 Prevent spinning over poll() when reconnecting to an inaccessible target
+   bbffa1dd332d Fix incorrect list operation leading to out-of-order items on pend_list
+   ce449cc8407f iscsiuio: Correct the handling of Multi Function mode
+   e7f84d774c22 Reformat man page synopsis sections
+   271b77dece32 Spelling and escaping error fixes.
+   2022944815b2 Remove outdated Debian packaging code.
+   d650915062d6 buildsys: respect CFLAGS and LDFLAGS from the outside
+   97ae5d74d6bf buildsys: make 'make clean' idempotent
+   770993b1e422 Fix small typo in iscsid.conf
+   c9dcedb7b6a9 Remove duplicate newlines in log messages.
+   2986f9c95f6f iscsid: don't re-read config file for every session logout
+   d56f49d3f947 iscsid safe session logout
+   3f59db921549 Add some more debug logging to actor.c
+   75552f5519a8 iscsiuio CFLAGS fixes
+   73e3e00c0e5e iscsid: fix order of setting uid/gid and drop supplementary groups
+   99dfbeff1676 add discovery as a valid mode in iscsiadm.8
+   688c2e9185f1 guard against NULL ptr during discovery from unexpected event
+   c31ec6483815 Allow setting host params to return EAGAIN errors.
+   973508df1daf fix regression in iscsi_tcp iface binding
+   93c9d5ae1c86 Wake up to reap children
+   24409900d9df Make running actors event-driven
+   bc491ac31487 Remove actor_init and rename actor_new to actor_init
+   cbcd086a2cf9 actor: Simplify actor_poll a little
+   71ec348a2dfd actor: Unobfuscate ACTOR_MAX_LOOPS
+   61d58fbf6de8 actor: Remove ACTOR_TICKS_10MS()
+   f53eb0034618 actor: s/ACTOR_TICKS/actor_jiffies/
+   dfe52b2423ff actor: simplify actor_check
+   8667dcd5d628 actor: Mark actor_check static
+   8037a0a30b8f Represent DHCP "origin" as an enum, not a string.
+   da567155cfe9 Code cleanup: no functional changes
+   6478eaac7b53 iscsiuio: Check return value from nic_queue_tx_packet
+   1d07286fda46 iscsiuio: Remove set but unused variables
+   382655137020 iscsiuio: Change nic_disable to return void
+   7c233130687a iscsiuio: Use attribute(unused) for *icmpv6_hdr
+   8e1d38215344 iscsiuio: Use attribute(unused) for variables that are unused but needed
+   6ae604304b10 iscsiuio: Fix aliasing issue with IPV6_IS_ADDR_UNSPECIFIED
+   63b450de0c29 iscsiuio: Resolve strict aliasing issue in iscsiuio/src/unix/nic.c
+   c1e83d439f90 iscsiuio: Fix strict-aliasing warning with struct mac_address
+   980c471e9f4e iscsiuio: Fix warning about non-matching types
+   cb84219a4992 Fix missing header
+   9d744ac8c039 Fix bad sizeof in memset
+   67ff3a01e3ed Fix warning about possibly-uninitialized variable
+   e5518c7a8f43 Fix build warnings for unused variables
+   5d68768908e0 iscsid: don't round up when modifying padding len
+   d21766d95e10 isns: Add docs for deregistering discovery domains.
+   ed04ac2f9f32 iscsiadm : make iface.ipaddress optional in iface configs for transports that don't have a hard requirement on it.
+   148854ae2d6e iscsiuio: Rebranding iscsiuio
+   a3c40ba2ba4f iscsiadm: Initialize param_count in set_host_chap_info
+   bfa2f55b0928 iscsid: Fix double close of mgmt ipc fd
+   a037f5eaa9e0 iscsid: retry login for ISCSI_ERR_HOST_NOT_FOUND
+   f0f3bbd25762 Fix StatSN in Open-iSCSI Stack.
+   a9f4d169a95a be2iscsi: Fix MaxXmitDataLenght of the driver.
+   cf1346a86489 iscsiuio: fix compilation
+
+-------------------------------------------------------------------
 Wed Apr 22 21:09:46 UTC 2015 - lduncan@suse.com
 
 - Double the size of the iscsiuio ARP tables,
