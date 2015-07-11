@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Sat Jul 11 01:45:49 UTC 2015 - lduncan@suse.com
+
+- Use iBFT 'origin' field to determine if iBFT IP
+  address came from DHCP (bsc#929855)
+
+-------------------------------------------------------------------
 Tue Jun  2 00:37:39 UTC 2015 - lduncan@suse.com
 
 - Backported two upstream commits to enable IB/iser
