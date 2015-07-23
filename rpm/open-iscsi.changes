@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu Jul 23 17:02:05 UTC 2015 - lduncan@suse.com
+
+- Added iscsi_fw_login helper script, and new udev
+  rule to call script when iBFT/iscsi boot targets
+  added (bsc#869278)
+
+-------------------------------------------------------------------
 Mon Jun 29 16:13:14 UTC 2015 - lduncan@suse.com
 
 - Added rcsymlinks (bsc#932814)
