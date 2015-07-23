@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu Jul 23 15:32:55 UTC 2015 - lduncan@suse.com
+
+- Added iscsi_fw_login helper script, and new udev
+  rule to call script when iBFT/iscsi boot targets
+  added (bsc#869278)
+
+-------------------------------------------------------------------
 Sat Jul 11 01:45:49 UTC 2015 - lduncan@suse.com
 
 - Use iBFT 'origin' field to determine if iBFT IP
