@@ -15,6 +15,7 @@ etcdir = /etc
 initddir = $(etcdir)/init.d
 mkinitrd = $(exec_prefix)/lib/mkinitrd/scripts
 systemddir = $(prefix)/lib/systemd
+rulesdir = $(etcdir)/udev/rules.d
 
 MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8 \
 	iscsiuio/docs/iscsiuio.8 doc/iscsistart.8 doc/iscsi-iname.8 \
@@ -25,6 +26,7 @@ SCRIPTS = utils/iscsi_discovery utils/iscsi_offload \
 INSTALL = install
 ETCFILES = etc/iscsid.conf
 IFACEFILES = etc/iface.example
+RULESFILES = utils/50-iscsi-firmware-login.rules 
 
 # Compatibility: parse old OPTFLAGS argument
 ifdef OPTFLAGS
@@ -90,13 +92,18 @@ clean:
 # note that make may still execute the blocks in parallel
 .NOTPARALLEL: install_user install_programs install_initd \
 	install_initd_suse install_initd_redhat install_initd_debian \
-	install_etc install_iface install_doc install_kernel install_iname
+	install_etc install_iface install_doc install_kernel install_iname \
+	install_udev_rules
 
 install: install_programs install_doc install_etc \
-	install_initd install_iname install_iface
+	install_initd install_iname install_iface install_udev_rules
 
 install_user: install_programs install_doc install_etc \
-	install_initd install_iname install_iface
+	install_initd install_iname install_iface install_udev_rules
+
+install_udev_rules:
+	$(INSTALL) -d $(DESTDIR)$(rulesdir)
+	$(INSTALL) -m 644 $(RULESFILES) $(DESTDIR)/$(rulesdir)
 
 install_programs:  $(PROGRAMS) $(SCRIPTS)
 	$(INSTALL) -d $(DESTDIR)$(sbindir)

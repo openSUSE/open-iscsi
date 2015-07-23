@@ -232,6 +232,10 @@ fi
 %doc %{_mandir}/man8/iscsi_discovery.8.gz
 %doc %{_mandir}/man8/iscsistart.8.gz
 %doc %{_mandir}/man8/iscsi-iname.8.gz
+%doc %{_mandir}/man8/iscsi_fw_login.8.gz
+%dir %{_sysconfdir}/udev
+%dir %{_sysconfdir}/udev/rules.d
+%config %{_sysconfdir}/udev/rules.d/50-iscsi-firmware-login.rules
 
 %files -n iscsiuio
 %defattr(-,root,root)
