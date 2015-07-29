@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Wed Jul 29 19:27:03 UTC 2015 - lduncan@suse.com
+
+- Allow non-tcp transport for discovery daemon (bsc#939923)
+
+-------------------------------------------------------------------
 Tue May  5 23:03:50 UTC 2015 - lduncan@suse.com
 
 - Added iscsi_fw_login helper script, and new udev
