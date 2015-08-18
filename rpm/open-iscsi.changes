@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Tue Aug 18 19:33:14 UTC 2015 - lduncan@suse.com
+
+- Install /etc/isns/isnsadm.conf (bsc#941791)
+
+-------------------------------------------------------------------
 Thu Jul 30 18:56:08 UTC 2015 - lduncan@suse.com
 
 - Allow non-tcp transport for discovery daemon (bsc#939923) 

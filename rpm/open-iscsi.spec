@@ -226,6 +226,7 @@ fi
 %dir /etc/isns
 %attr(0600,root,root) %config(noreplace) /etc/isns/isnsd.conf
 %attr(0600,root,root) %config(noreplace) /etc/isns/isnsdd.conf
+%attr(0600,root,root) %config(noreplace) /etc/isns/isnsadm.conf
 %attr(0644,root,root) %config /etc/sysconfig/SuSEfirewall2.d/services/isns
 %{_unitdir}/isnsd.service
 %{_unitdir}/isnsd.socket

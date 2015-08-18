@@ -94,6 +94,7 @@ install: $(SRV) $(SYSTEMD)
 	$(INSTALL) -d $(CFGDIR)
 	$(INSTALL) -m 644 etc/isnsd.conf $(CFGDIR)
 	$(INSTALL) -m 644 etc/isnsdd.conf $(CFGDIR)
+	$(INSTALL) -m 644 etc/isnsadm.conf $(CFGDIR)
 
 clean distclean::
 	rm -f *.o $(LIB) $(SRV) *~
