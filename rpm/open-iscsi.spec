@@ -164,6 +164,10 @@ fi
 
 %post -n open-isns
 %{service_add_post isnsd.socket isnsd.service}
+# set up config files for this system
+for f in /etc/isns/isnsadm.conf /etc/isns/isnsdd.conf; do
+    sed -i -e 's/^#*\(ServerAddress[[:space:]]*=\).*/\1 localhost/' $f
+done
 
 %postun -n open-isns
 %{service_del_postun isnsd.socket isnsd.service}
