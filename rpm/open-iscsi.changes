@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Mon Aug 24 18:52:35 UTC 2015 - lduncan@suse.com
+
+- Support IB/iSER discovery by adding two commits:
+  * iscsi tools: set non negotiated params early.
+  * Sync iscsi_if.h with kernel space (bsc#923002)
+
+-------------------------------------------------------------------
 Wed Jul 29 19:27:03 UTC 2015 - lduncan@suse.com
 
 - Allow non-tcp transport for discovery daemon (bsc#939923)
