@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Fri Sep  4 18:39:50 UTC 2015 - lduncan@suse.com
+
+- For bsc#941944:
+  - Allow setting server name with "--server"
+  - Ensure we can reliably get our IP address
+
+-------------------------------------------------------------------
 Fri Sep  4 18:30:59 UTC 2015 - lduncan@suse.com
 
 - For bsc#941791:
