@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Fri Sep  4 18:30:59 UTC 2015 - lduncan@suse.com
+
+- For bsc#941791:
+  - Set up /etc/isns/*.conf files when installing
+  - Install /etc/isns/isnsadm.conf
+
+-------------------------------------------------------------------
 Tue Aug 18 23:39:23 UTC 2015 - lduncan@suse.com
 
 - Initialize installed config files (bsc#941791)
