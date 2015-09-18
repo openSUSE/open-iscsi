@@ -424,6 +424,8 @@ nic_t *nic_init()
 	nic->nl_process_tail = 0;
 	memset(&nic->nl_process_ring, 0, sizeof(nic->nl_process_ring));
 
+	nic->ping_thread = INVALID_THREAD;
+
 	return nic;
 }
 
@@ -791,9 +793,9 @@ int nic_process_intr(nic_t *nic, int discard_check)
 	return ret;
 }
 
-static void prepare_ipv4_packet(nic_t *nic,
-				nic_interface_t *nic_iface,
-				struct uip_stack *ustack, packet_t *pkt)
+void prepare_ipv4_packet(nic_t *nic,
+			 nic_interface_t *nic_iface,
+			 struct uip_stack *ustack, packet_t *pkt)
 {
 	u16_t ipaddr[2];
 	arp_table_query_t arp_query;
@@ -837,9 +839,9 @@ static void prepare_ipv4_packet(nic_t *nic,
 	}
 }
 
-static void prepare_ipv6_packet(nic_t *nic,
-				nic_interface_t *nic_iface,
-				struct uip_stack *ustack, packet_t *pkt)
+void prepare_ipv6_packet(nic_t *nic,
+			 nic_interface_t *nic_iface,
+			 struct uip_stack *ustack, packet_t *pkt)
 {
 	struct uip_eth_hdr *eth;
 	struct uip_vlan_eth_hdr *eth_vlan;
@@ -862,9 +864,9 @@ static void prepare_ipv6_packet(nic_t *nic,
 	}
 }
 
-static void prepare_ustack(nic_t *nic,
-			   nic_interface_t *nic_iface,
-			   struct uip_stack *ustack, struct packet *pkt)
+void prepare_ustack(nic_t *nic,
+		    nic_interface_t *nic_iface,
+		    struct uip_stack *ustack, struct packet *pkt)
 {
 	struct ether_header *eth = NULL;
 	ustack->uip_buf = pkt->buf;
