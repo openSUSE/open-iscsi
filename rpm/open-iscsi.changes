@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Mon Sep 28 18:22:12 UTC 2015 - lduncan@suse.com
+
+- added patch submitted upstream by QLogic:
+   iscsiuio: Add QLogic Vendor ID to support newer NX2 HBAs
+
+-------------------------------------------------------------------
 Fri Sep  4 18:39:50 UTC 2015 - lduncan@suse.com
 
 - open-isns: For bsc#941944:
