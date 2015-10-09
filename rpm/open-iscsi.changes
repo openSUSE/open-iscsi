@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Thu Oct  8 18:41:29 UTC 2015 - lduncan@suse.com
+
+- isns: Remove the debugging output from isnsd (bsc#949443)
+
+-------------------------------------------------------------------
 Mon Sep 28 18:22:12 UTC 2015 - lduncan@suse.com
 
 - added patch submitted upstream by QLogic:
