@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu Oct 15 15:59:38 UTC 2015 - lduncan@suse.com
+
+- Missed 2 enums in syncing iscsi_if.h with kernel, for
+  support of IB/iSER (bsc#950249)
+
+-------------------------------------------------------------------
 Mon Aug 24 18:52:35 UTC 2015 - lduncan@suse.com
 
 - Support IB/iSER discovery by adding two commits:
