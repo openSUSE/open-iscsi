@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu Oct 22 18:27:53 UTC 2015 - lduncan@suse.com
+
+- Allow non-tcp transport for discovery daemon (bsc#939923) 
+  (backported from SLE-12-SP1)
+
+-------------------------------------------------------------------
 Wed Apr 22 21:09:46 UTC 2015 - lduncan@suse.com
 
 - Double the size of the iscsiuio ARP tables,
