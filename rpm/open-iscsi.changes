@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu Oct 22 18:28:35 UTC 2015 - lduncan@suse.com
+
+- iscsi tools: Convert '-r' argument to an integer before
+  checking if it is a path (bsc#950441)
+
+-------------------------------------------------------------------
 Thu Jul 30 18:42:18 UTC 2015 - lduncan@suse.com
 
 - Allow non-tcp transport for discovery daemon (bsc#939923)
