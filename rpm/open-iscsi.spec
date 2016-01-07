@@ -37,7 +37,6 @@ Summary:        Linux* Open-iSCSI Software Initiator
 License:        GPL-2.0+
 Group:          Productivity/Networking/Other
 Source:         %{name}-2.0-%{iscsi_release}.tar.bz2
-Source1:        %{name}-firewall.service
 Patch1:         %{name}-git-update.diff.bz2
 Patch2:         %{name}-sles12-update.diff.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
@@ -66,23 +65,6 @@ and a management utility iscsiadm.
 Authors:
 --------
     open-iscsi@googlegroups.com
-
-%package -n open-isns
-Summary:        Linux iSNS server
-Group:          Productivity/Networking/Other
-Version:        0.90
-Release:        0
-Obsoletes:      isns <= 2.1.02
-Provides:       isns = 2.1.03
-
-%description -n open-isns
-This is a partial implementation of iSNS, according to RFC4171.
-The implementation is still somewhat incomplete, but I am releasing
-it for your reading pleasure.
-
-Authors:
---------
-    Olaf Kirch <okir@suse.de>
 
 %package -n iscsiuio
 Summary:        Linux Broadcom NetXtremem II iscsi server
@@ -117,7 +99,6 @@ Authors:
 
 %build
 %{__make} OPTFLAGS="${RPM_OPT_FLAGS} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"/etc/iscsi\\\"" LDFLAGS="" user
-%{__make} OPTFLAGS="${RPM_OPT_FLAGS}" -C utils/open-isns programs
 cd iscsiuio
 touch NEWS
 touch AUTHORS
@@ -134,14 +115,10 @@ make DESTDIR=${RPM_BUILD_ROOT} install_initd_suse
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsi
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsid
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsiuio
-ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rcisnsd
 (cd ${RPM_BUILD_ROOT}/etc; ln -sf iscsi/iscsid.conf iscsid.conf)
 touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 install -m 0755 usr/iscsistart %{buildroot}/sbin
-make DESTDIR=${RPM_BUILD_ROOT} -C utils/open-isns install
 make DESTDIR=${RPM_BUILD_ROOT} -C iscsiuio install
-# install firewall file for isns server
-install -vD %{S:1} %{buildroot}/etc/sysconfig/SuSEfirewall2.d/services/isns
 
 %clean
 [ "${RPM_BUILD_ROOT}" != "/" -a -d ${RPM_BUILD_ROOT} ] && rm -rf ${RPM_BUILD_ROOT}
@@ -161,23 +138,6 @@ fi
 %preun
 %{stop_on_removal iscsid}
 %{service_del_preun iscsid.socket iscsid.service iscsi.service}
-
-%post -n open-isns
-%{service_add_post isnsd.socket isnsd.service}
-# set up config files for this system
-for f in /etc/isns/isnsadm.conf /etc/isns/isnsdd.conf; do
-    sed -i -e 's/^#*\(ServerAddress[[:space:]]*=\).*/\1 localhost/' $f
-done
-
-%postun -n open-isns
-%{service_del_postun isnsd.socket isnsd.service}
-
-%pre -n open-isns
-%{service_add_pre isnsd.socket isnsd.service}
-
-%preun -n open-isns
-%{stop_on_removal isnsd isnsdd}
-%{service_del_preun isnsd.socket isnsd.service}
 
 %post -n iscsiuio
 %{service_add_post iscsiuio.socket iscsiuio.service}
@@ -224,24 +184,6 @@ done
 %dir /usr/lib/udev
 %dir /usr/lib/udev/rules.d
 /usr/lib/udev/rules.d/50-iscsi-firmware-login.rules
-
-%files -n open-isns
-%defattr(-,root,root)
-%dir /etc/isns
-%attr(0600,root,root) %config(noreplace) /etc/isns/isnsd.conf
-%attr(0600,root,root) %config(noreplace) /etc/isns/isnsdd.conf
-%attr(0600,root,root) %config(noreplace) /etc/isns/isnsadm.conf
-%attr(0644,root,root) %config /etc/sysconfig/SuSEfirewall2.d/services/isns
-%{_unitdir}/isnsd.service
-%{_unitdir}/isnsd.socket
-%{_sbindir}/rcisnsd
-/usr/sbin/isnsd
-/usr/sbin/isnsdd
-/usr/sbin/isnsadm
-%doc %{_mandir}/man8/isnsadm.8.gz
-%doc %{_mandir}/man8/isnsd.8.gz
-%doc %{_mandir}/man8/isnsdd.8.gz
-%doc %{_mandir}/man5/isns_config.5.gz
 
 %files -n iscsiuio
 %defattr(-,root,root)
