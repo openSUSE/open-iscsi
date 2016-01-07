@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu Jan 07 01:39:10 UTC 16 - lduncan@suse.com
+
+- Removing creation of the open-isns RPM, since it
+  is now created in its own package
+
+-------------------------------------------------------------------
 Thu Jun 18 17:29:56 UTC 2015 - lduncan@suse.com
 
 - Add rcsymlinks (bnc#932814) (from mpluskal@suse.com)
