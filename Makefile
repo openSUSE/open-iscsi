@@ -25,7 +25,6 @@ SCRIPTS = utils/iscsi_discovery utils/iscsi_offload utils/iscsi-gen-initiatornam
 INSTALL = install
 ETCFILES = etc/iscsid.conf
 IFACEFILES = etc/iface.example
-OPTFLAGS ?= -O2 -g
 RULESFILES = utils/50-iscsi-firmware-login.rules 
 
 # Compatibility: parse old OPTFLAGS argument
@@ -50,7 +49,7 @@ user: iscsiuio/Makefile
 	$(MAKE) -C utils/fwparam_ibft
 	$(MAKE) -C usr
 	$(MAKE) -C utils
-	$(MAKE) -C iscsiuio CFLAGS="$(OPTFLAGS)"
+	$(MAKE) -C iscsiuio
 	@echo
 	@echo "Compilation complete                 Output file"
 	@echo "-----------------------------------  ----------------"
@@ -62,7 +61,7 @@ user: iscsiuio/Makefile
 	@echo "Read README file for detailed information."
 
 iscsiuio/Makefile: iscsiuio/configure iscsiuio/Makefile.in
-	cd iscsiuio; ./configure CFLAGS="$(OPTFLAGS)"
+	cd iscsiuio; ./configure
 
 iscsiuio/configure iscsiuio/Makefile.in: iscsiuio/configure.ac iscsiuio/Makefile.am
 	cd iscsiuio; autoreconf --install
