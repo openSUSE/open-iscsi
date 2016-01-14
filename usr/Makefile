@@ -28,7 +28,7 @@ IPC_OBJ=ioctl.o
 endif
 endif
 
-CFLAGS ?= -02 -g
+CFLAGS ?= -O2 -g
 WARNFLAGS ?= -Wall -Wstrict-prototypes
 CFLAGS += $(WARNFLAGS) -I../include -I. -D$(OSNAME) $(IPC_CFLAGS)
 PROGRAMS = iscsid iscsiadm iscsistart
