@@ -25,6 +25,7 @@ BuildRequires:  flex
 BuildRequires:  libtool
 BuildRequires:  make
 BuildRequires:  openssl-devel
+BuildRequires:  open-isns-devel
 %if 0%{?suse_version} >= 1230
 BuildRequires:  systemd
 %else
@@ -92,7 +93,6 @@ The communication to the driver is done via Userspace I/O (Kernel module name
 
 %build
 %{__make} OPTFLAGS="${RPM_OPT_FLAGS} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"/etc/iscsi\\\"" LDFLAGS="" user
-%{__make} OPTFLAGS="${RPM_OPT_FLAGS}" -C utils/open-isns programs
 cd iscsiuio
 touch NEWS
 touch AUTHORS

@@ -124,9 +124,6 @@ fi
 git show $BRANCH:rpm/$RPM.spec > $DESTDIR/$RPM.spec
 git show $BRANCH:rpm/$RPM.changes > $DESTDIR/$RPM.changes
 
-# also create the firewall service file
-git show ${BRANCH}:rpm/${RPM}-firewall.service >$DESTDIR/${RPM}-firewall.service
-
 # create the base tar file containing the open-iscsi base code
 git archive --format=tar --prefix=$RPM-$VERSION/ "$VERSION" \
     | bzip2 > $DESTDIR/$RPM-$VERSION.tar.bz2
