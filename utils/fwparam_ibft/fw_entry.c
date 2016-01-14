@@ -192,7 +192,7 @@ static void dump_network(struct boot_context *context)
 	if (strlen(context->mac))
 		printf("%s = %s\n", IFACE_HWADDR, context->mac);
 	/*
-	 * If the 'origin' field is '3' (IBFT_IP_PREFIX_ORIGIN_DHCP),
+	 * If the 'origin' field is 3 (IBFT_IP_PREFIX_ORIGIN_DHCP),
 	 * then DHCP is used.
 	 * Otherwise evaluate the 'dhcp' field, if this has a valid
 	 * address then DHCP was used (broadcom sends 0.0.0.0).

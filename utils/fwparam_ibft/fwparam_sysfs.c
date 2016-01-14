@@ -177,7 +177,7 @@ static int fill_nic_context(char *subsys, char *id,
 	 * sets Bit 1 (Firmware Booting Selected).
 	 * So any setting is deemed okay.
 	 */
-	if (!rc && (context->target_flags == 0))
+	if (!rc && (context->nic_flags == 0))
 		rc = ENODEV;
 	if (rc)
 		return rc;
@@ -244,7 +244,6 @@ static void fill_initiator_context(char *subsys, struct boot_context *context)
 
 	strlcpy(context->boot_root, subsys, sizeof(context->boot_root));
 }
-
 static int fill_tgt_context(char *subsys, char *id,
 			    struct boot_context *context)
 {
@@ -252,10 +251,10 @@ static int fill_tgt_context(char *subsys, char *id,
 
 	rc = sysfs_get_int(id, subsys, "flags", &context->target_flags);
 	/*
-	 * Per spec we would need to check agains Bit 0
+	 * Per spec we would need to check against Bit 0
 	 * (Block Valid Flag), but some firmware only
-	 * sets bit 1 (Firmware Booting Selected).
-	 * So any setting is deemed ok.
+	 * sets Bit 1 (Firmware Booting Selected).
+	 * So any setting is deemed okay.
 	 */
 	if (!rc && (context->target_flags == 0))
 		rc = ENODEV;
