@@ -22,7 +22,6 @@ SCRIPTS = utils/iscsi_offload utils/iscsi-gen-initiatorname
 INSTALL = install
 ETCFILES = etc/iscsid.conf
 IFACEFILES = etc/iface.example
-OPTFLAGS ?= -O2 -g
 
 # Compatibility: parse old OPTFLAGS argument
 ifdef OPTFLAGS
@@ -46,7 +45,7 @@ user: iscsiuio/Makefile
 	$(MAKE) -C utils/fwparam_ibft
 	$(MAKE) -C usr
 	$(MAKE) -C utils
-	$(MAKE) -C iscsiuio CFLAGS="$(OPTFLAGS)"
+	$(MAKE) -C iscsiuio
 	@echo
 	@echo "Compilation complete                 Output file"
 	@echo "-----------------------------------  ----------------"
