@@ -1,4 +1,45 @@
 -------------------------------------------------------------------
+Thu Jan 14 23:56:07 UTC 2016 - lduncan@suse.com
+
+- Synced with current upstream as of today, which included 29
+  changes. Most changes were directly from upstream, but
+  some where to fix small differences that had developed
+  between our code and theirs, now fixed. As always, see
+  git@github.com:hreinecke/open-iscsi.git, openSUSE-Factory
+  branch, for details.
+  
+  Change summary:
+  * Syncing top-level files with upstream.
+  * Fixed my typo in default CFLAGS.
+  * Syncing up utils/fwparam_ibft with upstream.
+  * Adding in missing part of previous commit.
+  * iscsiuio: Get the library to use based on uio sysfs name
+  * iscsiuio: Wait for iface to be ready before issuing the ping
+  * iscsiadm: let ping be tried after iface config is initialized
+  * iscsiuio: Add ping support through iscsiuio
+  * iscsid: Changes to support ping through iscsiuio
+  * iscsiuio: Add QLogic Vendor ID to support newer NX2 HBAs
+  * iscsid: fix iscsi_host_set_net_params return code
+  * iscsid/iscsiuio: remove uio poll
+  * iscsid: make sure actor is delated before rescheduling
+  * Remove last pieces of building local open-isns.
+  * iscsi: remove local copy of open-isns
+  * Use system-wide open-isns, not internal version.
+  * Fix typo in man page.
+  * fix typo
+  * iscsiuio: Correct the handling of Multi Function mode
+  * Reformat man page synopsis sections
+  * Spelling and escaping error fixes.
+  * Remove outdated Debian packaging code.
+  * buildsys: respect CFLAGS and LDFLAGS from the outside
+  * buildsys: make 'make clean' idempotent
+  * Fix small typo in iscsid.conf
+  * Fix iBFT target flags check.
+  * Remove duplicate newlines in log messages.
+  * Kernel include path
+  * Allow setting host params to return EAGAIN errors.
+
+-------------------------------------------------------------------
 Thu Jan 07 01:39:10 UTC 16 - lduncan@suse.com
 
 - Removing creation of the open-isns RPM, since it
