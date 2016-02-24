@@ -1,4 +1,23 @@
 -------------------------------------------------------------------
+Wed Feb 24 15:49:38 UTC 2016 - lduncan@suse.com
+
+- Updating to better match upstream iscsiuio (bsc#960439),
+  porting these commits from upstream:
+  * ISCSID: Added socket communication hooks for uip
+  * iscsid: Changes to support ping through iscsiuio
+  * iscsiuio: Add ping support through iscsiuio
+  * iscsiadm: let ping be tried after iface config is initialized
+  * iscsiuio: Wait for iface to be ready before issuing the ping
+  * iscsiuio: Get the library to use based on uio sysfs name
+  * iscsiuio: Correct the handling of Multi Function mode
+  The following changes were also made to support these commits:
+  * remove shadow directory iscsiuio/include and its files
+  * fix iscsiuio Makefile.am files to not use iscsiuio/include
+  * fix iscsiuio ISCSI misspelling of enums
+  * fix some iscsiuio/src/unix/nic* files:
+    - change include of "linux/if.h" to "net/if.h"
+
+-------------------------------------------------------------------
 Thu Oct 22 18:28:35 UTC 2015 - lduncan@suse.com
 
 - iscsi tools: Convert '-r' argument to an integer before
