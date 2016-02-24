@@ -1,10 +1,11 @@
 SUBDIRS= libs
 
-INCLUDES = -I${top_srcdir}/src/uip		\
+AM_CFLAGS = -I${top_srcdir}/src/uip		\
 	   -I${top_srcdir}/src/apps/brcm-iscsi	\
 	   -I${top_srcdir}/src/apps/dhcpc	\
-	   -I${top_srcdir}/include		\
-	   -I${top_srcdir}/src/unix/libs/
+	   -I${top_srcdir}/src/unix/libs/	\
+	   -I${top_srcdir}/../include		\
+	   -I${top_srcdir}/../usr
 
 sbin_PROGRAMS = iscsiuio
 

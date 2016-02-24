@@ -44,8 +44,6 @@
 #include <unistd.h>
 #include <sys/socket.h>
 
-#include <linux/if.h>
-
 #include "logger.h"
 #include "nic.h"
 

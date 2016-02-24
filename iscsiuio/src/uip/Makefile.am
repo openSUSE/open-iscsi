@@ -1,7 +1,7 @@
 INCLUDES =	-I${top_srcdir}/src/unix	\
 		-I${top_srcdir}/src/apps/dhcpc	\
 		-I${top_srcdir}/src/apps/brcm-iscsi \
-		-I${top_srcdir}/include
+		-I${top_srcdir}/../include
 
 noinst_LIBRARIES = lib_iscsi_uip.a
 

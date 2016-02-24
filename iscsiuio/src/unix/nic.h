@@ -44,7 +44,7 @@
 
 #include <stdint.h>
 #include <netinet/if_ether.h>
-#include <linux/if.h>
+#include <net/if.h>
 #include <linux/limits.h>
 #include <stdlib.h>
 #include <pthread.h>

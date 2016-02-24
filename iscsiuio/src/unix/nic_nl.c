@@ -316,10 +316,13 @@ static int ctldev_handle(char *data, nic_t *nic)
 			ip_type = AF_INET6;
 		else
 			ip_type = 0;
-
+#ifdef REQ_PATH_IFACE_NUM
 		/* Find the nic_iface to use */
 		iface_num = ev->r.req_path.iface_num ?
 			    ev->r.req_path.iface_num : IFACE_NUM_INVALID;
+#else
+		iface_num = IFACE_NUM_INVALID;
+#endif
 		vlan_id = path->vlan_id ? path->vlan_id : NO_VLAN;
 
 		LOG_DEBUG(PFX "%s: PATH_REQ with iface_num %d VLAN %d",
