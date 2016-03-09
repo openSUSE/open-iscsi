@@ -165,7 +165,7 @@ fi
 %{service_add_post isnsd.socket isnsd.service}
 
 %postun -n open-isns
-%{service_add_postun isnsd.socket isnsd.service}
+%{service_del_postun isnsd.socket isnsd.service}
 
 %pre -n open-isns
 %{service_add_pre isnsd.socket isnsd.service}
@@ -178,7 +178,7 @@ fi
 %{service_add_post iscsiuio.socket iscsiuio.service}
 
 %postun -n iscsiuio
-%{service_add_postun iscsiuio.socket iscsiuio.service}
+%{service_del_postun iscsiuio.socket iscsiuio.service}
 
 %pre -n iscsiuio
 %{service_add_pre iscsiuio.socket iscsiuio.service}
