@@ -287,10 +287,6 @@ idbm_recinfo_node(node_rec_t *r, recinfo_t *ri)
 	if (iface_type == ISCSI_IFACE_TYPE_IPV4) {
 		__recinfo_str(IFACE_BOOT_PROTO, ri, r, iface.bootproto,
 			      IDBM_SHOW, num, 1);
-		__recinfo_str(IFACE_SUBNET_MASK, ri, r, iface.subnet_mask,
-			      IDBM_SHOW, num, 1);
-		__recinfo_str(IFACE_GATEWAY, ri, r, iface.gateway, IDBM_SHOW,
-			      num, 1);
 		__recinfo_str(IFACE_DHCP_ALT_CID, ri, r,
 			      iface.dhcp_alt_client_id_state, IDBM_SHOW,
 			      num, 1);
