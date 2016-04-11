@@ -39,6 +39,12 @@ Group:          Productivity/Networking/Other
 Source:         %{name}-2.0-%{iscsi_release}.tar.bz2
 Patch1:         %{name}-git-update.diff.bz2
 Patch2:         %{name}-sles12-update.diff.bz2
+%define isns_name open-isns
+%define isns_ver 0.95
+Source10:       %{isns_name}-v%{isns_ver}.tar.bz2
+Source11:       %{name}-firewall.service
+Patch11:        %{isns_name}-Install-isns_config.5.patch
+Patch12:        %{isns_name}-Update-GPL-license-information.patch
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -68,6 +74,7 @@ Authors:
 
 %package -n iscsiuio
 Summary:        Linux Broadcom NetXtremem II iscsi server
+License:        GPL-2.0+
 Group:          Productivity/Networking/Other
 Version:        0.7.8.2
 Release:        0
@@ -92,19 +99,54 @@ Authors:
     Eddie Wai <eddie.wai@broadcom.com>
     Benjamin Li <benli@broadcom.com>
 
+%package -n open-isns
+Summary:        Partial Implementation of iSNS iSCSI registration
+License:        LGPL-2.1+
+Group:          System Environment/Kernel
+Version:        0.95
+Release:        0
+BuildRequires:  autoconf
+BuildRequires:  automake
+BuildRequires:  glibc-devel
+BuildRequires:  make
+BuildRequires:  openssl-devel
+BuildRequires:  systemd-rpm-macros
+%{?systemd_requires}
+Requires:       coreutils
+
+%description -n open-isns
+This is a partial implementation of the iSNS protocol (see below),
+which supplies directory services for iSCSI initiators and targets.
+
+The iSNS protocol is specified in
+[RFC 4171](http://tools.ietf.org/html/rfc4171) and its purpose is to
+make easier to discover, manage, and configure iSCSI devices. With
+iSNS, iSCSI targets can be registered to a central iSNS server and
+initiators can be configured to discover the targets by asking the
+iSNS server.
+
 %prep
 %setup -n %{name}-2.0-%{iscsi_release}
 %patch1 -p1
 %patch2 -p1
+%setup -n %{name}-2.0-%{iscsi_release} -T -D -a 10
+%patch11 -p1
+%patch12 -p1
 
 %build
-%{__make} OPTFLAGS="${RPM_OPT_FLAGS} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"/etc/iscsi\\\"" LDFLAGS="" user
+cd %{isns_name}-%{isns_ver}
+autoconf
+autoheader
+%configure --prefix=%{_prefix}
+%{__make} OPTFLAGS="${RPM_OPT_FLAGS} -I include"
+cd ..
+%{__make} OPTFLAGS="${RPM_OPT_FLAGS} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"/etc/iscsi\\\" -I %{_builddir}/%{buildsubdir}/%{isns_name}-%{isns_ver}/include" LDFLAGS="-L%{_builddir}/%{buildsubdir}/%{isns_name}-%{isns_ver}" user
 cd iscsiuio
 touch NEWS
 touch AUTHORS
 autoreconf --install
 %configure --sbindir=/sbin
-make CFLAGS="${RPM_OPT_FLAGS}"
+%{__make} CFLAGS="${RPM_OPT_FLAGS}"
 
 %install
 make DESTDIR=${RPM_BUILD_ROOT} install_user
@@ -119,6 +161,14 @@ ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsiuio
 touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 install -m 0755 usr/iscsistart %{buildroot}/sbin
 make DESTDIR=${RPM_BUILD_ROOT} -C iscsiuio install
+# install open-isns
+cd %{isns_name}-%{isns_ver}
+%{__make} DESTDIR=${RPM_BUILD_ROOT} install
+if [ ! -d ${RPM_BUILD_ROOT}/usr/sbin ] ; then
+        mkdir -p ${RPM_BUILD_ROOT}/usr/sbin
+fi
+ln -sf /usr/sbin/service ${RPM_BUILD_ROOT}/usr/sbin/rcisnsd
+install -vD %{S:11} %{buildroot}/etc/sysconfig/SuSEfirewall2.d/services/isns
 
 %clean
 [ "${RPM_BUILD_ROOT}" != "/" -a -d ${RPM_BUILD_ROOT} ] && rm -rf ${RPM_BUILD_ROOT}
@@ -138,6 +188,23 @@ fi
 %preun
 %{stop_on_removal iscsid}
 %{service_del_preun iscsid.socket iscsid.service iscsi.service}
+
+%post -n open-isns
+%{service_add_post isnsd.socket isnsd.service}
+# set up config files for this system
+for f in /etc/isns/isnsadm.conf /etc/isns/isnsdd.conf; do
+    sed -i -e 's/^#*\(ServerAddress[[:space:]]*=\).*/\1 localhost/' $f
+done
+
+%postun -n open-isns
+%{service_del_postun isnsd.socket isnsd.service}
+
+%pre -n open-isns
+%{service_add_pre isnsd.socket isnsd.service}
+
+%preun -n open-isns
+%{stop_on_removal isnsd isnsdd}
+%{service_del_preun isnsd.socket isnsd.service}
 
 %post -n iscsiuio
 %{service_add_post iscsiuio.socket iscsiuio.service}
@@ -184,6 +251,24 @@ fi
 %dir /usr/lib/udev
 %dir /usr/lib/udev/rules.d
 /usr/lib/udev/rules.d/50-iscsi-firmware-login.rules
+
+%files -n open-isns
+%defattr(-,root,root)
+%dir /etc/isns
+%attr(0600,root,root) %config(noreplace) /etc/isns/isnsd.conf
+%attr(0600,root,root) %config(noreplace) /etc/isns/isnsdd.conf
+%attr(0600,root,root) %config(noreplace) /etc/isns/isnsadm.conf
+%attr(0644,root,root) %config /etc/sysconfig/SuSEfirewall2.d/services/isns
+%{_unitdir}/isnsd.service
+%{_unitdir}/isnsd.socket
+%{_sbindir}/rcisnsd
+/usr/sbin/isnsd
+/usr/sbin/isnsdd
+/usr/sbin/isnsadm
+%doc %{_mandir}/man8/isnsadm.8.gz
+%doc %{_mandir}/man8/isnsd.8.gz
+%doc %{_mandir}/man8/isnsdd.8.gz
+%doc %{_mandir}/man5/isns_config.5.gz
 
 %files -n iscsiuio
 %defattr(-,root,root)
