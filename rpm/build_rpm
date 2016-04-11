@@ -16,6 +16,7 @@ MASTER_HEAD="sles12-base"
 DESTDIR=
 NUM_PATCHES=2
 uncommitted_changes=0
+SUB_RPM=open-isns
 
 # if using osc ...
 OBS_BRANCH=home:hreinecke:branches
@@ -157,6 +158,13 @@ if (( $uncommitted_changes )) ; then
 	"/%patch${NUM_PATCHES} -p1/a%patch${NEXT_PATCH} -p1" \
 	$DESTDIR/$RPM.spec
 fi
+
+# hack -- copy open-isns-splice stuff, for SLE12-SP2...
+for f in ${SUB_RPM}-Install-isns_config.5.patch \
+	 ${SUB_RPM}-Update-GPL-license-information.patch \
+	 ${SUB_RPM}-v0.95.tar.bz2 ; do
+    git show ${BRANCH}:rpm/${SUB_RPM}-splice/$f > ${DESTDIR}/$f
+done
 
 echo "$RPM src rpm copied to $DESTDIR"
 
