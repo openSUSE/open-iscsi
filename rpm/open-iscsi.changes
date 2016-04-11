@@ -1,4 +1,26 @@
 -------------------------------------------------------------------
+Mon Apr 11 16:26:14 UTC 2016 - lduncan@suse.com
+
+- Backported changes from openSUSE:Factory branch:
+  * Removing creation of open-isns RPM.
+  * Allow setting host params to return EAGAIN errors.
+  * Kernel include path
+  * Fix iBFT target flags check.
+  * fix typo
+  * Fix typo in man page.
+  * Use system-wide open-isns, not internal version.
+  * iscsi: remove local copy of open-isns
+  * iscsid: make sure actor is delated before rescheduling
+  * iscsid/iscsiuio: remove uio poll
+  * iscsid: fix iscsi_host_set_net_params return code
+  * Syncing up utils/fwparam_ibft with upstream.
+  * Syncing top-level files with upstream.
+  * Fixed duplicate lines for subnet_mask and gateway
+- Update SPEC file for spliced open-isns by copying open-isns
+  upstream tarball and patches from factory, since open-isns is no
+  longer part of open-iscsi
+
+-------------------------------------------------------------------
 Thu Jan 07 19:21:31 UTC 2016 - lduncan@suse.com
 
 - Added 5 upstream patches for iscsiuio (bsc#960438):
