@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Wed Apr 13 17:06:42 UTC 2016 - lduncan@suse.com
+
+- Ported 3 changes from SLE 12 that are not upstream, but
+  are needed here, as there are in SLE:
+  * Fixed systemd start of iscsi.service (bsc#897565)
+  * iscsiuio: ARP table too small when switches involve
+  * Discovery via non-tcp transport needs IPC set.
+
+-------------------------------------------------------------------
 Thu Jan 14 23:56:07 UTC 2016 - lduncan@suse.com
 
 - Synced with current upstream as of today, which included 29
