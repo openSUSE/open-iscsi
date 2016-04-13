@@ -1,6 +1,7 @@
 -------------------------------------------------------------------
 Mon Apr 11 16:26:14 UTC 2016 - lduncan@suse.com
 
+Update user-space open-iscsi tools (bug#975217, FATE#320753)
 - Backported changes from openSUSE:Factory branch:
   * Removing creation of open-isns RPM.
   * Allow setting host params to return EAGAIN errors.
