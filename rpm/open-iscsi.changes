@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Mon Apr 25 15:33:23 UTC 2016 - lduncan@suse.com
+
+- Added patch submitted upstream that sets socket option
+  to SO_LINGER (bsc#974102)
+
+-------------------------------------------------------------------
 Thu Jan 07 19:21:31 UTC 2016 - lduncan@suse.com
 
 - Added 5 upstream patches for iscsiuio (bsc#960438):
