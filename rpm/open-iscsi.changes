@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Fri May  6 15:36:03 UTC 2016 - lduncan@suse.com
+
+- Added patch submitted upstream that sets socket option
+  to SO_LINGER (bsc#974102)
+
+-------------------------------------------------------------------
 Mon Apr 11 16:26:14 UTC 2016 - lduncan@suse.com
 
 - Update user-space open-iscsi tools (bsc#975217, FATE#320753),
