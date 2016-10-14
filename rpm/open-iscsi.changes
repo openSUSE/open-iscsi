@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Fri Oct 14 18:53:15 UTC 2016 - lduncan@suse.com
+
+- Stop manual sessions for iscsi service (bsc#989548)
+
+-------------------------------------------------------------------
 Fri May  6 15:36:03 UTC 2016 - lduncan@suse.com
 
 - Added patch submitted upstream that sets socket option
