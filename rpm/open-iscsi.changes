@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Wed Oct 26 23:57:47 UTC 2016 - lduncan@suse.com
+
+- Add open-isns patch to fix DB corruption when reloading
+ (bsc#897297)
+
+-------------------------------------------------------------------
 Mon Apr 25 15:33:23 UTC 2016 - lduncan@suse.com
 
 - Added patch submitted upstream that sets socket option
