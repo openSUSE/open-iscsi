@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Sat Oct 29 01:58:17 UTC 2016 - lduncan@suse.com
+
+- Added open-isns patch to remove Discovery
+  Domain doubling when loading from file (bsc#897297),
+  adding patch:
+  * open-isns-Fix-DD-member-doubling-when-restoring-from-DB.patch
+
+-------------------------------------------------------------------
 Fri Oct 14 18:53:15 UTC 2016 - lduncan@suse.com
 
 - Stop manual sessions for iscsi service (bsc#989548)
