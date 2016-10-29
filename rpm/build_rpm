@@ -160,10 +160,9 @@ if (( $uncommitted_changes )) ; then
 fi
 
 # hack -- copy open-isns-splice stuff, for SLE12-SP2...
-for f in ${SUB_RPM}-Install-isns_config.5.patch \
-	 ${SUB_RPM}-Update-GPL-license-information.patch \
-	 ${SUB_RPM}-v0.95.tar.bz2 ; do
-    git show ${BRANCH}:rpm/${SUB_RPM}-splice/$f > ${DESTDIR}/$f
+for f in rpm/${SUB_RPM}-splice/${SUB_RPM}-* ; do
+    dst=${f##*/}
+    git show ${BRANCH}:$f > ${DESTDIR}/$dst
 done
 
 echo "$RPM src rpm copied to $DESTDIR"
