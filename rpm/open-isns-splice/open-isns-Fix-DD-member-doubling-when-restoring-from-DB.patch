@@ -1,0 +1,43 @@
+From d6004bf7358a3ac3a040b475cdd96fc243b118f8 Mon Sep 17 00:00:00 2001
+From: Lee Duncan <lduncan@suse.com>
+Date: Wed, 26 Oct 2016 13:54:33 -0700
+Subject: [PATCH] Fix DD member doubling when restoring from DB.
+
+Fix issue where a restore of DD members from
+disc, at startup time, was getting duplicdate
+entries for each member. The membership bit for
+each object must be set when it is read, so
+that duplicate objects can be detected in time
+to be rejected.
+---
+ dd.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/open-isns-0.95/dd.c b/open-isns-0.95/dd.c
+index e8f165be2dbe..d7f7b4a31e78 100644
+--- a/open-isns-0.95/dd.c
++++ b/open-isns-0.95/dd.c
+@@ -915,6 +915,9 @@ isns_dd_parse_attrs(isns_dd_t *dd, isns_db_t *db,
+ 					*tail = new;
+ 					tail = &new->ddm_next;
+ 				}
++
++				/* mark this object as a member of this DD */
++				isns_object_mark_membership(obj, dd->dd_id);
+ 			}
+ 			isns_object_release(obj);
+ 		}
+@@ -1040,10 +1043,6 @@ isns_dd_add_members(isns_dd_t *dd, isns_db_t *db, isns_dd_t *new_dd)
+ 			isns_db_insert_limbo(db, obj);
+ 		mp->ddm_index = obj->ie_index;
+ 
+-		/* Record the fact that the object is a member of
+-		 * this DD */
+-		isns_object_mark_membership(obj, dd->dd_id);
+-
+ 		switch (mp->ddm_type) {
+ 		case ISNS_DD_MEMBER_ISCSI_NODE:
+ 			if (isns_object_get_string(obj, ISNS_TAG_ISCSI_NAME, &node_name))
+-- 
+1.8.5.6
+

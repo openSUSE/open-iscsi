@@ -45,6 +45,7 @@ Source10:       %{isns_name}-v%{isns_ver}.tar.bz2
 Source11:       %{name}-firewall.service
 Patch11:        %{isns_name}-Install-isns_config.5.patch
 Patch12:        %{isns_name}-Update-GPL-license-information.patch
+Patch13:        %{isns_name}-Fix-DD-member-doubling-when-restoring-from-DB.patch
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -132,6 +133,7 @@ iSNS server.
 %setup -n %{name}-2.0-%{iscsi_release} -T -D -a 10
 %patch11 -p1
 %patch12 -p1
+%patch13 -p1
 
 %build
 cd %{isns_name}-%{isns_ver}
