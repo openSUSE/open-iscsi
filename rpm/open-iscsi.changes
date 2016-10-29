@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Sat Oct 29 00:42:03 UTC 2016 - lduncan@suse.com
+
+- Add open-isns patch to fix DB corruption when reloading
+ (bsc#897297)
+
+-------------------------------------------------------------------
 Fri Oct 14 18:24:10 UTC 2016 - lduncan@suse.com
 
 - Stop manual sessions for iscsi service (bsc#989548)
