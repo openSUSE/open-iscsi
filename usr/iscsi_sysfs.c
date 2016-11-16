@@ -818,7 +818,7 @@ static int iscsi_sysfs_read_iface(struct iface_rec *iface, int host_no,
 	if (session) {
 		/*
 		 * this was added after 2.0.869 so we could be doing iscsi_tcp
-		 * session binding, but there may not be a ifacename set
+		 * session binding, but there may not be an ifacename set
 		 * if binding is not used.
 		 */
 		ret = sysfs_get_str(session, ISCSI_SESSION_SUBSYS, "ifacename",
@@ -1216,7 +1216,7 @@ int iscsi_sysfs_session_has_leadconn(uint32_t sid)
  * /sys/devices/platform/hostH/sessionS
  *
  * return the sid S. If just the sid is passed in it will be converted
- * to a int.
+ * to an int.
  */
 int iscsi_sysfs_get_sid_from_path(char *session)
 {
@@ -1472,13 +1472,27 @@ int iscsi_sysfs_for_each_session(void *data, int *nr_found,
 				break;
 			}
 
-			if ((chldrc > 0) && (rc == 0)) {
+			if (!WIFEXITED(chldrc)) {
 				/*
+				 * abnormal termination (signal, exception, etc.)
+				 *
 				 * The non-parallel code path returns the first
 				 * error so this keeps the same semantics.
 				 */
-				rc = chldrc;
-			} else if (chldrc == 0) {
+				if (rc == 0)
+					rc = ISCSI_ERR_CHILD_TERMINATED;
+			} else if ((WEXITSTATUS(chldrc) != 0) &&
+			           (WEXITSTATUS(chldrc) != 255)) {
+				/*
+				 * 0 is success
+				 * 255 is a truncated return code from exit(-1)
+				 *     and means no match
+				 * anything else (this case) is an error
+				 */
+				if (rc == 0)
+					rc = WEXITSTATUS(chldrc);
+			} else if (WEXITSTATUS(chldrc) == 0) {
+				/* success */
 				(*nr_found)++;
 			}
 		}

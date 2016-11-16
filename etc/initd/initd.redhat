@@ -17,8 +17,6 @@ RETVAL=0
 start()
 {
 	echo -n $"Starting iSCSI initiator service: "
-	modprobe -q iscsi_tcp
-	modprobe -q ib_iser
 	daemon iscsid
 	RETVAL=$?
 	success

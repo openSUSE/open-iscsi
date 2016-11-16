@@ -287,7 +287,7 @@ static void kill_iscsid(int priority)
  * And we can add a scsi_host mode which would display how
  * sessions are related to hosts
  * (scsi_host and iscsi_sessions are the currently running instance of
- * a iface or node record).
+ * an iface or node record).
  */
 static int print_ifaces(struct iface_rec *iface, int info_level)
 {
@@ -574,7 +574,7 @@ login_by_startup(char *mode)
 			 * Note: We always try all iface records in case there
 			 * are targets that are associated with only a subset
 			 * of iface records.  __do_leading_login already
-			 * prevents duplicate sessions if an iface has succeded
+			 * prevents duplicate sessions if an iface has succeeded
 			 * for a particular target.
 			 */
 		}
@@ -1195,7 +1195,7 @@ do_target_discovery(discovery_rec_t *drec, struct list_head *ifaces,
 		rc = iface_conf_read(iface);
 		if (rc) {
 			log_error("Could not read iface info for %s. "
-				  "Make sure a iface config with the file "
+				  "Make sure an iface config with the file "
 				  "name and iface.iscsi_ifacename %s is in %s.",
 				  iface->name, iface->name, IFACE_CONFIG_DIR);
 			list_del(&iface->list);
@@ -1632,7 +1632,7 @@ static int delete_host_chap_info(uint32_t host_no, uint16_t chap_tbl_idx)
 		goto exit_delete_chap;
 	}
 
-	log_info("Deleteing CHAP index: %d", chap_tbl_idx);
+	log_info("Deleting CHAP index: %d", chap_tbl_idx);
 	rc = ipc->delete_chap(t->handle, host_no, chap_tbl_idx);
 	if (rc < 0) {
 		log_error("CHAP Delete failed.");
@@ -1898,10 +1898,33 @@ exit_logout:
 	return rc;
 }
 
+static int iscsi_check_session_use_count(uint32_t sid) {
+	char *config_file;
+	char *safe_logout;
+
+	config_file = get_config_file();
+	if (!config_file) {
+		log_error("Could not get config file from iscsid");
+		return 0;
+	}
+
+	safe_logout = cfg_get_string_param(config_file, "iscsid.safe_logout");
+	if (!safe_logout || strcmp(safe_logout, "Yes"))
+		return 0;
+
+	return session_in_use(sid);
+}
+
 int iscsi_logout_flashnode_sid(struct iscsi_transport *t, uint32_t host_no,
 			       uint32_t sid)
 {
 	int fd, rc = 0;
+
+	if (iscsi_check_session_use_count(sid)) {
+		log_error("Session is actively in use for mounted storage, "
+			  "and iscsid.safe_logout is configured.");
+		return ISCSI_ERR_BUSY;
+	}
 
 	fd = ipc->ctldev_open();
 	if (fd < 0) {
@@ -2622,7 +2645,7 @@ static int exec_fw_disc_op(discovery_rec_t *drec, struct list_head *ifaces,
 			rc = iface_conf_read(iface);
 			if (rc) {
 				log_error("Could not read iface info for %s. "
-					  "Make sure a iface config with the "
+					  "Make sure an iface config with the "
 					  "file name and iface.iscsi_ifacename "
 					  "%s is in %s.", iface->name,
 					  iface->name, IFACE_CONFIG_DIR);
@@ -2636,7 +2659,7 @@ static int exec_fw_disc_op(discovery_rec_t *drec, struct list_head *ifaces,
 
 	/*
 	 * Next, check if we see any offload cards. If we do then
-	 * we make a iface if needed.
+	 * we make an iface if needed.
 	 *
 	 * Note1: if there is not a offload card we do not setup
 	 * software iscsi binding with the nic used for booting,

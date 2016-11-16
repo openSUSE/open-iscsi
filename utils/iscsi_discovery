@@ -13,8 +13,8 @@
 # details.
 #
 # You should have received a copy of the GNU General Public License along with
-# this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
 #
 # Author: Dan Bar Dov <danb@voltaire.com>
 
@@ -39,7 +39,7 @@ usage()
 	echo "Options:"
 	echo  "-p		set the port number (defualt is 3260)."
 	echo  "-d		print debugging information"
-	echo  "-t		set trasnpot (default is tcp)."
+	echo  "-t		set transport (default is tcp)."
 	echo  "-f		force specific transport -disable the fallback to tcp (default is fallback enabled)."
 	echo  "			force the transport specified by the argument of the -t flag."
 	echo  "-m		manual startup - will set manual startup (default is automatic startup)."

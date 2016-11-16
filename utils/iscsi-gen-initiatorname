@@ -4,8 +4,8 @@
 #
 # Generate a default iSCSI Initiatorname for SUSE installations.
 #
-# Copyright (c) 2007 Hannes Reinecke, SUSE Linux Products GmbH.
-# All rights reserved.
+# Copyright (c) 2011 Hannes Reinecke, SUSE Labs
+# This script is licensed under the GPL.
 #
 
 if [ "$1" ] ; then

@@ -30,7 +30,6 @@
 #include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>
-#include <libmount/libmount.h>
 
 #include "initiator.h"
 #include "transport.h"
@@ -1571,7 +1570,9 @@ static void session_conn_poll(void *data)
 		 * TODO: use the iface number or some other value
 		 * so this will be persistent
 		 */
-		session->isid[3] = session->id;
+		session->isid[3] = (session->id >> 16) & 0xff;
+		session->isid[4] = (session->id >>  8) & 0xff;
+		session->isid[5] = session->id & 0xff;
 
 		if (ipc->bind_conn(session->t->handle, session->id,
 				   conn->id, conn->transport_ep_handle,
@@ -1772,7 +1773,7 @@ static iscsi_session_t* session_find_by_rec(node_rec_t *rec)
 
 /*
  * a session could be running in the kernel but not in iscsid
- * due to a resync or becuase some other app started the session
+ * due to a resync or because some other app started the session
  */
 static int session_is_running(node_rec_t *rec)
 {
@@ -2042,195 +2043,6 @@ static int session_unbind(struct iscsi_session *session)
 	return err;
 }
 
-static struct libmnt_table *mtab, *swaps;
-
-static void libmount_cleanup(void)
-{
-	mnt_free_table(mtab);
-	mnt_free_table(swaps);
-	mtab = swaps = NULL;
-}
-
-static int libmount_init(void)
-{
-	mnt_init_debug(0);
-	mtab = mnt_new_table();
-	swaps = mnt_new_table();
-	if (!mtab || !swaps) {
-		libmount_cleanup();
-		return -ENOMEM;
-	}
-	mnt_table_parse_mtab(mtab, NULL);
-	mnt_table_parse_swaps(swaps, NULL);
-	return 0;
-}
-
-static int trans_filter(const struct dirent *d)
-{
-	if (!strcmp(".", d->d_name) || !strcmp("..", d->d_name))
-		return 0;
-	return 1;
-}
-
-static int subdir_filter(const struct dirent *d)
-{
-	if (!(d->d_type & DT_DIR))
-		return 0;
-	return trans_filter(d);
-}
-
-static int is_partition(const char *path)
-{
-	char *devtype;
-	int rc = 0;
-
-	devtype = sysfs_get_uevent_devtype(path);
-	if (!devtype)
-		return 0;
-	if (strcmp(devtype, "partition") == 0)
-		rc = 1;
-	free(devtype);
-	return rc;
-}
-
-static int blockdev_check_mnts(char *syspath)
-{
-	struct libmnt_fs *fs;
-	char *devname = NULL;
-	char *_devname = NULL;
-	int rc = 0;
-
-	devname = sysfs_get_uevent_devname(syspath);
-	if (!devname)
-		goto out;
-
-	_devname = calloc(1, PATH_MAX);
-	if (!_devname)
-		goto out;
-	snprintf(_devname, PATH_MAX, "/dev/%s", devname);
-
-	fs = mnt_table_find_source(mtab, _devname, MNT_ITER_FORWARD);
-	if (fs) {
-		rc = 1;
-		goto out;
-	}
-	fs = mnt_table_find_source(swaps, _devname, MNT_ITER_FORWARD);
-	if (fs)
-		rc = 1;
-out:
-	free(devname);
-	free(_devname);
-	return rc;
-}
-
-static int count_device_users(char *syspath);
-
-static int blockdev_get_partitions(char *syspath)
-{
-	struct dirent **parts = NULL;
-	int n, i;
-	int count = 0;
-
-	n = scandir(syspath, &parts, subdir_filter, alphasort);
-	for (i = 0; i < n; i++) {
-		char *newpath;
-
-		newpath = calloc(1, PATH_MAX);
-		if (!newpath)
-			continue;
-		snprintf(newpath, PATH_MAX, "%s/%s", syspath, parts[i]->d_name);
-		free(parts[i]);
-		if (is_partition(newpath)) {
-			count += count_device_users(newpath);
-		}
-		free(newpath);
-	}
-	free(parts);
-	return count;
-}
-
-static int blockdev_get_holders(char *syspath)
-{
-	char *path = NULL;
-	struct dirent **holds = NULL;
-	int n, i;
-	int count = 0;
-
-	path = calloc(1, PATH_MAX);
-	if (!path)
-		return 0;
-	snprintf(path, PATH_MAX, "%s/holders", syspath);
-
-	n = scandir(path, &holds, trans_filter, alphasort);
-	for (i = 0; i < n; i++) {
-		char *newpath;
-		char *rp;
-
-		newpath = calloc(1, PATH_MAX);
-		if (!newpath)
-			continue;
-		snprintf(newpath, PATH_MAX, "%s/%s", path, holds[i]->d_name);
-
-		free(holds[i]);
-		rp = realpath(newpath, NULL);
-		if (rp)
-			count += count_device_users(rp);
-		free(newpath);
-		free(rp);
-	}
-	free(path);
-	free(holds);
-	return count;
-}
-
-static int count_device_users(char *syspath)
-{
-	int count = 0;
-	count += blockdev_check_mnts(syspath);
-	count += blockdev_get_partitions(syspath);
-	count += blockdev_get_holders(syspath);
-	return count;
-};
-
-static void device_in_use(void *data, int host_no, int target, int lun)
-{
-	char *syspath = NULL;
-	char *devname = NULL;
-	int *count = data;
-
-	devname = iscsi_sysfs_get_blockdev_from_lun(host_no, target, lun);
-	if (!devname)
-		goto out;
-	syspath = calloc(1, PATH_MAX);
-	if (!syspath)
-		goto out;
-	snprintf(syspath, PATH_MAX, "/sys/class/block/%s", devname);
-	*count += count_device_users(syspath);
-out:
-	free(syspath);
-	free(devname);
-}
-
-static int session_in_use(int sid)
-{
-	int host_no = -1, err = 0;
-	int count = 0;
-
-	if (libmount_init()) {
-		log_error("Failed to initialize libmount, "
-			  "not checking for active mounts on session [%d].",
-			  sid);
-		return 0;
-	}
-
-	host_no = iscsi_sysfs_get_host_no_from_sid(sid, &err);
-	if (!err)
-		iscsi_sysfs_for_each_device(&count, host_no, sid, device_in_use);
-
-	libmount_cleanup();
-	return count;
-}
-
 int session_logout_task(int sid, queue_task_t *qtask)
 {
 	iscsi_session_t *session;
@@ -2316,7 +2128,7 @@ iscsi_host_send_targets(queue_task_t *qtask, int host_no, int do_login,
 }
 
 /*
- * HW drivers like qla4xxx present a interface that hides most of the iscsi
+ * HW drivers like qla4xxx present an interface that hides most of the iscsi
  * details. Userspace sends down a discovery event then it gets notified
  * if the sessions that were logged in as a result asynchronously, or
  * the card will have sessions preset in the FLASH and will log into them
