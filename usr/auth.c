@@ -20,7 +20,7 @@
  * RFC 3720.  The code in this file is meant to be common for both kernel and
  * user level and makes use of only limited  library  functions, presently only
  * string.h. Routines specific to kernel, user level are implemented in
- * seperate files under the appropriate directories.
+ * separate files under the appropriate directories.
  * This code in this files assumes a single thread of execution
  * for each iscsi_acl structure, and does no locking.
  */
@@ -109,13 +109,13 @@ acl_chap_auth_request(struct iscsi_acl *client, char *username, unsigned int id,
 	/* the expected credentials are in the session */
 	if (session->username_in == NULL) {
 		log_error("failing authentication, no incoming username "
-			  "configured to authenticate target %s\n",
+			  "configured to authenticate target %s",
 			  session->target_name);
 		return AUTH_STATUS_FAIL;
 	}
 	if (strcmp(username, session->username_in) != 0) {
 		log_error("failing authentication, received incorrect "
-			  "username from target %s\n", session->target_name);
+			  "username from target %s", session->target_name);
 		return AUTH_STATUS_FAIL;
 	}
 
@@ -123,7 +123,7 @@ acl_chap_auth_request(struct iscsi_acl *client, char *username, unsigned int id,
 	    (session->password_in == NULL) ||
 	    (session->password_in[0] == '\0')) {
 		log_error("failing authentication, no incoming password "
-		       "configured to authenticate target %s\n",
+		       "configured to authenticate target %s",
 		       session->target_name);
 		return AUTH_STATUS_FAIL;
 	}
@@ -132,7 +132,7 @@ acl_chap_auth_request(struct iscsi_acl *client, char *username, unsigned int id,
 
 	if (rsp_length != sizeof(verify_data)) {
 		log_error("failing authentication, received incorrect "
-			  "CHAP response length %u from target %s\n",
+			  "CHAP response length %u from target %s",
 			  rsp_length, session->target_name);
 		return AUTH_STATUS_FAIL;
 	}
@@ -154,13 +154,13 @@ acl_chap_auth_request(struct iscsi_acl *client, char *username, unsigned int id,
 	auth_md5_final(verify_data, &context);
 
 	if (memcmp(response_data, verify_data, sizeof(verify_data)) == 0) {
-		log_debug(1, "initiator authenticated target %s\n",
+		log_debug(1, "initiator authenticated target %s",
 			  session->target_name);
 		return AUTH_STATUS_PASS;
 	}
 
 	log_error("failing authentication, received incorrect CHAP "
-		  "response from target %s\n", session->target_name);
+		  "response from target %s", session->target_name);
 	return AUTH_STATUS_FAIL;
 }
 
@@ -1071,7 +1071,7 @@ acl_hand_shake(struct iscsi_acl *client)
 
 		/*
 		 * Should only happen if authentication
-		 * protocol error occured.
+		 * protocol error occurred.
 		 */
 		return;
 
@@ -2002,7 +2002,7 @@ acl_dbg_status_to_text(int dbg_status)
 		"AuthMethod negotiation failed",
 		"AuthMethod negotiated to none",
 		"CHAP algorithm negotiation failed",
-		"CHAP challange reflected",
+		"CHAP challenge reflected",
 		"Local password same as remote",
 		"Local password not set",
 		"CHAP identifier bad",

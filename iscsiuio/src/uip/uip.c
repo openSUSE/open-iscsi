@@ -7,6 +7,7 @@
 #include "dhcpc.h"
 #include "ipv6_ndpc.h"
 #include "brcm_iscsi.h"
+#include "ping.h"
 
 /**
  * \defgroup uip The uIP TCP/IP stack
@@ -219,10 +220,14 @@ void set_uip_stack(struct uip_stack *ustack,
 		   uip_ip4addr_t *netmask,
 		   uip_ip4addr_t *default_route, uint8_t *mac_addr)
 {
-	uip_sethostaddr4(ustack, ip);
-	uip_setnetmask4(ustack, netmask);
-	uip_setdraddr4(ustack, default_route);
-	uip_setethernetmac(ustack, mac_addr);
+	if (ip)
+		uip_sethostaddr4(ustack, ip);
+	if (netmask)
+		uip_setnetmask4(ustack, netmask);
+	if (default_route)
+		uip_setdraddr4(ustack, default_route);
+	if (mac_addr)
+		uip_setethernetmac(ustack, mac_addr);
 }
 
 #if !UIP_ARCH_ADD32
@@ -441,6 +446,7 @@ void uip_init(struct uip_stack *ustack, uint8_t ipv6_enabled)
 
 	ustack->dhcpc = NULL;
 	ustack->ndpc = NULL;
+	ustack->ping_conf = NULL;
 }
 void uip_reset(struct uip_stack *ustack)
 {
@@ -1023,7 +1029,7 @@ void uip_process(struct uip_stack *ustack, u8_t flag)
 	struct uip_tcp_ipv4_hdr *tcp_ipv4_hdr = NULL;
 	struct uip_tcp_hdr *tcp_hdr = NULL;
 	struct uip_icmpv4_hdr *icmpv4_hdr = NULL;
-	struct uip_icmpv6_hdr *icmpv6_hdr = NULL;
+	struct uip_icmpv6_hdr *icmpv6_hdr __attribute__((__unused__)) = NULL;
 	struct uip_udp_hdr *udp_hdr = NULL;
 
 	/*  Drop invalid packets */
@@ -1424,6 +1430,11 @@ ndp_send:
 icmp_input:
 #endif /* UIP_PINGADDRCONF */
 		++ustack->stats.icmp.recv;
+
+		if (icmpv4_hdr->type == ICMP_ECHO_REPLY) {
+			if (process_icmp_packet(icmpv4_hdr, ustack) == 0)
+				goto drop;
+		}
 
 		/* ICMP echo (i.e., ping) processing. This is simple, we only
 		   change the ICMP type from ECHO to ECHO_REPLY and adjust the

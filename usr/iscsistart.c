@@ -97,7 +97,7 @@ Open-iSCSI initiator.\n\
   -i, --initiatorname=name set InitiatorName to name (Required)\n\
   -t, --targetname=name    set TargetName to name (Required)\n\
   -g, --tgpt=N             set target portal group tag to N (Required)\n\
-  -a, --address=A.B.C.D    set IP addres to A.B.C.D (Required)\n\
+  -a, --address=A.B.C.D    set IP address to A.B.C.D (Required)\n\
   -p, --port=N             set port to N (Default 3260)\n\
   -u, --username=N         set username to N (optional)\n\
   -w, --password=N         set password to N (optional\n\
@@ -126,7 +126,7 @@ static int stop_event_loop(void)
 	rc = iscsid_exec_req(&req, &rsp, 0);
 	if (rc) {
 		iscsi_err_print_msg(rc);
-		log_error("Could not stop event_loop\n");
+		log_error("Could not stop event_loop");
 	}
 	return rc;
 }
@@ -279,6 +279,8 @@ static int setup_session(void)
 	return rc;
 }
 
+int session_in_use(int sid) { return 0; }
+
 static void catch_signal(int signo)
 {
 	log_warning("pid %d caught signal -%d", getpid(), signo);
@@ -287,22 +289,22 @@ static void catch_signal(int signo)
 static int check_params(char *initiatorname)
 {
 	if (!initiatorname) {
-		log_error("InitiatorName not set. Exiting %s\n", program_name);
+		log_error("InitiatorName not set. Exiting %s", program_name);
 		return EINVAL;
 	}
 
 	if (config_rec.tpgt == PORTAL_GROUP_TAG_UNKNOWN) {
-		log_error("Portal Group not set. Exiting %s\n", program_name);
+		log_error("Portal Group not set. Exiting %s", program_name);
 		return EINVAL;
 	}
 
 	if (!strlen(config_rec.name)) {
-		log_error("TargetName not set. Exiting %s\n", program_name);
+		log_error("TargetName not set. Exiting %s", program_name);
 		return EINVAL;
 	}
 
 	if (!strlen(config_rec.conn[0].address)) {
-		log_error("IP Address not set. Exiting %s\n", program_name);
+		log_error("IP Address not set. Exiting %s", program_name);
 		return EINVAL;
 	}
 
@@ -472,7 +474,7 @@ int main(int argc, char *argv[])
 
 	mgmt_ipc_fd = mgmt_ipc_listen();
 	if (mgmt_ipc_fd  < 0) {
-		log_error("Could not setup mgmt ipc\n");
+		log_error("Could not setup mgmt ipc");
 		exit(ISCSI_ERR_NOMEM);
 	}
 
@@ -509,7 +511,6 @@ int main(int argc, char *argv[])
 	 * Start Main Event Loop
 	 */
 	iscsi_initiator_init();
-	actor_init();
 	event_loop(ipc, control_fd, mgmt_ipc_fd);
 	ipc->ctldev_close();
 	mgmt_ipc_close(mgmt_ipc_fd);

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2011, Broadcom Corporation
+ * Copyright (c) 2014, QLogic Corporation
  *
  * Written by:  Eddie Wai  (eddie.wai@broadcom.com)
  *              Based on Kevin Tran's iSCSI boot code
@@ -70,7 +71,13 @@ struct udp_hdr {
 };
 
 struct mac_address {
-	u8_t addr[6];
+	union {
+		u8_t addr[6];
+		struct {
+			u16_t first_2_bytes;
+			u32_t last_4_bytes;
+		} __attribute__ ((packed));
+	};
 };
 
 #define HOST_TO_NET16(a) htons(a)
@@ -135,32 +142,11 @@ struct mac_address {
 	(memcmp((char *)a, (char *)b, sizeof(struct ipv6_addr)) == 0)
 
 /* Unspecified IPv6 address */
-#define IPV6_IS_ADDR_UNSPECIFIED(a)		\
-	((*(u32_t *)(&(a)->addr8[0]) == 0) &&	\
-	 (*(u32_t *)(&(a)->addr8[4]) == 0) &&	\
-	 (*(u32_t *)(&(a)->addr8[8]) == 0) &&	\
-	 (*(u32_t *)(&(a)->addr8[12]) == 0))
-
-/* Loopback IPv6 address */
-#define IPV6_IS_ADDR_LOOPBACK(a)		\
-	((*(u32_t *)(&(a)->addr8[0]) == 0) &&	\
-	 (*(u32_t *)(&(a)->addr8[4]) == 0) &&	\
-	 (*(u32_t *)(&(a)->addr8[8]) == 0) &&	\
-	 (*(u32_t *)(&(a)->addr8[12]) == 0x1))
-
-/* IPv4 compatible */
-#define IPV6_IS_ADDR_IPV4_COMPAT(a)		\
-	((*(u32_t *)(&(a)->addr8[0]) == 0) &&	\
-	 (*(u32_t *)(&(a)->addr8[4]) == 0) &&	\
-	 (*(u32_t *)(&(a)->addr8[8]) == 0) &&	\
-	 (*(u32_t *)(&(a)->addr8[12]) != 0) &&	\
-	 (*(u32_t *)(&(a)->addr8[12]) != 0x1))
-
-/* Mapped IPv4-IPv6 address */
-#define IPV6_IS_ADDR_IPV4_MAPPED(a)		\
-	((*(u32_t *)(&(a)->addr8[0]) == 0) &&	\
-	 (*(u32_t *)(&(a)->addr8[4]) == 0) &&	\
-	 (*(u32_t *)(&(a)->addr8[8]) == ntohl(0x0000ffff)))
+#define IPV6_IS_ADDR_UNSPECIFIED(a)	\
+	((((a)->addr[0]) == 0) &&	\
+	(((a)->addr[1]) == 0) &&	\
+	(((a)->addr[2]) == 0) &&	\
+	(((a)->addr[3]) == 0))
 
 /* IPv6 Scope Values */
 #define IPV6_ADDR_SCOPE_INTFACELOCAL    0x01	/* Node-local scope */
@@ -284,7 +270,7 @@ struct ipv6_context {
 	struct ipv6_addr default_router;
 	struct ipv6_prefix_entry *addr_list;
 	u8_t hop_limit;
-#define UIP_ARPTAB_SIZE 8
+#define UIP_ARPTAB_SIZE 16
 
 	struct uip_stack *ustack;
 #define MAX_MCADDR_TABLE 5

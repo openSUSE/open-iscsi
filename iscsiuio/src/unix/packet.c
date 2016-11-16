@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009-2011, Broadcom Corporation
+ * Copyright (c) 2014, QLogic Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
  *
@@ -37,6 +38,7 @@
  */
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "logger.h"
 #include "packet.h"
@@ -58,13 +60,14 @@ struct packet *alloc_packet(size_t max_buf_size, size_t priv_size)
 		LOG_ERR("Could not allocate any memory for packet");
 		return NULL;
 	}
+	memset(pkt, 0, max_buf_size + sizeof(struct packet));
 
 	priv = malloc(priv_size);
 	if (priv == NULL) {
 		LOG_ERR("Could not allocate any memory for private structure");
 		goto free_pkt;
 	}
-
+	memset(priv, 0, priv_size);
 	pkt->max_buf_size = max_buf_size;
 	pkt->priv = priv;
 
@@ -103,7 +106,7 @@ void reset_packet(packet_t *pkt)
 
 int alloc_free_queue(nic_t *nic, size_t num_of_packets)
 {
-	int rc, i;
+	int i;
 
 	pthread_mutex_lock(&nic->free_packet_queue_mutex);
 	for (i = 0; i < num_of_packets; i++) {
@@ -111,7 +114,6 @@ int alloc_free_queue(nic_t *nic, size_t num_of_packets)
 
 		pkt = alloc_packet(1500, 1500);
 		if (pkt == NULL) {
-			rc = i;
 			goto done;
 		}
 
@@ -120,8 +122,6 @@ int alloc_free_queue(nic_t *nic, size_t num_of_packets)
 		pkt->next = nic->free_packet_queue;
 		nic->free_packet_queue = pkt;
 	}
-
-	rc = num_of_packets;
 
 done:
 	pthread_mutex_unlock(&nic->free_packet_queue_mutex);

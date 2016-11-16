@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009-2011, Broadcom Corporation
+ * Copyright (c) 2014, QLogic Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
  *
@@ -51,6 +52,7 @@
 #include "nic_nl.h"
 #include "packet.h"
 #include "uip.h"
+#include "timer.h"
 
 #include "iscsi_if.h"
 
@@ -329,6 +331,9 @@ typedef struct nic {
 #define NIC_NL_PROCESS_LAST_ENTRY           (NIC_NL_PROCESS_MAX_RING_SIZE - 1)
 #define NIC_NL_PROCESS_NEXT_ENTRY(x) ((x + 1) & NIC_NL_PROCESS_MAX_RING_SIZE)
 	void *nl_process_ring[NIC_NL_PROCESS_MAX_RING_SIZE];
+
+	/* The thread used to perform ping */
+	pthread_t ping_thread;
 } nic_t;
 
 /******************************************************************************
@@ -350,8 +355,10 @@ typedef enum {
 	NIC_LIBRARY_DOESNT_EXIST = 2,
 } NIC_LIBRARY_EXIST_T;
 
-NIC_LIBRARY_EXIST_T does_nic_uio_name_exist(char *name);
-NIC_LIBRARY_EXIST_T does_nic_library_exist(char *name);
+NIC_LIBRARY_EXIST_T does_nic_uio_name_exist(char *name,
+					    nic_lib_handle_t **handle);
+NIC_LIBRARY_EXIST_T does_nic_library_exist(char *name,
+					   nic_lib_handle_t **handle);
 
 /*******************************************************************************
  *  Packet management utility functions
@@ -379,5 +386,21 @@ int find_nic_lib_using_pci_id(uint32_t vendor, uint32_t device,
 void *nic_loop(void *arg);
 
 int nic_packet_capture(struct nic *, struct packet *pkt);
+
+int process_packets(nic_t *nic,
+		    struct timer *periodic_timer,
+		    struct timer *arp_timer, nic_interface_t *nic_iface);
+
+void prepare_ustack(nic_t *nic,
+		    nic_interface_t *nic_iface,
+		    struct uip_stack *ustack, struct packet *pkt);
+
+void prepare_ipv4_packet(nic_t *nic,
+			 nic_interface_t *nic_iface,
+			 struct uip_stack *ustack, struct packet *pkt);
+
+void prepare_ipv6_packet(nic_t *nic,
+			 nic_interface_t *nic_iface,
+			 struct uip_stack *ustack, struct packet *pkt);
 
 #endif /* __NIC_H__ */

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2011, Broadcom Corporation
+ * Copyright (c) 2014, QLogic Corporation
  *
  * Written by:  Eddie Wai  (eddie.wai@broadcom.com)
  *              Based on Kevin Tran's iSCSI boot code
@@ -46,6 +47,7 @@
 #include "icmpv6.h"
 #include "uipopt.h"
 #include "dhcpv6.h"
+#include "ping.h"
 
 inline int best_match_bufcmp(u8_t *a, u8_t *b, int len)
 {
@@ -91,7 +93,7 @@ int iscsiL2AddMcAddr(struct ipv6_context *context,
 {
 	int i;
 	struct mac_address *mc_addr;
-	const struct mac_address all_zeroes_mc = { { 0, 0, 0, 0, 0, 0 } };
+	const struct mac_address all_zeroes_mc = { { { 0, 0, 0, 0, 0, 0 } } };
 
 	mc_addr = context->mc_addr;
 	for (i = 0; i < MAX_MCADDR_TABLE; i++, mc_addr++)
@@ -810,6 +812,9 @@ static void ipv6_icmp_rx(struct ipv6_context *context)
 			(struct ipv6_hdr *)context->ustack->network_layer;
 	struct icmpv6_hdr *icmp = (struct icmpv6_hdr *)((u8_t *)ipv6 +
 						sizeof(struct ipv6_hdr));
+	uip_icmp_echo_hdr_t *icmp_echo_hdr =
+				(uip_icmp_echo_hdr_t *)((u8_t *)ipv6 +
+						sizeof(struct ipv6_hdr));
 
 	switch (icmp->icmpv6_type) {
 	case ICMPV6_RTR_ADV:
@@ -827,6 +832,11 @@ static void ipv6_icmp_rx(struct ipv6_context *context)
 	case ICMPV6_ECHO_REQUEST:
 		/* Response with ICMP reply */
 		ipv6_icmp_handle_echo_request(context);
+		break;
+
+	case ICMPV6_ECHO_REPLY:
+		/* Handle ICMP reply */
+		process_icmp_packet(icmp_echo_hdr, context->ustack);
 		break;
 
 	default:

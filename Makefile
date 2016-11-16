@@ -20,14 +20,24 @@ INSTALL = install
 ETCFILES = etc/iscsid.conf
 IFACEFILES = etc/iface.example
 
+# Compatibility: parse old OPTFLAGS argument
+ifdef OPTFLAGS
+CFLAGS = $(OPTFLAGS)
+endif
+
+# Export it so configure of iscsiuio will
+# pick it up.
+ifneq (,$(CFLAGS))
+export CFLAGS
+endif
+
 # Random comments:
 # using '$(MAKE)' instead of just 'make' allows make to run in parallel
 # over multiple makefile.
 
 all: user
 
-user: utils/open-isns/Makefile iscsiuio/Makefile
-	$(MAKE) -C utils/open-isns
+user: iscsiuio/Makefile
 	$(MAKE) -C utils/sysdeps
 	$(MAKE) -C utils/fwparam_ibft
 	$(MAKE) -C usr
@@ -42,9 +52,6 @@ user: utils/open-isns/Makefile iscsiuio/Makefile
 	@echo "Built iscsiuio daemon:               iscsiuio/src/unix/iscsiuio"
 	@echo
 	@echo "Read README file for detailed information."
-
-utils/open-isns/Makefile: utils/open-isns/configure utils/open-isns/Makefile.in
-	cd utils/open-isns; ./configure CFLAGS="$(OPTFLAGS)" --with-security=no
 
 iscsiuio/Makefile: iscsiuio/configure iscsiuio/Makefile.in
 	cd iscsiuio; ./configure
@@ -69,9 +76,8 @@ clean:
 	$(MAKE) -C utils clean
 	$(MAKE) -C usr clean
 	$(MAKE) -C kernel clean
-	$(MAKE) -C iscsiuio clean
-	$(MAKE) -C utils/open-isns clean
-	$(MAKE) -C utils/open-isns distclean
+	[ ! -f iscsiuio/Makefile ] || $(MAKE) -C iscsiuio clean
+	[ ! -f iscsiuio/Makefile ] || $(MAKE) -C iscsiuio distclean
 
 # this is for safety
 # now -jXXX will still be safe

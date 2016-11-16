@@ -41,8 +41,6 @@
 /**
  * fw_setup_nics - setup nics (ethXs) based on ibft net info
  *
- * Currently does not support vlans.
- *
  * If this is a offload card, this function does nothing. The
  * net info is used by the iscsi iface settings for the iscsi
  * function.
@@ -67,21 +65,22 @@ int fw_setup_nics(void)
 	 * to force iSCSI traffic through correct NIC
 	 */
 	list_for_each_entry(context, &targets, list) {			
-	        /* if it is a offload nic ignore it */
-	        if (!net_get_transport_name_from_netdev(context->iface,
+		/* if it is a offload nic ignore it */
+		if (!net_get_transport_name_from_netdev(context->iface,
 							transport))
 			continue;
 
 		if (iface_prev == NULL || strcmp(context->iface, iface_prev)) {
 			/* Note: test above works because there is a
- 			 * maximum of two targets in the iBFT
- 			 */
+			 * maximum of two targets in the iBFT
+			 */
 			iface_prev = context->iface;
 			needs_bringup = 1;
 		}
 
 		err = net_setup_netdev(context->iface, context->ipaddr,
 				       context->mask, context->gateway,
+				       context->vlan,
 				       context->target_ipaddr, needs_bringup);
 		if (err)
 			ret = err;
@@ -192,10 +191,13 @@ static void dump_network(struct boot_context *context)
 	if (strlen(context->mac))
 		printf("%s = %s\n", IFACE_HWADDR, context->mac);
 	/*
-	 * If this has a valid address then DHCP was used (broadcom sends
-	 * 0.0.0.0).
+	 * If the 'origin' field is 3 (IBFT_IP_PREFIX_ORIGIN_DHCP),
+	 * then DHCP is used.
+	 * Otherwise evaluate the 'dhcp' field, if this has a valid
+	 * address then DHCP was used (broadcom sends 0.0.0.0).
 	 */
-	if (strlen(context->dhcp) && strcmp(context->dhcp, "0.0.0.0"))
+	if ((context->origin == IBFT_IP_PREFIX_ORIGIN_DHCP) ||
+	    (strlen(context->dhcp) && strcmp(context->dhcp, "0.0.0.0")))
 		printf("%s = DHCP\n", IFACE_BOOT_PROTO);
 	else
 		printf("%s = STATIC\n", IFACE_BOOT_PROTO);

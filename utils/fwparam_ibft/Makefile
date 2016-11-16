@@ -21,14 +21,14 @@
 #	    "Prasanna Mumbai" <mumbai.prasanna@gmail.com>
 #
 
-SYSDEPS_OBJS = $(wildcard ../sysdeps/*.o)
+SYSDEPS_OBJS = $(sort $(wildcard ../sysdeps/*.o))
 OBJS := fw_entry.o fwparam_sysfs.o $(SYSDEPS_OBJS) ../../usr/iscsi_net_util.o
 OBJS += prom_lex.o prom_parse.tab.o fwparam_ppc.o
 CLEANFILES = $(OBJS) *.output *~
 
-OPTFLAGS ?= -O2 -g -fPIC
+CFLAGS ?= -O2 -g
 WARNFLAGS ?= -Wall -Wstrict-prototypes
-CFLAGS += $(OPTFLAGS) $(WARNFLAGS) -I../../include -I../../usr -D_GNU_SOURCE
+CFLAGS += -fPIC $(WARNFLAGS) -I../../include -I../../usr -D_GNU_SOURCE
 
 all: $(OBJS)
 

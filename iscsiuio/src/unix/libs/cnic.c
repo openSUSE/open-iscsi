@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009-2011, Broadcom Corporation
+ * Copyright (c) 2014, QLogic Corporation
  *
  * Written by: Benjamin Li  (benli@broadcom.com)
  *
@@ -426,8 +427,10 @@ done:
 	if (status != 0 || rc != 0)
 		pthread_mutex_unlock(&nic->xmit_mutex);
 
-	cnic_nl_neigh_rsp(nic, fd, ev, path, mac_addr,
-			  nic_iface, status, AF_INET);
+	if (ev) {
+		cnic_nl_neigh_rsp(nic, fd, ev, path, mac_addr,
+				  nic_iface, status, AF_INET);
+	}
 
 	return rc;
 }
@@ -623,8 +626,10 @@ done:
 	if (status != 0 || rc != 0)
 		pthread_mutex_unlock(&nic->xmit_mutex);
 
-	cnic_nl_neigh_rsp(nic, fd, ev, path, mac_addr,
-			  nic_iface, status, AF_INET6);
+	if (ev) {
+		cnic_nl_neigh_rsp(nic, fd, ev, path, mac_addr,
+				  nic_iface, status, AF_INET6);
+	}
 	return rc;
 }
 

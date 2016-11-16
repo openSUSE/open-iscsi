@@ -58,7 +58,8 @@ struct iscsi_transport_template iscsi_iser = {
 
 struct iscsi_transport_template cxgb3i = {
 	.name		= "cxgb3i",
-	.set_host_ip	= 1,
+	.set_host_ip	= SET_HOST_IP_OPT,
+        .bind_ep_required = 1,
 	.ep_connect	= ktransport_ep_connect,
 	.ep_poll	= ktransport_ep_poll,
 	.ep_disconnect	= ktransport_ep_disconnect,
@@ -67,7 +68,8 @@ struct iscsi_transport_template cxgb3i = {
 
 struct iscsi_transport_template cxgb4i = {
 	.name		= "cxgb4i",
-	.set_host_ip	= 1,
+	.set_host_ip	= SET_HOST_IP_NOT_REQ,
+        .bind_ep_required = 1,
 	.ep_connect	= ktransport_ep_connect,
 	.ep_poll	= ktransport_ep_poll,
 	.ep_disconnect	= ktransport_ep_disconnect,
@@ -76,16 +78,19 @@ struct iscsi_transport_template cxgb4i = {
 
 struct iscsi_transport_template bnx2i = {
 	.name		= "bnx2i",
-	.set_host_ip	= 1,
+	.set_host_ip	= SET_HOST_IP_REQ,
 	.use_boot_info	= 1,
+        .bind_ep_required = 1,
 	.ep_connect	= ktransport_ep_connect,
 	.ep_poll	= ktransport_ep_poll,
 	.ep_disconnect	= ktransport_ep_disconnect,
 	.set_net_config = uip_broadcast_params,
+	.exec_ping	= uip_broadcast_ping_req,
 };
 
 struct iscsi_transport_template be2iscsi = {
 	.name		= "be2iscsi",
+        .bind_ep_required = 1,
 	.create_conn	= be2iscsi_create_conn,
 	.ep_connect	= ktransport_ep_connect,
 	.ep_poll	= ktransport_ep_poll,
@@ -94,7 +99,8 @@ struct iscsi_transport_template be2iscsi = {
 
 struct iscsi_transport_template qla4xxx = {
 	.name		= "qla4xxx",
-	.set_host_ip	= 0,
+	.set_host_ip	= SET_HOST_IP_NOT_REQ,
+        .bind_ep_required = 1,
 	.ep_connect	= ktransport_ep_connect,
 	.ep_poll	= ktransport_ep_poll,
 	.ep_disconnect	= ktransport_ep_disconnect,
@@ -102,6 +108,7 @@ struct iscsi_transport_template qla4xxx = {
 
 struct iscsi_transport_template ocs = {
 	.name		= "ocs",
+        .bind_ep_required = 1,
 	.ep_connect	= ktransport_ep_connect,
 	.ep_poll	= ktransport_ep_poll,
 	.ep_disconnect	= ktransport_ep_disconnect,
@@ -143,7 +150,7 @@ int transport_probe_for_offload(void)
 	for (i = 0; ifni[i].if_index && ifni[i].if_name; i++) {
 		struct if_nameindex *n = &ifni[i];
 
-		log_debug(6, "kmod probe found %s\n", n->if_name);
+		log_debug(6, "kmod probe found %s", n->if_name);
 
 		strlcpy(if_hwaddr.ifr_name, n->if_name, IFNAMSIZ);
 		if (ioctl(sockfd, SIOCGIFHWADDR, &if_hwaddr) < 0)
@@ -275,12 +282,12 @@ int set_transport_template(struct iscsi_transport *t)
 
 		if (!strcmp(tmpl->name, t->name)) {
 			t->template = tmpl;
-			log_debug(3, "Matched transport %s\n", t->name);
+			log_debug(3, "Matched transport %s", t->name);
 			return 0;
 		}
 	}
 
 	log_error("Could not find template for %s. An updated iscsiadm "
-		  "is probably needed.\n", t->name);
+		  "is probably needed.", t->name);
 	return ENOSYS;
 }

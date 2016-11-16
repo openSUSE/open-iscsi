@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
+#include <grp.h>
 #include <sys/mman.h>
 #include <sys/utsname.h>
 #include <sys/types.h>
@@ -192,7 +193,7 @@ static int sync_session(void *data, struct session_info *info)
 	struct iscsi_transport *t;
 	int rc, retries = 0;
 
-	log_debug(7, "sync session [%d][%s,%s.%d][%s]\n", info->sid,
+	log_debug(7, "sync session [%d][%s,%s.%d][%s]", info->sid,
 		  info->targetname, info->persistent_address,
 		  info->port, info->iface.hwaddress);
 
@@ -234,7 +235,7 @@ static int sync_session(void *data, struct session_info *info)
 			  info->persistent_address, info->persistent_port,
 			  &info->iface)) {
 		log_warning("Could not read data from db. Using default and "
-			    "currently negotiated values\n");
+			    "currently negotiated values");
 		setup_rec_from_negotiated_values(&rec, info);
 		iface_copy(&rec.iface, &info->iface);
 	} else {
@@ -323,7 +324,7 @@ static void catch_signal(int signo)
 static void missing_iname_warn(char *initiatorname_file)
 {
 	log_error("Warning: InitiatorName file %s does not exist or does not "
-		  "contain a properly formated InitiatorName. If using "
+		  "contain a properly formatted InitiatorName. If using "
 		  "software iscsi (iscsi_tcp or ib_iser) or partial offload "
 		  "(bnx2i or cxgbi iscsi), you may not be able to log "
 		  "into or discover targets. Please create a file %s that "
@@ -331,7 +332,7 @@ static void missing_iname_warn(char *initiatorname_file)
 		  "iqn.yyyy-mm.<reversed domain name>[:identifier].\n\n"
 		  "Example: InitiatorName=iqn.2001-04.com.redhat:fc6.\n"
 		  "If using hardware iscsi like qla4xxx this message can be "
-		  "ignored.\n", initiatorname_file, initiatorname_file);
+		  "ignored.", initiatorname_file, initiatorname_file);
 }
 
 int main(int argc, char *argv[])
@@ -340,6 +341,7 @@ int main(int argc, char *argv[])
 	char *config_file = CONFIG_FILE;
 	char *initiatorname_file = INITIATOR_NAME_FILE;
 	char *pid_file = PID_FILE;
+	char *safe_logout;
 	int ch, longindex;
 	uid_t uid = 0;
 	struct sigaction sa_old;
@@ -475,11 +477,25 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (uid && setuid(uid) < 0)
-		perror("setuid\n");
+	if (gid && setgid(gid) < 0) {
+		log_error("Unable to setgid to %d", gid);
+		log_close(log_pid);
+		exit(ISCSI_ERR);
+	}
 
-	if (gid && setgid(gid) < 0)
-		perror("setgid\n");
+	if ((geteuid() == 0) && (getgroups(0, NULL))) {
+		if (setgroups(0, NULL) != 0) {
+			log_error("Unable to drop supplementary group ids");
+			log_close(log_pid);
+			exit(ISCSI_ERR);
+		}
+	}
+
+	if (uid && setuid(uid) < 0) {
+		log_error("Unable to setuid to %d", uid);
+		log_close(log_pid);
+		exit(ISCSI_ERR);
+	}
 
 	memset(&daemon_config, 0, sizeof (daemon_config));
 	daemon_config.pid_file = pid_file;
@@ -504,6 +520,11 @@ int main(int argc, char *argv[])
 	log_debug(1, "InitiatorName=%s", daemon_config.initiator_name ?
 		 daemon_config.initiator_name : "NOT SET");
 	log_debug(1, "InitiatorAlias=%s", daemon_config.initiator_alias);
+
+	safe_logout = cfg_get_string_param(config_file, "iscsid.safe_logout");
+	if (safe_logout && !strcmp(safe_logout, "Yes"))
+		daemon_config.safe_logout = 1;
+	free(safe_logout);
 
 	pid = fork();
 	if (pid == 0) {
@@ -533,7 +554,6 @@ int main(int argc, char *argv[])
 		exit(ISCSI_ERR);
 	}
 
-	actor_init();
 	event_loop(ipc, control_fd, mgmt_ipc_fd);
 
 	idbm_terminate();

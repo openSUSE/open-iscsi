@@ -1,10 +1,5 @@
 /*
- * Copyright (c) 2009-2011, Broadcom Corporation
- * Copyright (c) 2014, QLogic Corporation
- *
- * Written by:  Benjamin Li <benli@broadcom.com>
- *              Based on code example from Adam Dunkels
- *
+ * Copyright (c) 2015, QLogic Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,58 +29,45 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- */
-/**
- * \addtogroup apps
- * @{
- */
-
-/**
- * \defgroup helloworld Hello, world
- * @{
+ * ping.h - PING header file
  *
- * A small example showing how to write applications with
- * \ref psock "protosockets".
  */
 
-/**
- * \file
- *         Header file for an example of how to write uIP applications
- *         with protosockets.
- * \author
- *         Benjamin Li <benli@broadcom.com>
- */
+#ifndef __PING_H__
+#define __PING_H__
 
-#ifndef __BRCM_ISCSI_H__
-#define __BRCM_ISCSI_H__
-
-/* Since this file will be included by uip.h, we cannot include uip.h
-   here. But we might need to include uipopt.h if we need the u8_t and
-   u16_t datatypes. */
-#include "uipopt.h"
+#include "nic_nl.h"
 #include "uip.h"
-#include "psock.h"
 
-/* Next, we define the hello_world_state structure. This is the state
-   of our application, and the memory required for this state is
-   allocated together with each TCP connection. One application state
-   for each TCP connection. */
-struct hello_world_state {
-	struct psock p;
-	u8_t inputbuffer[32];
-	u8_t name[40];
+#define ICMP_ECHO_REPLY 0
+#define ICMP_ECHO       8
 
-	struct uip_udp_conn *conn;
+#define ICMPV6_ECHO_REQ		128
+#define ICMPV6_ECHO_REPLY	129
+
+#define DEF_ICMP_PAYLOAD	32
+#define DEF_ICMPV6_PAYLOAD	16
+
+#define PING_INIT_STATE (-1)
+
+struct ping_conf
+{
+	nic_t *nic;
+	nic_interface_t *nic_iface;
+	void *data;
+	int state;
+	void *dst_addr;
+	u16_t proto;
+	u16_t id;
+	u16_t seqno;
+	u16_t datalen;
 };
 
-/* Finally we define the application function to be called by uIP. */
-void brcm_iscsi_appcall(struct uip_stack *ustack);
-#ifndef UIP_APPCALL
-#define UIP_APPCALL brcm_iscsi_appcall
-#endif /* UIP_APPCALL */
+void ping_init(struct ping_conf *png_c, void *addr, u16_t type, int datalen);
 
-void brcm_iscsi_init(void);
+int do_ping_from_nic_iface(struct ping_conf *png_c);
 
-#endif /* __BRCM_ISCSI_H__ */
-/** @} */
-/** @} */
+int process_icmp_packet(uip_icmp_echo_hdr_t *icmp_hdr,
+			struct uip_stack *ustack);
+
+#endif /* __PING_H__ */

@@ -28,6 +28,15 @@
 #include "list.h"
 #include "auth.h"
 
+enum ibft_ip_prefix_origin {
+	IBFT_IP_PREFIX_ORIGIN_OTHER	= 0,
+	IBFT_IP_PREFIX_ORIGIN_MANUAL,
+	IBFT_IP_PREFIX_ORIGIN_WELL_KNOWN,
+	IBFT_IP_PREFIX_ORIGIN_DHCP,
+	IBFT_IP_PREFIX_ORIGIN_ROUTER_ADVERTISEMENT,
+	IBFT_IP_PREFIX_ORIGIN_UNCHANGED = 16
+};
+
 struct boot_context {
 	struct list_head list;
 	char boot_root[BOOT_NAME_MAXLEN];
@@ -35,6 +44,7 @@ struct boot_context {
 	char boot_target[BOOT_NAME_MAXLEN];
 
 	/* target settings */
+	int target_flags;
 	int target_port;
 	char targetname[TARGET_NAME_MAXLEN + 1];
 	char target_ipaddr[NI_MAXHOST];
@@ -48,6 +58,8 @@ struct boot_context {
 	char initiatorname[TARGET_NAME_MAXLEN + 1];
 
 	/* network settings */
+	int nic_flags;
+	enum ibft_ip_prefix_origin origin;
 	char dhcp[NI_MAXHOST];
 	char iface[IF_NAMESIZE];
 	char mac[18];

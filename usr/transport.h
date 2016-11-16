@@ -20,6 +20,12 @@
 #include "types.h"
 #include "config.h"
 
+enum set_host_ip_opts {
+	SET_HOST_IP_NOT_REQ,	/* iface.ipaddress is not supported	*/
+	SET_HOST_IP_REQ,	/* iface.ipaddress must be specified	*/
+	SET_HOST_IP_OPT,	/* iface.ipaddress is not required	*/
+};
+
 struct iscsi_transport;
 struct iscsi_conn;
 
@@ -32,6 +38,7 @@ struct iscsi_transport_template {
 	 */
 	uint8_t set_host_ip;
 	uint8_t use_boot_info;
+        uint8_t bind_ep_required;
 	int (*ep_connect) (struct iscsi_conn *conn, int non_blocking);
 	int (*ep_poll) (struct iscsi_conn *conn, int timeout_ms);
 	void (*ep_disconnect) (struct iscsi_conn *conn);
@@ -39,6 +46,9 @@ struct iscsi_transport_template {
 	int (*set_net_config) (struct iscsi_transport *t,
 			       struct iface_rec *iface,
 			       struct iscsi_session *session);
+	int (*exec_ping) (struct iscsi_transport *t,
+			  struct iface_rec *iface, int datalen,
+			  struct sockaddr_storage *dst_addr, uint32_t *status);
 };
 
 /* represents data path provider */

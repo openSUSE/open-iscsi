@@ -36,6 +36,7 @@
 #include "sysdeps.h"
 #include "iscsi_ipc.h"
 #include "iscsi_err.h"
+#include "iscsi_util.h"
 
 #define PEERUSER_MAX	64
 #define EXTMSG_MAX	(64 * 1024)
@@ -463,7 +464,6 @@ mgmt_ipc_write_rsp(queue_task_t *qtask, int err)
 	qtask->rsp.err = err;
 	if (write(qtask->mgmt_ipc_fd, &qtask->rsp, sizeof(qtask->rsp)) < 0)
 		log_error("IPC qtask write failed: %s", strerror(errno));
-	close(qtask->mgmt_ipc_fd);
 	mgmt_ipc_destroy_queue_task(qtask);
 }
 

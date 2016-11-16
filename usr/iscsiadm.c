@@ -49,7 +49,7 @@
 #include "idbm_fields.h"
 #include "session_mgmt.h"
 #include "iscsid_req.h"
-#include "isns-proto.h"
+#include <libisns/isns-proto.h>
 #include "iscsi_err.h"
 #include "iscsi_ipc.h"
 #include "iscsi_timer.h"
@@ -278,7 +278,7 @@ static void kill_iscsid(int priority)
 	if (rc) {
 		iscsi_err_print_msg(rc);
 		log_error("Could not stop iscsid. Trying sending iscsid "
-			  "SIGTERM or SIGKILL signals manually\n");
+			  "SIGTERM or SIGKILL signals manually");
 	}
 }
 
@@ -287,7 +287,7 @@ static void kill_iscsid(int priority)
  * And we can add a scsi_host mode which would display how
  * sessions are related to hosts
  * (scsi_host and iscsi_sessions are the currently running instance of
- * a iface or node record).
+ * an iface or node record).
  */
 static int print_ifaces(struct iface_rec *iface, int info_level)
 {
@@ -303,7 +303,7 @@ static int print_ifaces(struct iface_rec *iface, int info_level)
 		if (iface) {
 			err = iface_conf_read(iface);
 			if (err) {
-				log_error("Could not read iface %s.\n",
+				log_error("Could not read iface %s.",
 					  iface->name);
 				return err;
 			}
@@ -403,7 +403,7 @@ __logout_by_startup(void *data, struct list_head *list,
 		 * this is due to a HW driver or some other driver
 		 * not hooked in
 		 */
-		log_debug(7, "could not read data for [%s,%s.%d]\n",
+		log_debug(7, "could not read data for [%s,%s.%d]",
 			  info->targetname, info->persistent_address,
 			  info->persistent_port);
 		return -1;
@@ -574,7 +574,7 @@ login_by_startup(char *mode)
 			 * Note: We always try all iface records in case there
 			 * are targets that are associated with only a subset
 			 * of iface records.  __do_leading_login already
-			 * prevents duplicate sessions if an iface has succeded
+			 * prevents duplicate sessions if an iface has succeeded
 			 * for a particular target.
 			 */
 		}
@@ -1195,7 +1195,7 @@ do_target_discovery(discovery_rec_t *drec, struct list_head *ifaces,
 		rc = iface_conf_read(iface);
 		if (rc) {
 			log_error("Could not read iface info for %s. "
-				  "Make sure a iface config with the file "
+				  "Make sure an iface config with the file "
 				  "name and iface.iscsi_ifacename %s is in %s.",
 				  iface->name, iface->name, IFACE_CONFIG_DIR);
 			list_del(&iface->list);
@@ -1240,7 +1240,7 @@ sw_discovery:
 	case DISCOVERY_TYPE_ISNS:
 		return do_isns(drec, ifaces, info_level, do_login, op);
 	default:
-		log_debug(1, "Unknown Discovery Type : %d\n", drec->type);
+		log_debug(1, "Unknown Discovery Type : %d", drec->type);
 		return ISCSI_ERR_UNKNOWN_DISCOVERY_TYPE;
 	}
 }
@@ -1286,7 +1286,7 @@ static int iface_apply_net_config(struct iface_rec *iface, int op)
 	int fd;
 
 	log_debug(8, "Calling iscsid, to apply net config for"
-		  "iface.name = %s\n", iface->name);
+		  "iface.name = %s", iface->name);
 
 	if (op == OP_APPLY_ALL)
 		iface_all = 1;
@@ -1503,7 +1503,7 @@ static int set_host_chap_info(uint32_t host_no, uint64_t chap_index,
 	struct iovec *iovs = NULL;
 	struct iovec *iov = NULL;
 	int type;
-	int param_count;
+	int param_count = 0;
 	int param_used;
 	int rc = 0;
 	int fd, i = 0;
@@ -1632,7 +1632,7 @@ static int delete_host_chap_info(uint32_t host_no, uint16_t chap_tbl_idx)
 		goto exit_delete_chap;
 	}
 
-	log_info("Deleteing CHAP index: %d\n", chap_tbl_idx);
+	log_info("Deleting CHAP index: %d", chap_tbl_idx);
 	rc = ipc->delete_chap(t->handle, host_no, chap_tbl_idx);
 	if (rc < 0) {
 		log_error("CHAP Delete failed.");
@@ -1898,10 +1898,33 @@ exit_logout:
 	return rc;
 }
 
+static int iscsi_check_session_use_count(uint32_t sid) {
+	char *config_file;
+	char *safe_logout;
+
+	config_file = get_config_file();
+	if (!config_file) {
+		log_error("Could not get config file from iscsid");
+		return 0;
+	}
+
+	safe_logout = cfg_get_string_param(config_file, "iscsid.safe_logout");
+	if (!safe_logout || strcmp(safe_logout, "Yes"))
+		return 0;
+
+	return session_in_use(sid);
+}
+
 int iscsi_logout_flashnode_sid(struct iscsi_transport *t, uint32_t host_no,
 			       uint32_t sid)
 {
 	int fd, rc = 0;
+
+	if (iscsi_check_session_use_count(sid)) {
+		log_error("Session is actively in use for mounted storage, "
+			  "and iscsid.safe_logout is configured.");
+		return ISCSI_ERR_BUSY;
+	}
 
 	fd = ipc->ctldev_open();
 	if (fd < 0) {
@@ -2211,7 +2234,7 @@ static void print_host_stats(struct iscsi_offload_host_stats *host_stats)
 static int exec_host_stats_op(int op, int info_level, uint32_t host_no)
 {
 	struct iscsi_transport *t = NULL;
-	char *req_buf;
+	char *req_buf = NULL;
 	int rc = ISCSI_SUCCESS;
 	int fd = 0, buf_size = 0;
 
@@ -2251,8 +2274,7 @@ static int exec_host_stats_op(int op, int info_level, uint32_t host_no)
 	ipc->ctldev_close();
 
 exit_host_stats:
-	if (req_buf)
-		free(req_buf);
+	free(req_buf);
 	return rc;
 }
 
@@ -2623,7 +2645,7 @@ static int exec_fw_disc_op(discovery_rec_t *drec, struct list_head *ifaces,
 			rc = iface_conf_read(iface);
 			if (rc) {
 				log_error("Could not read iface info for %s. "
-					  "Make sure a iface config with the "
+					  "Make sure an iface config with the "
 					  "file name and iface.iscsi_ifacename "
 					  "%s is in %s.", iface->name,
 					  iface->name, IFACE_CONFIG_DIR);
@@ -2637,7 +2659,7 @@ static int exec_fw_disc_op(discovery_rec_t *drec, struct list_head *ifaces,
 
 	/*
 	 * Next, check if we see any offload cards. If we do then
-	 * we make a iface if needed.
+	 * we make an iface if needed.
 	 *
 	 * Note1: if there is not a offload card we do not setup
 	 * software iscsi binding with the nic used for booting,
@@ -2650,7 +2672,7 @@ static int exec_fw_disc_op(discovery_rec_t *drec, struct list_head *ifaces,
 	rc = fw_get_targets(&targets);
 	if (rc) {
 		log_error("Could not get list of targets from firmware. "
-			  "(err %d)\n", rc);
+			  "(err %d)", rc);
 		return rc;
 	}
 	rc = iface_create_ifaces_from_boot_contexts(&new_ifaces, &targets);
@@ -2663,7 +2685,7 @@ discover_fw_tgts:
 	rc = idbm_bind_ifaces_to_nodes(discovery_fw, drec,
 				       ifaces, &rec_list);
 	if (rc)
-		log_error("Could not perform fw discovery.\n");
+		log_error("Could not perform fw discovery.");
 	else
 		rc = exec_disc_op_on_recs(drec, &rec_list, info_level,
 					   do_login, op);
@@ -2701,7 +2723,7 @@ static int exec_fw_op(discovery_rec_t *drec, struct list_head *ifaces,
 	rc = fw_get_targets(&targets);
 	if (rc) {
 		log_error("Could not get list of targets from firmware. "
-			  "(err %d)\n", rc);
+			  "(err %d)", rc);
 		return rc;
 	}
 
@@ -2710,7 +2732,7 @@ static int exec_fw_op(discovery_rec_t *drec, struct list_head *ifaces,
 			rec = idbm_create_rec_from_boot_context(context);
 			if (!rec) {
 				log_error("Could not convert firmware info to "
-					  "node record.\n");
+					  "node record.");
 				rc = ISCSI_ERR_NOMEM;
 				break;
 			}
@@ -3103,7 +3125,7 @@ static char *iscsi_ping_stat_strs[] = {
 static char *iscsi_ping_stat_to_str(uint32_t status)
 {
 	if (status < 0 || status > ISCSI_PING_NO_ARP_RECEIVED) {
-		log_error("Invalid ping status %u\n", status);
+		log_error("Invalid ping status %u", status);
 		return NULL;
 	}
 
@@ -3118,6 +3140,7 @@ static int exec_ping_op(struct iface_rec *iface, char *ip, int size, int count,
 	struct iscsi_transport *t = NULL;
 	uint32_t host_no, status = 0;
 	struct sockaddr_storage addr;
+	struct host_info hinfo;
 	int i;
 
 	if (!iface) {
@@ -3186,13 +3209,32 @@ static int exec_ping_op(struct iface_rec *iface, char *ip, int size, int count,
 	for (i = 1; i <= count; i++) {
 		/*
 		 * To support drivers like bnx2i that do not use
-		 * the iscsi if to send a ping, we can add a transport
+		 * the iscsi iface to send a ping, we invoke transport
 		 * callout here.
 		 */
 		status = 0;
-		rc = ipc->exec_ping(t->handle, host_no,
-				    (struct sockaddr *)&addr, iface->iface_num,
-				    iface_type, size, &status);
+		if (t->template->exec_ping) {
+			if (!strlen(iface->netdev)) {
+				memset(&hinfo, 0, sizeof(hinfo));
+				hinfo.host_no = host_no;
+				iscsi_sysfs_get_hostinfo_by_host_no(&hinfo);
+				strcpy(iface->netdev, hinfo.iface.netdev);
+			}
+
+			rc = iscsi_set_net_config(t, NULL, iface);
+			if (rc && (rc != ISCSI_ERR_AGAIN))
+				goto ping_err;
+
+			rc = t->template->exec_ping(t, iface, size, &addr,
+						    &status);
+		} else {
+			rc = ipc->exec_ping(t->handle, host_no,
+					    (struct sockaddr *)&addr,
+					    iface->iface_num, iface_type,
+					    (uint32_t)size, &status);
+		}
+
+ping_err:
 		if (!rc && !status)
 			printf("Ping %d completed\n", i);
 		else if (status)

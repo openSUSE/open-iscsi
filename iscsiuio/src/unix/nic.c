@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009-2011, Broadcom Corporation
+ * Copyright (c) 2014, QLogic Corporation
  *
  * Written by:  Benjamin Li  (benli@broadcom.com)
  *
@@ -151,7 +152,6 @@ static int load_nic_library(nic_lib_handle_t *handle)
 	/*  Validate the NIC library ops table to ensure that all the proper
 	 *  fields are filled */
 	if ((handle->ops->lib_ops.get_library_name == NULL) ||
-	    (handle->ops->lib_ops.get_pci_table == NULL) ||
 	    (handle->ops->lib_ops.get_library_version == NULL) ||
 	    (handle->ops->lib_ops.get_build_date == NULL) ||
 	    (handle->ops->lib_ops.get_transport_name == NULL)) {
@@ -246,7 +246,8 @@ int unload_all_nic_libraries()
 	return 0;
 }
 
-NIC_LIBRARY_EXIST_T does_nic_uio_name_exist(char *name)
+NIC_LIBRARY_EXIST_T does_nic_uio_name_exist(char *name,
+					    nic_lib_handle_t **handle)
 {
 	NIC_LIBRARY_EXIST_T rc;
 	nic_lib_handle_t *current;
@@ -262,6 +263,9 @@ NIC_LIBRARY_EXIST_T does_nic_uio_name_exist(char *name)
 						       &uio_name_size);
 
 		if (strncmp(name, uio_name, uio_name_size) == 0) {
+			if (handle)
+				*handle = current;
+
 			rc = NIC_LIBRARY_EXSITS;
 			goto done;
 		}
@@ -276,7 +280,8 @@ done:
 	return rc;
 }
 
-NIC_LIBRARY_EXIST_T does_nic_library_exist(char *name)
+NIC_LIBRARY_EXIST_T does_nic_library_exist(char *name,
+					   nic_lib_handle_t **handle)
 {
 	NIC_LIBRARY_EXIST_T rc;
 	nic_lib_handle_t *current;
@@ -292,6 +297,9 @@ NIC_LIBRARY_EXIST_T does_nic_library_exist(char *name)
 							   &library_name_size);
 
 		if (strncmp(name, library_name, library_name_size) == 0) {
+			if (handle)
+				*handle = current;
+
 			rc = NIC_LIBRARY_EXSITS;
 			goto done;
 		}
@@ -332,8 +340,13 @@ int find_nic_lib_using_pci_id(uint32_t vendor, uint32_t device,
 		uint32_t entries;
 		int i;
 
-		current->ops->lib_ops.get_pci_table(&pci_table, &entries);
-
+		if (current->ops->lib_ops.get_pci_table != NULL) {
+			current->ops->lib_ops.get_pci_table(&pci_table,
+							    &entries);
+		} else {
+			current = current->next;
+			continue;
+		}
 		/*  Sanity check the the pci table coming from the
 		 *  hardware library */
 		if (entries > MAX_PCI_DEVICE_ENTRIES) {
@@ -423,6 +436,8 @@ nic_t *nic_init()
 	nic->nl_process_tail = 0;
 	memset(&nic->nl_process_ring, 0, sizeof(nic->nl_process_ring));
 
+	nic->ping_thread = INVALID_THREAD;
+
 	return nic;
 }
 
@@ -455,9 +470,11 @@ int nic_remove(nic_t *nic)
 	pthread_mutex_lock(&nic->nic_mutex);
 
 	/*  Check if the file node exists before closing */
-	rc = stat(nic->uio_device_name, &file_stat);
-	if ((rc == 0) && (nic->ops))
-		nic->ops->close(nic, 0);
+	if (nic->uio_device_name) {
+		rc = stat(nic->uio_device_name, &file_stat);
+		if ((rc == 0) && (nic->ops))
+			nic->ops->close(nic, 0);
+	}
 	pthread_mutex_unlock(&nic->nic_mutex);
 
 	nic->state = NIC_EXIT;
@@ -718,7 +735,7 @@ int nic_process_intr(nic_t *nic, int discard_check)
 
 	/*  Simple sanity checks */
 	if (discard_check != 1 && nic->state != NIC_RUNNING) {
-		LOG_ERR(PFX "%s: Couldn't process interupt NIC not running",
+		LOG_ERR(PFX "%s: Couldn't process interrupt NIC not running",
 			nic->log_name);
 		return -EBUSY;
 	}
@@ -788,9 +805,9 @@ int nic_process_intr(nic_t *nic, int discard_check)
 	return ret;
 }
 
-static void prepare_ipv4_packet(nic_t *nic,
-				nic_interface_t *nic_iface,
-				struct uip_stack *ustack, packet_t *pkt)
+void prepare_ipv4_packet(nic_t *nic,
+			 nic_interface_t *nic_iface,
+			 struct uip_stack *ustack, packet_t *pkt)
 {
 	u16_t ipaddr[2];
 	arp_table_query_t arp_query;
@@ -822,7 +839,11 @@ static void prepare_ipv4_packet(nic_t *nic,
 		break;
 	case NOT_IN_ARP_TABLE:
 		queue_rc = nic_queue_tx_packet(nic, nic_iface, pkt);
-		uip_build_arp_request(ustack, ipaddr);
+		if (queue_rc) {
+			LOG_ERR("could not queue TX packet: %d", queue_rc);
+		} else {
+			uip_build_arp_request(ustack, ipaddr);
+		}
 		break;
 	default:
 		LOG_ERR("Unknown arp state");
@@ -830,9 +851,9 @@ static void prepare_ipv4_packet(nic_t *nic,
 	}
 }
 
-static void prepare_ipv6_packet(nic_t *nic,
-				nic_interface_t *nic_iface,
-				struct uip_stack *ustack, packet_t *pkt)
+void prepare_ipv6_packet(nic_t *nic,
+			 nic_interface_t *nic_iface,
+			 struct uip_stack *ustack, packet_t *pkt)
 {
 	struct uip_eth_hdr *eth;
 	struct uip_vlan_eth_hdr *eth_vlan;
@@ -855,9 +876,9 @@ static void prepare_ipv6_packet(nic_t *nic,
 	}
 }
 
-static void prepare_ustack(nic_t *nic,
-			   nic_interface_t *nic_iface,
-			   struct uip_stack *ustack, struct packet *pkt)
+void prepare_ustack(nic_t *nic,
+		    nic_interface_t *nic_iface,
+		    struct uip_stack *ustack, struct packet *pkt)
 {
 	struct ether_header *eth = NULL;
 	ustack->uip_buf = pkt->buf;
@@ -988,9 +1009,6 @@ int process_packets(nic_t *nic,
 		uint16_t type = 0;
 		int af_type = 0;
 		struct uip_stack *ustack;
-		struct ip_hdr *ip;
-		struct ipv6_hdr *ip6;
-		void *dst_ip;
 		uint16_t vlan_id;
 
 		pkt->data_link_layer = pkt->buf;
@@ -998,11 +1016,13 @@ int process_packets(nic_t *nic,
 		vlan_id = pkt->vlan_tag & 0xFFF;
 		if ((vlan_id == 0) ||
 		    (NIC_VLAN_STRIP_ENABLED & nic->flags)) {
-			type = ntohs(ETH_BUF(pkt->buf)->type);
+			struct uip_eth_hdr *hdr = ETH_BUF(pkt->buf);
+			type = ntohs(hdr->type);
 			pkt->network_layer = pkt->data_link_layer +
 					     sizeof(struct uip_eth_hdr);
 		} else {
-			type = ntohs(VLAN_ETH_BUF(pkt->buf)->type);
+			struct uip_vlan_eth_hdr *hdr = VLAN_ETH_BUF(pkt->buf);
+			type = ntohs(hdr->type);
 			pkt->network_layer = pkt->data_link_layer +
 					     sizeof(struct uip_vlan_eth_hdr);
 		}
@@ -1010,14 +1030,10 @@ int process_packets(nic_t *nic,
 		switch (type) {
 		case UIP_ETHTYPE_IPv6:
 			af_type = AF_INET6;
-			ip6 = (struct ipv6_hdr *) pkt->network_layer;
-			dst_ip = (void *)&ip6->ipv6_dst;
 			break;
 		case UIP_ETHTYPE_IPv4:
 		case UIP_ETHTYPE_ARP:
 			af_type = AF_INET;
-			ip = (struct ip_hdr *) pkt->network_layer;
-			dst_ip = (void *)&ip->destipaddr;
 			break;
 		default:
 			LOG_PACKET(PFX "%s: Ignoring vlan:0x%x ethertype:0x%x",
@@ -1254,17 +1270,13 @@ static int do_acquisition(nic_t *nic, nic_interface_t *nic_iface,
 			 nic->log_name, inet_ntoa(addr));
 
 		set_uip_stack(&nic_iface->ustack,
-			      &nic_iface->ustack.hostaddr,
-			      &nic_iface->ustack.netmask,
-			      &nic_iface->ustack.default_route_addr,
+			      NULL, NULL, NULL,
 			      nic_iface->mac_addr);
 		break;
 
 	case IPV4_CONFIG_DHCP:
 		set_uip_stack(&nic_iface->ustack,
-			      &nic_iface->ustack.hostaddr,
-			      &nic_iface->ustack.netmask,
-			      &nic_iface->ustack.default_route_addr,
+			      NULL, NULL, NULL,
 			      nic_iface->mac_addr);
 		if (dhcpc_init(nic, &nic_iface->ustack,
 			       nic_iface->mac_addr, ETH_ALEN)) {
@@ -1479,13 +1491,13 @@ void *nic_loop(void *arg)
 
 		/*  Signal that the device enable is done */
 		pthread_cond_broadcast(&nic->enable_done_cond);
-		pthread_mutex_unlock(&nic->nic_mutex);
 
 		LOG_INFO(PFX "%s: entering main nic loop", nic->log_name);
 
 		while ((nic->state == NIC_RUNNING) &&
 		       (event_loop_stop == 0) &&
 		       !(nic->flags & NIC_GOING_DOWN)) {
+			pthread_mutex_unlock(&nic->nic_mutex);
 			/*  Check the periodic and ARP timer */
 			check_timers(nic, &periodic_timer, &arp_timer);
 			rc = nic_process_intr(nic, 0);
@@ -1496,6 +1508,7 @@ void *nic_loop(void *arg)
 						     &periodic_timer,
 						     &arp_timer, NULL);
 			}
+			pthread_mutex_lock(&nic->nic_mutex);
 		}
 
 		LOG_INFO(PFX "%s: exited main processing loop", nic->log_name);
@@ -1503,7 +1516,6 @@ void *nic_loop(void *arg)
 dev_close_free:
 		free_free_queue(nic);
 dev_close:
-		pthread_mutex_lock(&nic->nic_mutex);
 
 		if (nic->flags & NIC_GOING_DOWN) {
 			nic_close(nic, 1, FREE_NO_STRINGS);

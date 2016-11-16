@@ -144,7 +144,7 @@ static int __iface_conf_read(struct iface_rec *iface)
 	if (!f) {
 		/*
 		 * if someone passes in default but has not defined
-		 * a iface with default then we do it for them
+		 * an iface with default then we do it for them
 		 */
 		if (!strcmp(iface->name, DEFAULT_IFACENAME)) {
 			iface_setup_defaults(iface);
@@ -227,7 +227,7 @@ int iface_conf_delete(struct iface_rec *iface)
 	def_iface = iface_match_default(iface);
 	if (def_iface) {
 		log_error("iface %s is a special interface and "
-			  "cannot be deleted.\n", iface->name);
+			  "cannot be deleted.", iface->name);
 		return ISCSI_ERR_INVAL;
 	}
 
@@ -259,7 +259,7 @@ int iface_conf_write(struct iface_rec *iface)
 	def_iface = iface_match_default(iface);
 	if (def_iface) {
 		log_error("iface %s is a special interface and "
-			  "is not stored in %s.\n", iface->name,
+			  "is not stored in %s.", iface->name,
 			  IFACE_CONFIG_DIR);
 		return ISCSI_ERR_INVAL;
 	}
@@ -299,7 +299,7 @@ int iface_conf_update(struct list_head *params, struct iface_rec *iface)
 	def_iface = iface_match_default(iface);
 	if (def_iface) {
 		log_error("iface %s is a special interface and "
-			  "cannot be modified.\n", iface->name);
+			  "cannot be modified.", iface->name);
 		return ISCSI_ERR_INVAL;
 	}
 
@@ -472,7 +472,7 @@ static int iface_setup_binding_from_kern_iface(void *data,
 
 	if (!strlen(hinfo->iface.hwaddress)) {
 		log_error("Invalid offload iSCSI host %u. Missing "
-			  "hwaddress. Try upgrading %s driver.\n",
+			  "hwaddress. Try upgrading %s driver.",
 			  hinfo->host_no, hinfo->iface.transport_name);
 		return 0;
 	}
@@ -1002,7 +1002,8 @@ int iface_setup_from_boot_context(struct iface_rec *iface,
 			sizeof(iface->iname));
 
 	if (strlen(context->scsi_host_name)) {
-		if (sscanf(context->scsi_host_name, "iscsi_boot%u", &hostno) != 		    1) {
+		if (sscanf(context->scsi_host_name,
+			   "iscsi_boot%u", &hostno) != 1) {
 			log_error("Could not parse %s's host no.",
 				  context->scsi_host_name);
 			return 0;
@@ -1027,11 +1028,11 @@ int iface_setup_from_boot_context(struct iface_rec *iface,
 								&rc);
 		if (rc) {
 			/*
-			 * If the MAC in the boot info does not match a iscsi
+			 * If the MAC in the boot info does not match an iscsi
 			 * host then the MAC must be for network card, so boot
 			 * is not going to be offloaded.
 			 */
-			log_debug(3, "Could not match %s to host\n",
+			log_debug(3, "Could not match %s to host",
 				  context->mac);
 			return 0;
 		}
@@ -1068,7 +1069,7 @@ int iface_setup_from_boot_context(struct iface_rec *iface,
 		sizeof(iface->subnet_mask));
 	strlcpy(iface->gateway, context->gateway,
 		sizeof(iface->gateway));
-	log_debug(1, "iface " iface_fmt "\n", iface_str(iface));
+	log_debug(1, "iface " iface_fmt "", iface_str(iface));
 	return 1;
 }
 
@@ -1077,8 +1078,8 @@ int iface_setup_from_boot_context(struct iface_rec *iface,
  * @ifaces: list to store ifaces in
  * @targets: list of targets to create ifaces from
  *
- * This function will create a iface struct based on the boot info
- * and it will create (or update if existing already) a iface rec in
+ * This function will create an iface struct based on the boot info
+ * and it will create (or update if existing already) an iface rec in
  * the ifaces dir based on the info.
  */
 int iface_create_ifaces_from_boot_contexts(struct list_head *ifaces,
@@ -1093,7 +1094,7 @@ int iface_create_ifaces_from_boot_contexts(struct list_head *ifaces,
 		/* use dummy name. If valid it will get overwritten below */
 		iface = iface_alloc(DEFAULT_IFACENAME, &rc);
 		if (!iface) {
-			log_error("Could not setup iface %s for boot\n",
+			log_error("Could not setup iface %s for boot",
 				  context->iface);
 			goto fail;
 		}
@@ -1429,7 +1430,7 @@ int iface_get_param_count(struct iface_rec *iface, int iface_all)
 	int num_found = 0, rc;
 	struct iface_param_count iface_params;
 
-	log_debug(8, "In iface_get_param_count\n");
+	log_debug(8, "In iface_get_param_count");
 
 	iface_params.primary = iface;
 	iface_params.count = 0;
@@ -1440,7 +1441,7 @@ int iface_get_param_count(struct iface_rec *iface, int iface_all)
 	else
 		rc = __iface_get_param_count(&iface_params, iface);
 
-	log_debug(8, "iface_get_param_count: rc = %d, count = %d\n",
+	log_debug(8, "iface_get_param_count: rc = %d, count = %d",
 		  rc, iface_params.count);
 	return iface_params.count;
 }
@@ -2522,7 +2523,7 @@ int iface_build_net_config(struct iface_rec *iface, int iface_all,
 	int num_found = 0, rc;
 	struct iface_net_config net_config;
 
-	log_debug(8, "In iface_build_net_config\n");
+	log_debug(8, "In iface_build_net_config");
 
 	net_config.primary = iface;
 	net_config.iovs = iovs;
@@ -2534,7 +2535,7 @@ int iface_build_net_config(struct iface_rec *iface, int iface_all,
 	else
 		rc = __iface_build_net_config(&net_config, iface);
 
-	log_debug(8, "iface_build_net_config: rc = %d, count = %d\n",
+	log_debug(8, "iface_build_net_config: rc = %d, count = %d",
 		  rc, net_config.count);
 	return net_config.count;
 }
