@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Thu Nov 17 01:48:22 UTC 2016 - lduncan@suse.com
+
+- Updated to upstream version 2.0-874, but still includes
+  (very few) SUSE-specific changes. This replaced the 2.0-873
+  tarball with a 2.0-874 tarball, but still includes the 
+  Factory-latest compressed diff patch file, though it is
+  now empty. See Changes file for functional change details.
+
+-------------------------------------------------------------------
 Wed Apr 13 17:06:42 UTC 2016 - lduncan@suse.com
 
 - Ported 3 changes from SLE 12 that are not upstream, but
