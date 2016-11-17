@@ -8,10 +8,14 @@
 # - fix OBS/osc interaction
 #
 
+if ! which git > /dev/null ; then
+    echo "git not found, cannot continue"
+    exit 1
+fi
+
 RPM="open-iscsi"
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-VERSION="2.0-873"
-PATCH1_END_TAG="HEAD"
+VERSION="2.0-874"
 DESTDIR=
 uncommitted_changes=0
 
@@ -75,11 +79,6 @@ while [ $# -gt 0 ] ; do
     esac
 done
 
-if ! which git > /dev/null ; then
-    echo "git not found, cannot continue"
-    exit 1
-fi
-
 if [ -d "$DESTDIR" ] ; then
     if [ -z "$force" ] && [ -z "$update" ] ; then
         echo "directory $DESTDIR exists, cannot continue"
@@ -128,9 +127,9 @@ git show $BRANCH:rpm/$RPM.changes > $DESTDIR/$RPM.changes
 git archive --format=tar --prefix=$RPM-$VERSION/ "$VERSION" \
     | bzip2 > $DESTDIR/$RPM-$VERSION.tar.bz2
 
-# patch1: create a diff file for changes between the base version
-# and the update tag
-git diff $VERSION..$PATCH1_END_TAG | \
+# patch: create a diff file for changes between the base version
+# and the update tag if there are any differences
+git diff $VERSION..${BRANCH} | \
 	bzip2 > $DESTDIR/$RPM-Factory-latest.diff.bz2
 
 # if the user specified this then get all changes not even checked in
