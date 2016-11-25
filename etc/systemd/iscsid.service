@@ -8,7 +8,7 @@ Before=remote-fs-pre.target
 [Service]
 Type=simple
 ExecStart=/sbin/iscsid -f
-ExecStop=/sbin/iscsiadm -k 0 2
+KillMode=mixed
 
 [Install]
 WantedBy=multi-user.target
