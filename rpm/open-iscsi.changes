@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Fri Nov 25 00:37:51 UTC 2016 - lduncan@suse.com
+
+- Added two patches submitted upstream that
+  make iscsi service shutdown cleaner (bsc#952437)
+
+-------------------------------------------------------------------
 Sat Oct 29 01:58:17 UTC 2016 - lduncan@suse.com
 
 - Added open-isns patch to remove Discovery
