@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu Mar  9 17:55:58 UTC 2017 - lduncan@suse.com
+
+- Updated from latest upstream patches, including
+  ability to disable auto-scans and README cleanup
+
+-------------------------------------------------------------------
 Thu Nov 17 01:48:22 UTC 2016 - lduncan@suse.com
 
 - Updated to upstream version 2.0-874, but still includes
