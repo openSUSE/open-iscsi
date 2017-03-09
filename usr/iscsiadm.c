@@ -252,7 +252,7 @@ str_to_portal_type(char *str)
 	return ptype;
 }
 
-static void kill_iscsid(int priority)
+static void kill_iscsid(int priority, int tmo)
 {
 	iscsiadm_req_t req;
 	iscsiadm_rsp_t rsp;
@@ -274,7 +274,7 @@ static void kill_iscsid(int priority)
 
 	memset(&req, 0, sizeof(req));
 	req.command = MGMT_IPC_IMMEDIATE_STOP;
-	rc = iscsid_exec_req(&req, &rsp, 0);
+	rc = iscsid_exec_req(&req, &rsp, 0, tmo);
 	if (rc) {
 		iscsi_err_print_msg(rc);
 		log_error("Could not stop iscsid. Trying sending iscsid "
@@ -741,7 +741,7 @@ static char *get_config_file(void)
 	memset(&req, 0, sizeof(req));
 	req.command = MGMT_IPC_CONFIG_FILE;
 
-	rc = iscsid_exec_req(&req, &rsp, 1);
+	rc = iscsid_exec_req(&req, &rsp, 1, ISCSID_REQ_TIMEOUT);
 	if (rc)
 		return NULL;
 
@@ -773,7 +773,7 @@ static int rescan_portal(void *data, struct session_info *info)
 	iscsi_sysfs_for_each_device(NULL, host_no, info->sid,
 				    iscsi_sysfs_rescan_device);
 	/* now scan for new devices */
-	iscsi_sysfs_scan_host(host_no, 0);
+	iscsi_sysfs_scan_host(host_no, 0, 1);
 	return 0;
 }
 
@@ -791,7 +791,7 @@ session_stats(void *data, struct session_info *info)
 	req.command = MGMT_IPC_SESSION_STATS;
 	req.u.session.sid = info->sid;
 
-	rc = iscsid_exec_req(&req, &rsp, 1);
+	rc = iscsid_exec_req(&req, &rsp, 1, info->iscsid_req_tmo);
 	if (rc)
 		return rc;
 
@@ -2860,6 +2860,7 @@ static int exec_disc2_op(int disc_type, char *ip, int port,
 	int rc = 0;
 
 	memset(&drec, 0, sizeof(struct discovery_rec));
+	drec.iscsid_req_tmo = -1;
 	if (disc_type != -1)
 		drec.type = disc_type;
 
@@ -2956,6 +2957,7 @@ static int exec_disc_op(int disc_type, char *ip, int port,
 	int rc = 0;
 
 	memset(&drec, 0, sizeof(struct discovery_rec));
+	drec.iscsid_req_tmo = -1;
 
 	switch (disc_type) {
 	case DISCOVERY_TYPE_SENDTARGETS:
@@ -3263,6 +3265,7 @@ main(int argc, char **argv)
 	int packet_size=32, ping_count=1, ping_interval=0;
 	int do_discover = 0, sub_mode = -1;
 	int portal_type = -1;
+	int timeout = ISCSID_REQ_TIMEOUT;
 	struct sigaction sa_old;
 	struct sigaction sa_new;
 	struct list_head ifaces;
@@ -3448,7 +3451,7 @@ main(int argc, char **argv)
 	}
 
 	if (killiscsid >= 0) {
-		kill_iscsid(killiscsid);
+		kill_iscsid(killiscsid, timeout);
 		goto free_ifaces;
 	}
 

@@ -123,7 +123,7 @@ static int stop_event_loop(void)
 
 	memset(&req, 0, sizeof(req));
 	req.command = MGMT_IPC_IMMEDIATE_STOP;
-	rc = iscsid_exec_req(&req, &rsp, 0);
+	rc = iscsid_exec_req(&req, &rsp, 0, -1);
 	if (rc) {
 		iscsi_err_print_msg(rc);
 		log_error("Could not stop event_loop");
@@ -140,6 +140,7 @@ static int apply_params(struct node_rec *rec)
 	rec->session.initial_login_retry_max = -1;
 	rec->conn[0].timeo.noop_out_interval = -1;
 	rec->conn[0].timeo.noop_out_timeout = -1;
+	rec->session.scan = -1;
 
 	list_for_each_entry(param, &user_params, list) {
 		/*
@@ -183,6 +184,8 @@ static int apply_params(struct node_rec *rec)
 		rec->conn[0].timeo.noop_out_interval = 0;
 	if (rec->conn[0].timeo.noop_out_timeout == -1)
 		rec->conn[0].timeo.noop_out_timeout = 0;
+	if (rec->session.scan == -1)
+		rec->session.scan = DEF_INITIAL_SCAN;
 
 	return 0;
 }
@@ -235,7 +238,7 @@ static int login_session(struct node_rec *rec)
 	memcpy(&req.u.session.rec, rec, sizeof(*rec));
 
 retry:
-	rc = iscsid_exec_req(&req, &rsp, 0);
+	rc = iscsid_exec_req(&req, &rsp, 0, ISCSID_REQ_TIMEOUT);
 	/*
 	 * handle race where iscsid proc is starting up while we are
 	 * trying to connect.
