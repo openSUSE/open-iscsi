@@ -44,7 +44,7 @@ Summary:        Linux* Open-iSCSI Software Initiator
 License:        GPL-2.0+
 Group:          Productivity/Networking/Other
 Source:         %{name}-2.0-%{iscsi_release}.tar.bz2
-Patch1:         %{name}-Factory-latest.diff.bz2
+Patch1:         %{name}-SUSE-latest.diff.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description

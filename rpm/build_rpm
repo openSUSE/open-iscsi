@@ -5,7 +5,6 @@
 # To Do:
 # - add "verbose" mode
 # - use getopt for option handling
-# - fix OBS/osc interaction
 #
 
 if ! which git > /dev/null ; then
@@ -16,13 +15,8 @@ fi
 RPM="open-iscsi"
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 VERSION="2.0-874"
+VERSION_TAG="2.0.874"
 DESTDIR=
-uncommitted_changes=0
-
-# if using osc ...
-OBS_BRANCH=home:hreinecke:branches
-OBS_PRJ=SUSE:SLE-11-SP2:GA
-OSC="osc -A https://api.suse.de"
 TMPDIR=
 
 
@@ -48,32 +42,19 @@ while [ $# -gt 0 ] ; do
             BRANCH="${1##*=}"
             shift
             ;;
-	-o|--use-osc)
-	    use_osc=1
-	    shift
-	    ;;
         -f|--force)
             force=1
 	    update=
             shift;
             ;;
-	-m|--maintenance)
-	    OBS_PRJ=SUSE:SLE-11-SP2:GA
-	    OSC="osc -A https://api.suse.de"
-	    shift
-	    ;;
         -u|--update)
             update=1
 	    force=
             shift
             ;;
-        --uncommitted-changes)
-            uncommitted_changes=1
-            shift
-            ;;
         *)
-            echo "Usage: build_rpm [-c|-f|-o|-u] [-d dir|--destdir=DIR] " \
-                 "[-b BRANCH|--branch=BRANCH] [--uncommitted-changes]"
+            echo "Usage: build_rpm [-c|-f|-u] [-d dir|--destdir=DIR] " \
+                 "[-b BRANCH|--branch=BRANCH]"
             exit 1
             ;;
     esac
@@ -100,17 +81,6 @@ else
     fi
 fi
 
-if [ -n "$use_osc" ] ; then
-    pushd $DESTDIR
-    if ! $OSC meta pkg $OBS_BRANCH:$OBS_PRJ $RPM > /dev/null 2>&1 ; then
-	$OSC branch -m "Update with latest fixes" $OBS_PRJ $RPM
-    fi
-    $OSC co --current-dir $OBS_BRANCH:$OBS_PRJ $RPM
-    TMPDIR=${DESTDIR}
-    DESTDIR="${DESTDIR}/$RPM"
-    popd
-fi
-
 #
 # to be able to convert this git archive into the proper format
 # for package building, we want a spec file, a changes file,
@@ -124,40 +94,15 @@ git show $BRANCH:rpm/$RPM.spec > $DESTDIR/$RPM.spec
 git show $BRANCH:rpm/$RPM.changes > $DESTDIR/$RPM.changes
 
 # create the base tar file containing the open-iscsi base code
-git archive --format=tar --prefix=$RPM-$VERSION/ "$VERSION" \
+git archive --format=tar --prefix=$RPM-$VERSION/ "$VERSION_TAG" \
     | bzip2 > $DESTDIR/$RPM-$VERSION.tar.bz2
 
 # patch: create a diff file for changes between the base version
 # and the update tag if there are any differences
-git diff $VERSION..${BRANCH} | \
-	bzip2 > $DESTDIR/$RPM-Factory-latest.diff.bz2
-
-# if the user specified this then get all changes not even checked in
-# and patch them into the spec file as "Patch99"
-if (( $uncommitted_changes )) ; then
-    echo "WARNING: Including uncommitted changes for testing." >&2
-    echo "         Don't submit the package to Autobuild!"     >&2
-
-    patchname=$RPM-$(date -u +%Y-%M-%d_%T_%Z).diff
-    git diff $BRANCH > $DESTDIR/$patchname
-
-    sed -i \
-    	"/Patch${NUM_PATCHES}:.*$/aPatch99:         $patchname" \
-    	$DESTDIR/$RPM.spec
-    sed -i \
-    	"/%patch${NUM_PATCHES} -p1/a%patch99 -p1" \
-    	$DESTDIR/$RPM.spec
-fi
+git diff ${VERSION_TAG}..${BRANCH} | \
+	bzip2 > $DESTDIR/$RPM-SUSE-latest.diff.bz2
 
 echo "$RPM src rpm copied to $DESTDIR"
-
-if [ -n "$use_osc" ] ; then
-    pushd $DESTDIR
-    osc ar
-    osc ci --message="Checked in from git branch $OBS_BRANCH"
-    osc sr
-    popd
-fi
 
 if [ -n "$remove_destdir" ] ; then
     rm -rf $DESTDIR
