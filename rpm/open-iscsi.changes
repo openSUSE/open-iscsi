@@ -7,6 +7,8 @@ Tue Mar 28 15:24:33 UTC 2017 - lduncan@suse.com
   * README cleanup
   * iscsiuio update
   * shutdown cleanup
+  Also, refactored base tar file to pre 2.0.874-suse and
+  patches file to everything after that tag.
 
 -------------------------------------------------------------------
 Thu Mar  9 17:55:58 UTC 2017 - lduncan@suse.com
