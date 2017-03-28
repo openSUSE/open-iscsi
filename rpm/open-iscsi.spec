@@ -26,16 +26,10 @@ BuildRequires:  libtool
 BuildRequires:  make
 BuildRequires:  openssl-devel
 BuildRequires:  open-isns-devel
-%if 0%{?suse_version} >= 1230
 BuildRequires:  systemd
-%else
-PreReq:         %fillup_prereq %insserv_prereq
-%endif
-%if 0%{?suse_version} >= 1320
 BuildRequires:  suse-module-tools
-%endif
 BuildRequires:  libmount-devel
-Url:            http://www.open-iscsi.org
+Url:            http://www.open-iscsi.com
 Version:        2.0.874
 Release:        0
 %{?systemd_requires}
@@ -102,96 +96,48 @@ make CFLAGS="${RPM_OPT_FLAGS}"
 
 %install
 make DESTDIR=${RPM_BUILD_ROOT} install_user
-%if 0%{?suse_version} < 1320
-make DESTDIR=${RPM_BUILD_ROOT} install_mkinitrd_suse
-%endif
 # install service files
-%if 0%{?suse_version} >= 1230
 make DESTDIR=${RPM_BUILD_ROOT} install_service_suse
 # create rc symlinks
 [ -d ${RPM_BUILD_ROOT}/usr/sbin ] || mkdir -p ${RPM_BUILD_ROOT}/usr/sbin
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsi
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsid
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsiuio
-%else
-make DESTDIR=${RPM_BUILD_ROOT} install_initd_suse
-# rename open-iscsi service to iscsid for openSUSE
-mv ${RPM_BUILD_ROOT}/etc/init.d/boot.open-iscsi \
-	${RPM_BUILD_ROOT}/etc/init.d/boot.iscsid-early
-mv ${RPM_BUILD_ROOT}/etc/init.d/open-iscsi \
-	${RPM_BUILD_ROOT}/etc/init.d/iscsid
-# create rc shortcut
-[ -d ${RPM_BUILD_ROOT}/usr/sbin ] || mkdir -p ${RPM_BUILD_ROOT}/usr/sbin
-ln -sf ../../etc/init.d/iscsid ${RPM_BUILD_ROOT}/usr/sbin/rciscsid
-%endif
 (cd ${RPM_BUILD_ROOT}/etc; ln -sf iscsi/iscsid.conf iscsid.conf)
 touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 install -m 0755 usr/iscsistart %{buildroot}/sbin
 make DESTDIR=${RPM_BUILD_ROOT} -C iscsiuio install
 
 %post
-%if 0%{?suse_version} < 1320
-[ -x /sbin/mkinitrd_setup ] && mkinitrd_setup
-%else
 %{?regenerate_initrd_post}
-%endif
 if [ ! -f /etc/iscsi/initiatorname.iscsi ] ; then
     /sbin/iscsi-gen-initiatorname
 fi
-%if 0%{?suse_version} >= 1230
 %{service_add_post iscsid.socket iscsid.service iscsi.service}
-%else
-%{fillup_and_insserv -Y boot.iscsid-early}
-%endif
 
 %posttrans
-%if 0%{?suse_version} >= 1320
 %{?regenerate_initrd_posttrans}
-%endif
 
 %postun
-%if 0%{?suse_version} < 1320
-[ -x /sbin/mkinitrd_setup ] && mkinitrd_setup
-%endif
-%if 0%{?suse_version} >= 1230
 %{service_del_postun iscsid.socket iscsid.service iscsi.service}
-%else
-%{insserv_cleanup}
-%endif
 
 %pre
-%if 0%{?suse_version} >= 1230
 %{service_add_pre iscsid.socket iscsid.service iscsi.service}
-%endif
 
 %preun
-%if 0%{?suse_version} >= 1230
 %{service_del_preun iscsid.socket iscsid.service iscsi.service}
-%else
-%{stop_on_removal iscsid}
-%endif
 
 %post -n iscsiuio
-%if 0%{?suse_version} >= 1230
 %{service_add_post iscsiuio.socket iscsiuio.service}
-%endif
 
 %postun -n iscsiuio
-%if 0%{?suse_version} >= 1230
 %{service_del_postun iscsiuio.socket iscsiuio.service}
-%endif
 
 %pre -n iscsiuio
-%if 0%{?suse_version} >= 1230
 %{service_add_pre iscsiuio.socket iscsiuio.service}
-%endif
 
 %preun -n iscsiuio
-%if 0%{?suse_version} >= 1230
 %{service_del_preun iscsiuio.socket iscsiuio.service}
-%else
-%{stop_on_removal iscsiuio}
-%endif
 
 %files
 %defattr(-,root,root)
@@ -201,16 +147,11 @@ fi
 %dir /etc/iscsi/ifaces
 %config /etc/iscsi/ifaces/iface.example
 /etc/iscsid.conf
-%if 0%{?suse_version} >= 1230
 %{_unitdir}/iscsid.service
 %{_unitdir}/iscsid.socket
 %{_unitdir}/iscsi.service
 %{_libexecdir}/systemd/system-generators/ibft-rule-generator
 %{_sbindir}/rciscsi
-%else
-%config /etc/init.d/iscsid
-%config /etc/init.d/boot.iscsid-early
-%endif
 %{_sbindir}/rciscsid
 /sbin/iscsid
 /sbin/iscsiadm
@@ -219,13 +160,6 @@ fi
 /sbin/iscsi-gen-initiatorname
 /sbin/iscsi_offload
 /sbin/iscsi_discovery
-%if 0%{?suse_version} < 1320
-%dir /lib/mkinitrd
-%dir /lib/mkinitrd/scripts
-/lib/mkinitrd/scripts/setup-iscsi.sh
-/lib/mkinitrd/scripts/boot-iscsi.sh
-/lib/mkinitrd/scripts/boot-killiscsi.sh
-%endif
 %doc COPYING README
 %doc %{_mandir}/man8/iscsiadm.8.gz
 %doc %{_mandir}/man8/iscsid.8.gz
@@ -243,10 +177,8 @@ fi
 /sbin/brcm_iscsiuio
 %doc %{_mandir}/man8/iscsiuio.8.gz
 %config /etc/logrotate.d/iscsiuiolog
-%if 0%{?suse_version} >= 1230
 %{_unitdir}/iscsiuio.service
 %{_unitdir}/iscsiuio.socket
 %{_sbindir}/rciscsiuio
-%endif
 
 %changelog
