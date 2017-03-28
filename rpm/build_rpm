@@ -14,8 +14,7 @@ fi
 
 RPM="open-iscsi"
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-VERSION="2.0-874"
-VERSION_TAG="2.0.874-suse"
+VERSION="2.0.874-suse"
 DESTDIR=
 TMPDIR=
 
@@ -94,12 +93,12 @@ git show $BRANCH:rpm/$RPM.spec > $DESTDIR/$RPM.spec
 git show $BRANCH:rpm/$RPM.changes > $DESTDIR/$RPM.changes
 
 # create the base tar file containing the open-iscsi base code
-git archive --format=tar --prefix=$RPM-$VERSION/ "$VERSION_TAG" \
+git archive --format=tar --prefix=$RPM-$VERSION/ "$VERSION" \
     | bzip2 > $DESTDIR/$RPM-$VERSION.tar.bz2
 
 # patch: create a diff file for changes between the base version
 # and the update tag if there are any differences
-git diff ${VERSION_TAG}..${BRANCH} | \
+git diff ${VERSION}..${BRANCH} | \
 	bzip2 > $DESTDIR/$RPM-SUSE-latest.diff.bz2
 
 echo "$RPM src rpm copied to $DESTDIR"

@@ -33,11 +33,11 @@ Url:            http://www.open-iscsi.com
 Version:        2.0.874
 Release:        0
 %{?systemd_requires}
-%define iscsi_release 874
+%define iscsi_release 874-suse
 Summary:        Linux* Open-iSCSI Software Initiator
 License:        GPL-2.0+
 Group:          Productivity/Networking/Other
-Source:         %{name}-2.0-%{iscsi_release}.tar.bz2
+Source:         %{name}-2.0.%{iscsi_release}.tar.bz2
 Patch1:         %{name}-SUSE-latest.diff.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
@@ -82,7 +82,7 @@ The communication to the driver is done via Userspace I/O (Kernel module name
 'uio').
 
 %prep
-%setup -n %{name}-2.0-%{iscsi_release}
+%setup -n %{name}-2.0.%{iscsi_release}
 %patch1 -p1
 
 %build
