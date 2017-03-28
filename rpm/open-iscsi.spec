@@ -160,6 +160,7 @@ fi
 /sbin/iscsi-gen-initiatorname
 /sbin/iscsi_offload
 /sbin/iscsi_discovery
+/sbin/iscsi_fw_login
 %doc COPYING README
 %doc %{_mandir}/man8/iscsiadm.8.gz
 %doc %{_mandir}/man8/iscsid.8.gz
