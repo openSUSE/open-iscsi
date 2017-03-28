@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Tue Mar 28 15:24:33 UTC 2017 - lduncan@suse.com
+
+- Merged in SUSE-specific changes from SLE branch, to
+  bring this up to date with latest upstream, including:
+  * qedi transport support
+  * README cleanup
+  * iscsiuio update
+  * shutdown cleanup
+
+-------------------------------------------------------------------
 Thu Mar  9 17:55:58 UTC 2017 - lduncan@suse.com
 
 - Updated from latest upstream patches, including
