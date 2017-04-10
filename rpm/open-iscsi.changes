@@ -1,191 +1,258 @@
 -------------------------------------------------------------------
-Tue Mar 28 15:24:33 UTC 2017 - lduncan@suse.com
+Mon Apr 10 16:42:37 UTC 2017 - lduncan@suse.com
 
-- Merged in SUSE-specific changes from SLE branch, to
-  bring this up to date with latest upstream, including:
+- This is now the latest upstream open-iscsi, i.e. 2.0.874
+  plus latest as of this date, together with SUSE-specific
+  changes that are not yet upstream or not appropriate for
+  upstream.
+
+  Important changes in this update include:
   * qedi transport support
   * README cleanup
   * iscsiuio update
   * shutdown cleanup
-  Also, refactored base tar file to pre 2.0.874-suse and
-  patches file to everything after that tag.
+
+  Also, the base tar file has been refactored to
+  pre 2.0.874-suse as well as patches file for everything
+  after that tag.
+
+  Lastly, this update syncs this "Changes" file in Factory to and
+  SLE, including SLE bug and FATE numbers, for reference.
 
 -------------------------------------------------------------------
-Thu Mar  9 17:55:58 UTC 2017 - lduncan@suse.com
+Fri Nov 25 00:37:51 UTC 2016 - lduncan@suse.com
 
-- Updated from latest upstream patches, including
-  ability to disable auto-scans and README cleanup
-
--------------------------------------------------------------------
-Thu Nov 17 01:48:22 UTC 2016 - lduncan@suse.com
-
-- Updated to upstream version 2.0-874, but still includes
-  (very few) SUSE-specific changes. This replaced the 2.0-873
-  tarball with a 2.0-874 tarball, but still includes the 
-  Factory-latest compressed diff patch file, though it is
-  now empty. See Changes file for functional change details.
+- Added two patches submitted upstream that
+  make iscsi service shutdown cleaner (bsc#952437)
 
 -------------------------------------------------------------------
-Wed Apr 13 17:06:42 UTC 2016 - lduncan@suse.com
+Sat Oct 29 01:58:17 UTC 2016 - lduncan@suse.com
 
-- Ported 3 changes from SLE 12 that are not upstream, but
-  are needed here, as there are in SLE:
-  * Fixed systemd start of iscsi.service (bsc#897565)
-  * iscsiuio: ARP table too small when switches involve
-  * Discovery via non-tcp transport needs IPC set.
-
--------------------------------------------------------------------
-Thu Jan 14 23:56:07 UTC 2016 - lduncan@suse.com
-
-- Synced with current upstream as of today, which included 29
-  changes. Most changes were directly from upstream, but
-  some where to fix small differences that had developed
-  between our code and theirs, now fixed. As always, see
-  git@github.com:hreinecke/open-iscsi.git, openSUSE-Factory
-  branch, for details.
-  
-  Change summary:
-  * Syncing top-level files with upstream.
-  * Fixed my typo in default CFLAGS.
-  * Syncing up utils/fwparam_ibft with upstream.
-  * Adding in missing part of previous commit.
-  * iscsiuio: Get the library to use based on uio sysfs name
-  * iscsiuio: Wait for iface to be ready before issuing the ping
-  * iscsiadm: let ping be tried after iface config is initialized
-  * iscsiuio: Add ping support through iscsiuio
-  * iscsid: Changes to support ping through iscsiuio
-  * iscsiuio: Add QLogic Vendor ID to support newer NX2 HBAs
-  * iscsid: fix iscsi_host_set_net_params return code
-  * iscsid/iscsiuio: remove uio poll
-  * iscsid: make sure actor is delated before rescheduling
-  * Remove last pieces of building local open-isns.
-  * iscsi: remove local copy of open-isns
-  * Use system-wide open-isns, not internal version.
-  * Fix typo in man page.
-  * fix typo
-  * iscsiuio: Correct the handling of Multi Function mode
-  * Reformat man page synopsis sections
-  * Spelling and escaping error fixes.
-  * Remove outdated Debian packaging code.
-  * buildsys: respect CFLAGS and LDFLAGS from the outside
-  * buildsys: make 'make clean' idempotent
-  * Fix small typo in iscsid.conf
-  * Fix iBFT target flags check.
-  * Remove duplicate newlines in log messages.
-  * Kernel include path
-  * Allow setting host params to return EAGAIN errors.
+- Added open-isns patch to remove Discovery
+  Domain doubling when loading from file (bsc#897297),
+  adding patch:
+  * open-isns-Fix-DD-member-doubling-when-restoring-from-DB.patch
 
 -------------------------------------------------------------------
-Thu Jan 07 01:39:10 UTC 2016 - lduncan@suse.com
+Fri Oct 14 18:53:15 UTC 2016 - lduncan@suse.com
 
-- Removing creation of the open-isns RPM, since it
-  is now created in its own package
-
--------------------------------------------------------------------
-Thu Jun 18 17:29:56 UTC 2015 - lduncan@suse.com
-
-- Add rcsymlinks (bnc#932814) (from mpluskal@suse.com)
-  Cleaned up spec file rpmlint commplaints
+- Stop manual sessions for iscsi service (bsc#989548)
 
 -------------------------------------------------------------------
-Thu Mar 19 16:30:26 UTC 2015 - lduncan@suse.com
+Fri May  6 15:36:03 UTC 2016 - lduncan@suse.com
 
-- Updated to latest upstream, adding 42 patches. See
-  git@github.com:hreinecke/open-iscsi.git, openSUSE-Factory
-  branch, for details:
-  * iscsid: retry login for ISCSI_ERR_HOST_NOT_FOUND
-  * iscsid: Fix double close of mgmt ipc fd
-  * iscsiadm: Initialize param_count in set_host_chap_info
-  * iscsiuio: Rebranding iscsiuio
-  * iscsiadm : make iface.ipaddress optional in iface
-  * isns: Add docs for deregistering discovery domains.
-  * iscsid: don't round up when modifying padding len
-  * Fix build warnings for unused variables
-  * Fix warning about possibly-uninitialized variable
-  * Fix bad sizeof in memset
-  * Fix missing header
-  * iscsiuio: Fix warning about non-matching types
-  * iscsiuio: Fix strict-aliasing warning with struct
-  * iscsiuio: Resolve strict aliasing issue in
-  * iscsiuio: Fix aliasing issue with
-  * iscsiuio: Use attribute(unused) for variables that are
-  * iscsiuio: Use attribute(unused) for *icmpv6_hdr
-  * iscsiuio: Change nic_disable to return void
-  * iscsiuio: Remove set but unused variables
-  * iscsiuio: Check return value from nic_queue_tx_packet
-  * Code cleanup: no functional changes
-  * Represent DHCP "origin" as an enum, not a string.
-  * Allow modifications for iface.gateway and
-  * actor: Mark actor_check static
-  * actor: simplify actor_check
-  * actor: s/ACTOR_TICKS/actor_jiffies/
-  * actor: Remove ACTOR_TICKS_10MS()
-  * actor: Unobfuscate ACTOR_MAX_LOOPS
-  * actor: Simplify actor_poll a little
-  * Remove actor_init and rename actor_new to actor_init
-  * Make running actors event-driven
-  * Wake up to reap children
-  * fix regression in iscsi_tcp iface binding
-  * guard against NULL ptr during discovery from unexpected
-  * add discovery as a valid mode in iscsiadm.8
-  * iscsid: fix order of setting uid/gid and drop
-  * iscsiuio CFLAGS fixes
-  * Fix incorrect list operation leading to out-of-order
-  * Prevent spinning over poll() when reconnecting to an
-  * Add some more debug logging to actor.c
-  * iscsid safe session logout
-  * iscsid: don't re-read config file for every session
+- Added patch submitted upstream that sets socket option
+  to SO_LINGER (bsc#974102)
 
 -------------------------------------------------------------------
-Mon Mar  9 21:29:30 UTC 2015 - lduncan@suse.com
+Mon Apr 11 16:26:14 UTC 2016 - lduncan@suse.com
 
-- Supply strings for newly-added error numbers
-- Allow "again" errors from transport in some cases
-  (bsc#903729)
+- Update user-space open-iscsi tools (bsc#975217, FATE#320753),
+  which included:
+ + Backported changes from openSUSE:Factory branch:
+   * Removing creation of open-isns RPM.
+   * Allow setting host params to return EAGAIN errors.
+   * Kernel include path
+   * Fix iBFT target flags check.
+   * fix typo
+   * Fix typo in man page.
+   * Use system-wide open-isns, not internal version.
+   * iscsi: remove local copy of open-isns
+   * iscsid: make sure actor is delated before rescheduling
+   * iscsid/iscsiuio: remove uio poll
+   * iscsid: fix iscsi_host_set_net_params return code
+   * Syncing up utils/fwparam_ibft with upstream.
+   * Syncing top-level files with upstream.
+   * Fixed duplicate lines for subnet_mask and gateway
+ + Update SPEC file for spliced open-isns by copying open-isns
+   upstream tarball and patches from factory, since open-isns is no
+   longer part of open-iscsi
 
 -------------------------------------------------------------------
-Fri Mar  6 23:41:12 UTC 2015 - p.drouand@gmail.com
+Thu Jan 07 19:21:31 UTC 2016 - lduncan@suse.com
 
-- Do not depend on fillup and insserv if the package build with
-  systemd support; it's redundant
-- Remove obsolete %clean and AUTHORS sections
-
--------------------------------------------------------------------
-Fri Dec  5 22:54:32 UTC 2014 - lduncan@suse.com
-
-- Fixed spec file to support dracut on newers versions (bsc#893578)
-- Also cleaned up spec file a bit for rpmlint
-
--------------------------------------------------------------------
-Tue Nov 25 13:44:28 PST 2014 - lduncan@suse.com
-
-- Fixed spec file: db-devel < 5, to fix SLE 12 and SP3 builds
+- Added 5 upstream patches for iscsiuio (bsc#960438):
+  iscsiuio: Get the library to use based on uio sysfs name
+  iscsiuio: Wait for iface to be ready before issuing the ping
+  iscsiadm: let ping be tried after iface config is initialized
+  iscsiuio: Add ping support through iscsiuio
+  iscsid: Changes to support ping through iscsiuio
+- Updated spec file copyright
+- Build service git diffs now using 12-digit commit IDs
 
 -------------------------------------------------------------------
-Tue Nov 25 11:43:03 PST 2014 - lduncan@suse.com
+Thu Oct  8 23:46:00 UTC 2015 - lduncan@suse.com
+
+- isns: exit with success when terminated with SIGTERM (bsc#948561)
+
+-------------------------------------------------------------------
+Thu Oct  8 22:12:07 UTC 2015 - lduncan@suse.com
+
+- isns: Adding signal managment around DB update,
+  and ignore empty DB file (bsc#941791)
+
+-------------------------------------------------------------------
+Thu Oct  8 18:41:29 UTC 2015 - lduncan@suse.com
+
+- isns: Remove the debugging output from isnsd (bsc#949443)
+
+-------------------------------------------------------------------
+Mon Sep 28 18:22:12 UTC 2015 - lduncan@suse.com
+
+- added patch submitted upstream by QLogic:
+   iscsiuio: Add QLogic Vendor ID to support newer NX2 HBAs
+
+-------------------------------------------------------------------
+Fri Sep  4 18:39:50 UTC 2015 - lduncan@suse.com
+
+- open-isns: For bsc#941944:
+  - Allow setting server name with "--server"
+  - Ensure we can reliably get our IP address
+
+-------------------------------------------------------------------
+Fri Sep  4 18:30:59 UTC 2015 - lduncan@suse.com
+
+- open-isns: For bsc#941791:
+  - Set up /etc/isns/*.conf files when installing
+  - Install /etc/isns/isnsadm.conf
+
+-------------------------------------------------------------------
+Thu Jul 30 18:56:08 UTC 2015 - lduncan@suse.com
+
+- Allow non-tcp transport for discovery daemon (bsc#939923) 
+
+-------------------------------------------------------------------
+Thu Jul 23 17:02:05 UTC 2015 - lduncan@suse.com
+
+- Added iscsi_fw_login helper script, and new udev
+  rule to call script when iBFT/iscsi boot targets
+  added (bsc#869278)
+
+-------------------------------------------------------------------
+Mon Jun 29 16:13:14 UTC 2015 - lduncan@suse.com
+
+- Added rcsymlinks (bsc#932814)
+- Cleaned up spec file for rpmlint
+
+-------------------------------------------------------------------
+Sun Jun 28 01:58:10 UTC 2015 - lduncan@suse.com
+
+- Updated open-iscsi to match upstream, as per bsc#936114,
+  FATE#318770
+
+  The following is a summary of changes. See
+  git@github.com:hreinecke/open-iscsi.git for details of commits:
+
+   a068906448ef Removing duplicate LDFLAGS from incorrect patch
+   85ed2b4a1cb5 Prevent spinning over poll() when reconnecting to an inaccessible target
+   bbffa1dd332d Fix incorrect list operation leading to out-of-order items on pend_list
+   ce449cc8407f iscsiuio: Correct the handling of Multi Function mode
+   e7f84d774c22 Reformat man page synopsis sections
+   271b77dece32 Spelling and escaping error fixes.
+   2022944815b2 Remove outdated Debian packaging code.
+   d650915062d6 buildsys: respect CFLAGS and LDFLAGS from the outside
+   97ae5d74d6bf buildsys: make 'make clean' idempotent
+   770993b1e422 Fix small typo in iscsid.conf
+   c9dcedb7b6a9 Remove duplicate newlines in log messages.
+   2986f9c95f6f iscsid: don't re-read config file for every session logout
+   d56f49d3f947 iscsid safe session logout
+   3f59db921549 Add some more debug logging to actor.c
+   75552f5519a8 iscsiuio CFLAGS fixes
+   73e3e00c0e5e iscsid: fix order of setting uid/gid and drop supplementary groups
+   99dfbeff1676 add discovery as a valid mode in iscsiadm.8
+   688c2e9185f1 guard against NULL ptr during discovery from unexpected event
+   c31ec6483815 Allow setting host params to return EAGAIN errors.
+   973508df1daf fix regression in iscsi_tcp iface binding
+   93c9d5ae1c86 Wake up to reap children
+   24409900d9df Make running actors event-driven
+   bc491ac31487 Remove actor_init and rename actor_new to actor_init
+   cbcd086a2cf9 actor: Simplify actor_poll a little
+   71ec348a2dfd actor: Unobfuscate ACTOR_MAX_LOOPS
+   61d58fbf6de8 actor: Remove ACTOR_TICKS_10MS()
+   f53eb0034618 actor: s/ACTOR_TICKS/actor_jiffies/
+   dfe52b2423ff actor: simplify actor_check
+   8667dcd5d628 actor: Mark actor_check static
+   8037a0a30b8f Represent DHCP "origin" as an enum, not a string.
+   da567155cfe9 Code cleanup: no functional changes
+   6478eaac7b53 iscsiuio: Check return value from nic_queue_tx_packet
+   1d07286fda46 iscsiuio: Remove set but unused variables
+   382655137020 iscsiuio: Change nic_disable to return void
+   7c233130687a iscsiuio: Use attribute(unused) for *icmpv6_hdr
+   8e1d38215344 iscsiuio: Use attribute(unused) for variables that are unused but needed
+   6ae604304b10 iscsiuio: Fix aliasing issue with IPV6_IS_ADDR_UNSPECIFIED
+   63b450de0c29 iscsiuio: Resolve strict aliasing issue in iscsiuio/src/unix/nic.c
+   c1e83d439f90 iscsiuio: Fix strict-aliasing warning with struct mac_address
+   980c471e9f4e iscsiuio: Fix warning about non-matching types
+   cb84219a4992 Fix missing header
+   9d744ac8c039 Fix bad sizeof in memset
+   67ff3a01e3ed Fix warning about possibly-uninitialized variable
+   e5518c7a8f43 Fix build warnings for unused variables
+   5d68768908e0 iscsid: don't round up when modifying padding len
+   d21766d95e10 isns: Add docs for deregistering discovery domains.
+   ed04ac2f9f32 iscsiadm : make iface.ipaddress optional in iface configs for transports that don't have a hard requirement on it.
+   148854ae2d6e iscsiuio: Rebranding iscsiuio
+   a3c40ba2ba4f iscsiadm: Initialize param_count in set_host_chap_info
+   bfa2f55b0928 iscsid: Fix double close of mgmt ipc fd
+   a037f5eaa9e0 iscsid: retry login for ISCSI_ERR_HOST_NOT_FOUND
+   f0f3bbd25762 Fix StatSN in Open-iSCSI Stack.
+   a9f4d169a95a be2iscsi: Fix MaxXmitDataLenght of the driver.
+   cf1346a86489 iscsiuio: fix compilation
+
+-------------------------------------------------------------------
+Wed Apr 22 21:09:46 UTC 2015 - lduncan@suse.com
+
+- Double the size of the iscsiuio ARP tables,
+  making it faster when switches present (bsc#922311)
+
+-------------------------------------------------------------------
+Wed Apr 22 18:42:22 UTC 2015 - lduncan@suse.com
+
+- Fixing ibft boot, completing commit 26020764daf70,
+  which only fixed NIC context. Now boot context
+  also fixed (bsc#902183)
+
+-------------------------------------------------------------------
+Mon Mar  9 20:12:20 UTC 2015 - lduncan@suse.com
+
+- Ported upstream commit 51c0b6ef8bc90:
+  Supply strings for newly-added error numbers
+
+-------------------------------------------------------------------
+Mon Mar  9 18:42:10 UTC 2015 - lduncan@suse.com
+
+- Do not convert all "again" errors from transport to
+  internal errors (bsc#903729)
+- Update spec-file copyright date
+
+-------------------------------------------------------------------
+Fri Mar  6 16:28:32 UTC 2015 - lduncan@suse.com
+
+- Fixed iscsi.service start to ignore iscsiadm
+  return value so that systemd knows service is
+  running and can still shut it down (bsc#897565)
+
+-------------------------------------------------------------------
+Mon Nov 24 17:08:01 PST 2014 - lduncan@suse.com
 
 - Fix isns server to allow legal registration sequence,
   including portal group (bsc#905670)
 
 -------------------------------------------------------------------
-Tue Oct 28 09:56:55 PDT 2014 - lduncan@suse.com
+Tue Oct 28 10:59:28 PDT 2014 - lduncan@suse.com
 
-- Added fix from Hannes to properly boot all iBFT cards,
-  fixing previous update (bnc#902183)
+- Added fix from Hannes to properly boot all iSCSI CNAs,
+  fixing previous change (bnc#902183)
 
 -------------------------------------------------------------------
-Tue Sep 23 14:09:33 PDT 2014 - lduncan@suse.com
+Tue Sep 23 13:27:10 PDT 2014 - lduncan@suse.com
 
 - Added fix from hannes to fixup IPv6 iBFT interface
   description
-- Also cherry-picked commit fro sle12 from hannes:
-  Allow modifications for iface.gateway and iface.subnet_mask,
-  needed for today's fix
 
 -------------------------------------------------------------------
-Fri Jul 25 10:03:00 PDT 2014 - lduncan@suse.com
+Mon Jul 28 08:32:12 PDT 2014 - lduncan@suse.com
 
-- Fixed spec file to stop correct service on iscsiuio removal
+- Added iscsiuio spec file service macros (bnc#887143)
 
 -------------------------------------------------------------------
 Tue Jul  8 16:27:39 CEST 2014 - hare@suse.de
@@ -221,13 +288,13 @@ Wed May 28 15:26:29 CEST 2014 - hare@suse.de
 Fri May 2 15:07:14 2014 +0200 - hare@suse.de
 
 - iscsi_offload: do not print error messages for be2iscsi
-
+    
   be2iscsi HBAs display the firmware settings in
   /sys/firmware/iscsi_boot1 and only provide a subset
-  of the iBFT settings (bnc#876137)
+   of the iBFT settings (bnc#876137)
 
 -------------------------------------------------------------------
-Mon Apr 28 11:00:03 PDT 2014 - lduncan@suse.com
+Tue Mar 25 15:51:20 PDT 2014 - lduncan@suse.com
 
 - Added two not-yet-upstream patches for iscsiuio/systemd activation
   from Chris Leech (bnc#869567):
@@ -236,67 +303,73 @@ Mon Apr 28 11:00:03 PDT 2014 - lduncan@suse.com
   Updated spec file to handle install/package of new files.
 
 -------------------------------------------------------------------
-Mon Apr 28 10:59:09 PDT 2014 - lduncan@suse.com
+Fri Mar 21 15:31:20 PDT 2014 - lduncan@suse.com
 
 - Added an upstream patch from Mike Christie (bnc#869356):
   iscsi-tools-set-non-negotiated-params-early
 
 -------------------------------------------------------------------
-Mon Apr 28 10:52:58 PDT 2014 - <michaelc@cs.wisc.edu>
+Fri Mar 14 01:41:29 2014 - <michaelc@cs.wisc.edu>
 
    iscsid: Fix handling of iscsi async events.
-
-   When iscsi targets send 32 or more iscsi async event pdus the
-   initiator will run out of memory for events and this message:
-
-   BUG: iscsid: Can not allocate memory for receive context.
-
-   will be logged non stop. iscsid will then not be able to
-   complate any more requests because it is stuck in a endless loop
-   printing that message.
-
-   This fixes the problem by having iscsid handle an event after it
-   has read it in from netlink or the mgmt ipc. Previously we would
-   queue all events then handle them.
+    
+    When iscsi targets send 32 or more iscsi async event pdus the
+    initiator will run out of memory for events and this message:
+    
+    BUG: iscsid: Can not allocate memory for receive context.
+    
+    will be logged non stop. iscsid will then not be able to
+    complate any more requests because it is stuck in a endless loop
+    printing that message.
+    
+    This fixes the problem by having iscsid handle an event after it
+    has read it in from netlink or the mgmt ipc. Previously we would
+    queue all events then handle them.
 
 -------------------------------------------------------------------
-Mon Apr 28 10:51:35 PDT 2014 - lduncan@suse.com
+Tue Mar 11 11:32:34 PDT 2014 - lduncan@suse.com
+
+- Added two patches from QLogic, accepted up stream (bnc#866866):
+  iscsiadm-fix-the-hostno-check-for-stats-submode-of-host-mode
+  iscsiadm-fix-the-compile-time-warning
+
+-------------------------------------------------------------------
+Thu Feb 27 11:06:00 PST 2014 - lduncan@suse.com
 
 - Updated systemd unit files (bnc#847953)
 - Split iscsiuio out as separate package
    (part of bnc#858972)
 
 -------------------------------------------------------------------
-Mon Apr 28 10:29:26 PDT 2014 - lduncan@suse.com
+Thu Jan 30 10:55:36 CET 2014 - hare@suse.de
 
-- Ported Hannes' open-isns changes fro SLE12, setting up
-  open-isns as a separate sub-package and integrating it
-  with open-iscsi
-- Updated Factory to match latest upstream code base,
-  including changse to open-iscsi and iscsiuio. These changes
-  include bug fixes as well as systemd integration for
-  open-iscsi.
+- Systemd integration for open-isns (FATE#316901)
 
 -------------------------------------------------------------------
-Mon Mar 10 10:45:43 PDT 2014 - lduncan@suse.com
+Wed Jan 29 11:36:10 CET 2014 - hare@suse.de
 
-- Cleaned up systemd unit files and spec entries (bnc#847953)
-
--------------------------------------------------------------------
-Tue Jan 28 11:40:16 PST 2014 - lduncan@suse.com
-
-- Replaced 8 patches with one, to clean up. Added patch:
-   open-iscsi-Factory-latest.diff.bz2
-  Removed patches:
-   open-iscsi-openSUSE-12.3-first-merge.diff.bz2
-   open-iscsi-openSUSE-Factory-first-merge.diff.bz2
-   open-iscsi-openSUSE-Factory-qla4xxx-patches.diff.bz2
-   open-iscsi-sles11-sp2-latest.diff.bz2
-   open-iscsi-sles11-sp2-update.diff.bz2
-   open-iscsi-sles11-sp3-flash-update.diff.bz2
-   open-iscsi-sles11-sp3-general-updates-1.diff.bz2
-   open-iscsi-sles11-sp3-iscsiuio-update.diff.bz2
-  No functional changes.
+- Pulled in patches from upstream git (FATE#315963)
+  * Replaced iscsiuio with upstream version
+  * Switched to autotools when building iscsiuio
+- Recreate SUSE-specific patches
+  * Removed obsolete iscsiuio integration
+  * Removed obsolete patches
+  * Rediffed SUSE-specific patches
+  * Removed patches
+    - open-iscsi-openSUSE-12.3-first-merge.diff.bz2
+    - open-iscsi-openSUSE-Factory-first-merge.diff.bz2
+    - open-iscsi-openSUSE-Factory-qla4xxx-patches.diff.bz2
+    - open-iscsi-sles11-sp2-latest.diff.bz2
+    - open-iscsi-sles11-sp2-update.diff.bz2
+    - open-iscsi-sles11-sp3-flash-update.diff.bz2
+    - open-iscsi-sles11-sp3-general-updates-1.diff.bz2
+    - open-iscsi-sles11-sp3-iscsiuio-update.diff.bz2
+  * Added patches
+    - open-iscsi-git-update.diff.bz2
+    - open-iscsi-sles12-update.diff.bz2
+- Build separate open-isns package (FATE#316901)
+- Remove 'linux-iscsi' provides; package has last
+  been used on SLES9.
 
 -------------------------------------------------------------------
 Thu Jan  9 10:11:32 PST 2014 - lduncan@suse.com
