@@ -4,7 +4,7 @@ Mon Apr 10 16:42:37 UTC 2017 - lduncan@suse.com
 - This is now the latest upstream open-iscsi, i.e. 2.0.874
   plus latest as of this date, together with SUSE-specific
   changes that are not yet upstream or not appropriate for
-  upstream.
+  upstream. (bsc#1032402/FATE#321911)
 
   Important changes in this update include:
   * qedi transport support
