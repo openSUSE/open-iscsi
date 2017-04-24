@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Mon Apr 24 15:37:32 UTC 2017 - lduncan@suse.com
+
+- Fixed coredump when printing session information (bsc#1035236),
+  backporting commit c8e6198dca71 from upstream open-iscsi
+
+-------------------------------------------------------------------
 Mon Apr 10 16:42:37 UTC 2017 - lduncan@suse.com
 
 - This is now the latest upstream open-iscsi, i.e. 2.0.874
