@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Fri Apr 28 23:13:20 UTC 2017 - lduncan@suse.com
+
+- Added support for qedi ping (bsc#1036238)
+
+-------------------------------------------------------------------
 Mon Apr 24 15:37:32 UTC 2017 - lduncan@suse.com
 
 - Fixed coredump when printing session information (bsc#1035236),
