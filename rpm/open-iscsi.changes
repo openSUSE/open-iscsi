@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Fri May 26 16:03:54 UTC 2017 - lduncan@suse.com
+
+- Added two iscsiuio upstream commits, for ipv6
+  support, and general bug fixes (bsc#1040559)
+
+-------------------------------------------------------------------
 Fri Apr 28 23:13:20 UTC 2017 - lduncan@suse.com
 
 - Added support for qedi ping (bsc#1036238)
