@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu Jul 27 16:22:58 UTC 2017 - lduncan@suse.com
+
+- Clear errno before calling strotull in iscsiadm
+  (bsc#1040559)
+
+-------------------------------------------------------------------
 Fri May 26 16:03:54 UTC 2017 - lduncan@suse.com
 
 - Added two iscsiuio upstream commits, for ipv6
