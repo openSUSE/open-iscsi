@@ -2,7 +2,9 @@
 Thu Jul 27 16:22:58 UTC 2017 - lduncan@suse.com
 
 - Clear errno before calling strotull in iscsiadm
-  (bsc#1029364)
+  (bsc#1029364). Note that this changes the file:
+  * open-iscsi-SUSE-latest.diff.bz2
+  which is changed each and every time this package is updated.
 
 -------------------------------------------------------------------
 Fri May 26 16:03:54 UTC 2017 - lduncan@suse.com
