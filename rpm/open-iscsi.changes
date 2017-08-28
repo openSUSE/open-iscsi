@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Mon Aug 28 13:45:52 PDT 2017 - lduncan@suse.com
+
+- Add missing coreutils dependency for initrd macros (bsc#1055492)
+  in SPEC file, which (as always) changes:
+  * open-iscsi-SUSE-latest.diff.bz2
+
++-------------------------------------------------------------------
 Thu Jul 27 16:22:58 UTC 2017 - lduncan@suse.com
 
 - Clear errno before calling strotull in iscsiadm
