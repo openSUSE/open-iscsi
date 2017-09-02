@@ -14,7 +14,7 @@ fi
 
 RPM="open-iscsi"
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-VERSION="2.0.874-suse"
+VERSION="2.0.875-suse"
 DESTDIR=
 TMPDIR=
 
