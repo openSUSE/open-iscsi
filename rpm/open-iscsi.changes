@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Tue Sep  5 23:50:31 UTC 2017 - lduncan@suse.com
+
+- Start iscsi logins after remote filesystems (bsc#1028323),
+  updating:
+  * open-iscsi-sles12-update.diff.bz2
+
+-------------------------------------------------------------------
 Sat Oct 29 00:42:03 UTC 2016 - lduncan@suse.com
 
 - Add open-isns patch to fix DB corruption when reloading
