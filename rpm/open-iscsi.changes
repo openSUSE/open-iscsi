@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Sep  6 00:04:00 UTC 2017 - lduncan@suse.com
+
+- Start iscsi logins after remote filesystems (bsc#1028323),
+  updating:
+      * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Sat Sep 02 16:35:14 UTC 2017 - lduncan@suse.com
 
 - Update to latest upstream 2.0.875, with a few SUSE-only
