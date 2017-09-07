@@ -1,7 +1,7 @@
 -------------------------------------------------------------------
 Wed Sep  6 00:04:00 UTC 2017 - lduncan@suse.com
 
-- Start iscsi logins after remote filesystems (bsc#1028323),
+- Start iscsi logins before remote filesystems (bsc#1028323),
   updating:
       * open-iscsi-SUSE-latest.diff.bz2
 
