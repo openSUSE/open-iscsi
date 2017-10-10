@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Sep  6 00:04:00 UTC 2017 - lduncan@suse.com
+
+- Start iscsi logins before remote filesystems (bsc#1028323),
+  updating:
+      * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Mon Aug 28 13:45:52 PDT 2017 - lduncan@suse.com
 
 - Add missing coreutils dependency for initrd macros (bsc#1055492)
