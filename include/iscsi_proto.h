@@ -45,6 +45,7 @@
 }
 #define zero_data(p) {p[0]=0;p[1]=0;p[2]=0;}
 
+#if !defined(__bitwise)
 /*
  * If running svn modules we may need to define these.
  * This should not go upstream since this is already properly defined there
@@ -59,6 +60,7 @@
 #else
 #define __bitwise
 #endif
+#endif	/* !defined(__bitwise) */
 
 /* initiator tags; opaque for target */
 typedef uint32_t __bitwise__ itt_t;
