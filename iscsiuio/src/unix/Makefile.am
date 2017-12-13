@@ -18,7 +18,8 @@ iscsiuio_SOURCES =	build_date.c		\
 			nic_nl.c		\
 			nic_utils.c		\
 			packet.c		\
-			iscsid_ipc.c
+			iscsid_ipc.c		\
+			${top_srcdir}/../utils/sysdeps/sysdeps.c
 
 iscsiuio_CFLAGS = 	$(AM_CFLAGS)		\
 			$(LIBNL_CFLAGS)		\
