@@ -835,6 +835,8 @@ int process_iscsid_broadcast(int s2)
 		goto error;
 	}
 
+	memset(&rsp, 0, sizeof(rsp));
+
 	switch (cmd) {
 	case ISCSID_UIP_IPC_GET_IFACE:
 		rc = parse_iface(data);
