@@ -37,6 +37,8 @@
  *
  */
 
+#define _GNU_SOURCE
+
 #include <errno.h>
 #include <pthread.h>
 #include <signal.h>
@@ -47,6 +49,8 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/un.h>
+#include <sys/types.h>
+#include <pwd.h>
 
 #define PFX "iscsi_ipc "
 
@@ -61,6 +65,7 @@
 #include "iscsid_ipc.h"
 #include "uip.h"
 #include "uip_mgmt_ipc.h"
+#include "sysdeps.h"
 
 #include "logger.h"
 #include "uip.h"
@@ -101,6 +106,8 @@ struct iface_rec_decode {
 #define MAX_MTU_SUPPORT		9000
 	uint16_t		mtu;
 };
+
+#define PEERUSER_MAX	64
 
 /******************************************************************************
  *  iscsid_ipc Constants
@@ -1011,6 +1018,40 @@ static void iscsid_loop_close(void *arg)
 	LOG_INFO(PFX "iSCSI daemon socket closed");
 }
 
+/*
+ * check that the peer user is privilidged
+ *
+ * return 1 if peer is ok else 0
+ *
+ * XXX: this function is copied from iscsid_ipc.c and should be
+ * moved into a common library
+ */
+static int
+mgmt_peeruser(int sock, char *user)
+{
+	struct ucred peercred;
+	socklen_t so_len = sizeof(peercred);
+	struct passwd *pass;
+
+	errno = 0;
+	if (getsockopt(sock, SOL_SOCKET, SO_PEERCRED, &peercred,
+		&so_len) != 0 || so_len != sizeof(peercred)) {
+		/* We didn't get a valid credentials struct. */
+		LOG_ERR(PFX "peeruser_unux: error receiving credentials: %m");
+		return 0;
+	}
+
+	pass = getpwuid(peercred.uid);
+	if (pass == NULL) {
+		LOG_ERR(PFX "peeruser_unix: unknown local user with uid %d",
+				(int) peercred.uid);
+		return 0;
+	}
+
+	strlcpy(user, pass->pw_name, PEERUSER_MAX);
+	return 1;
+}
+
 /**
  *  iscsid_loop() - This is the function which will process the broadcast
  *                  messages from iscsid
@@ -1020,6 +1061,7 @@ static void *iscsid_loop(void *arg)
 {
 	int rc;
 	sigset_t set;
+	char user[PEERUSER_MAX];
 
 	pthread_cleanup_push(iscsid_loop_close, arg);
 
@@ -1057,6 +1099,12 @@ static void *iscsid_loop(void *arg)
 			LOG_ERR(PFX "Could not accept: %d(%s)",
 				s2, strerror(errno));
 			continue;
+		}
+
+		if (!mgmt_peeruser(iscsid_opts.fd, user) || strncmp(user, "root", PEERUSER_MAX)) {
+			close(s2);
+			LOG_ERR(PFX "Access error: non-administrative connection rejected");
+			break;
 		}
 
 		process_iscsid_broadcast(s2);
