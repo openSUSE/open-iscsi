@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu Dec 14 01:45:23 UTC 2017 - lduncan@suse.com
+
+- Fix vulnerabilities found in iscsiuio by qualsys (bsc#1072312),
+  updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Wed Sep  6 00:04:00 UTC 2017 - lduncan@suse.com
 
 - Start iscsi logins before remote filesystems (bsc#1028323),
