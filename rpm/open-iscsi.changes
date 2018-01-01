@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Mon Jan  1 01:57:50 UTC 2018 - lduncan@suse.com
+
+- Fix vulnerabilities found in iscsiuio by qualsys (bsc#1072312),
+  updating: open-iscsi-SUSE-latest.diff.bz2 
+
+-------------------------------------------------------------------
 Wed Feb 24 15:49:38 UTC 2016 - lduncan@suse.com
 
 - Updating to better match upstream iscsiuio (bsc#960439),
