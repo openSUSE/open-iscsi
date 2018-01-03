@@ -20,6 +20,7 @@ DAEMON=/sbin/iscsid
 ISCSIADM=/sbin/iscsiadm
 ISCSIUIO=/sbin/iscsiuio
 ARGS="-c $CONFIG_FILE -n"
+RESTART_TIMEOUT=30
 
 # Source LSB init functions
 . /etc/rc.status
@@ -399,6 +400,30 @@ iscsi_list_all_nodes()
     done
 }
 
+#
+# wait for the process to end, but not too long
+# return number of seconds left, so 0 -> timeout
+#
+wait_for_proc_termination()
+{
+    local proc_path=$1
+    local timeout=$2
+
+    while [ $timeout -gt 0 ]; do
+	checkproc $proc_path
+	RETVAL=$?
+	if [ "$RETVAL" != 0 ]; then
+	    break
+	fi
+	sleep 1
+	timeout=$((timeout - 1))
+    done
+
+    return $t
+}
+
+
+
 case "$1" in
     start)
 	echo -n "Loading iscsi modules: "
@@ -457,7 +482,8 @@ case "$1" in
 		echo "Stopping iSCSI initiator service failed, not starting"
 		exit $RETVAL
 	fi
-	sleep 1
+	# make sure our daemon has stopped before restarting
+	wait_for_proc_termination $DAEMON $RESTART_TIMEOUT
 	$0 start
 	;;
     *)
