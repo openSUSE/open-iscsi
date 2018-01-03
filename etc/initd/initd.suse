@@ -422,8 +422,6 @@ wait_for_proc_termination()
     return $t
 }
 
-
-
 case "$1" in
     start)
 	echo -n "Loading iscsi modules: "
