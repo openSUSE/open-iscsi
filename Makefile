@@ -13,12 +13,16 @@ bindir = $(exec_prefix)/bin
 mandir = $(prefix)/share/man
 etcdir = /etc
 initddir = $(etcdir)/init.d
+rulesdir = $(etcdir)/udev/rules.d
 
-MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8 iscsiuio/docs/iscsiuio.8
-PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi_discovery utils/iscsi-iname iscsiuio/src/unix/iscsiuio
+MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8 \
+		iscsiuio/docs/iscsiuio.8 doc/iscsi_fw_login.8
+PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi-iname iscsiuio/src/unix/iscsiuio
+SCRIPTS = utils/iscsi_discovery utils/iscsi_fw_login
 INSTALL = install
 ETCFILES = etc/iscsid.conf
 IFACEFILES = etc/iface.example
+RULESFILES = utils/50-iscsi-firmware-login.rules
 
 # Compatibility: parse old OPTFLAGS argument
 ifdef OPTFLAGS
@@ -59,15 +63,6 @@ iscsiuio/Makefile: iscsiuio/configure iscsiuio/Makefile.in
 iscsiuio/configure iscsiuio/Makefile.in: iscsiuio/configure.ac iscsiuio/Makefile.am
 	cd iscsiuio; autoreconf --install
 
-kernel: force
-	$(MAKE) -C kernel
-	@echo "Kernel Compilation complete          Output file"
-	@echo "-----------------------------------  ----------------"
-	@echo "Built iSCSI Open Interface module:   kernel/scsi_transport_iscsi.ko"
-	@echo "Built iSCSI library module:          kernel/libiscsi.ko"
-	@echo "Built iSCSI over TCP library module: kernel/libiscsi_tcp.ko"
-	@echo "Built iSCSI over TCP kernel module:  kernel/iscsi_tcp.ko"
-
 force: ;
 
 clean:
@@ -75,7 +70,6 @@ clean:
 	$(MAKE) -C utils/fwparam_ibft clean
 	$(MAKE) -C utils clean
 	$(MAKE) -C usr clean
-	$(MAKE) -C kernel clean
 	[ ! -f iscsiuio/Makefile ] || $(MAKE) -C iscsiuio clean
 	[ ! -f iscsiuio/Makefile ] || $(MAKE) -C iscsiuio distclean
 
@@ -84,7 +78,7 @@ clean:
 # note that make may still execute the blocks in parallel
 .NOTPARALLEL: install_user install_programs install_initd \
 	install_initd_suse install_initd_redhat install_initd_debian \
-	install_etc install_iface install_doc install_kernel install_iname
+	install_etc install_iface install_doc install_iname
 
 install: install_programs install_doc install_etc \
 	install_initd install_iname install_iface
@@ -92,7 +86,11 @@ install: install_programs install_doc install_etc \
 install_user: install_programs install_doc install_etc \
 	install_initd install_iname install_iface
 
-install_programs:  $(PROGRAMS)
+install_udev_rules:
+	$(INSTALL) -d $(DESTDIR)$(rulesdir)
+	$(INSTALL) -m 644 $(RULESFILES) $(DESTDIR)/$(rulesdir)
+
+install_programs:  $(PROGRAMS) $(SCRIPTS)
 	$(INSTALL) -d $(DESTDIR)$(sbindir)
 	$(INSTALL) -m 755 $^ $(DESTDIR)$(sbindir)
 
@@ -138,9 +136,6 @@ install_etc: $(ETCFILES)
 install_doc: $(MANPAGES)
 	$(INSTALL) -d $(DESTDIR)$(mandir)/man8
 	$(INSTALL) -m 644 $^ $(DESTDIR)$(mandir)/man8
-
-install_kernel:
-	$(MAKE) -C kernel install_kernel
 
 install_iname:
 	if [ ! -f $(DESTDIR)/etc/iscsi/initiatorname.iscsi ]; then \
