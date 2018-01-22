@@ -13,7 +13,6 @@ bindir = $(exec_prefix)/bin
 mandir = $(prefix)/share/man
 etcdir = /etc
 initddir = $(etcdir)/init.d
-mkinitrd = $(exec_prefix)/lib/mkinitrd/scripts
 systemddir = $(prefix)/lib/systemd
 rulesdir = $(etcdir)/udev/rules.d
 
@@ -67,15 +66,6 @@ iscsiuio/Makefile: iscsiuio/configure iscsiuio/Makefile.in
 iscsiuio/configure iscsiuio/Makefile.in: iscsiuio/configure.ac iscsiuio/Makefile.am
 	cd iscsiuio; autoreconf --install
 
-kernel: force
-	$(MAKE) -C kernel
-	@echo "Kernel Compilation complete          Output file"
-	@echo "-----------------------------------  ----------------"
-	@echo "Built iSCSI Open Interface module:   kernel/scsi_transport_iscsi.ko"
-	@echo "Built iSCSI library module:          kernel/libiscsi.ko"
-	@echo "Built iSCSI over TCP library module: kernel/libiscsi_tcp.ko"
-	@echo "Built iSCSI over TCP kernel module:  kernel/iscsi_tcp.ko"
-
 force: ;
 
 clean:
@@ -83,16 +73,15 @@ clean:
 	$(MAKE) -C utils/fwparam_ibft clean
 	$(MAKE) -C utils clean
 	$(MAKE) -C usr clean
-	$(MAKE) -C kernel clean
-	[ ! -f iscsiuio/Makefile ] || $(MAKE) -C iscsiuio clean
 	[ ! -f iscsiuio/Makefile ] || $(MAKE) -C iscsiuio distclean
+	[ ! -f iscsiuio/Makefile ] || $(MAKE) -C iscsiuio clean
 
 # this is for safety
 # now -jXXX will still be safe
 # note that make may still execute the blocks in parallel
 .NOTPARALLEL: install_user install_programs install_initd \
 	install_initd_suse install_initd_redhat install_initd_debian \
-	install_etc install_iface install_doc install_kernel install_iname \
+	install_etc install_iface install_doc install_iname \
 	install_udev_rules
 
 install: install_programs install_doc install_etc \
@@ -118,7 +107,6 @@ install_initd:
 		$(MAKE) install_initd_redhat ; \
 	elif [ -f /etc/SuSE-release ]; then \
 		$(MAKE) install_initd_suse ; \
-		$(MAKE) install_mkinitrd_suse ; \
 	fi
 
 # these are external targets to allow bypassing distribution detection
@@ -128,15 +116,6 @@ install_initd_suse:
 		$(DESTDIR)$(initddir)/open-iscsi
 	$(INSTALL) -m 755 etc/initd/boot.suse \
 		$(DESTDIR)$(initddir)/boot.open-iscsi
-
-install_mkinitrd_suse:
-	$(INSTALL) -d $(DESTDIR)$(mkinitrd)
-	$(INSTALL) -m 755 etc/mkinitrd/mkinitrd-boot.sh \
-		$(DESTDIR)$(mkinitrd)/boot-iscsi.sh
-	$(INSTALL) -m 755 etc/mkinitrd/mkinitrd-setup.sh \
-		$(DESTDIR)$(mkinitrd)/setup-iscsi.sh
-	$(INSTALL) -m 755 etc/mkinitrd/mkinitrd-stop.sh \
-		$(DESTDIR)$(mkinitrd)/boot-killiscsi.sh
 
 install_initd_redhat:
 	$(INSTALL) -d $(DESTDIR)$(initddir)
@@ -178,9 +157,6 @@ install_etc: $(ETCFILES)
 install_doc: $(MANPAGES)
 	$(INSTALL) -d $(DESTDIR)$(mandir)/man8
 	$(INSTALL) -m 644 $^ $(DESTDIR)$(mandir)/man8
-
-install_kernel:
-	$(MAKE) -C kernel install_kernel
 
 install_iname:
 	if [ ! -f $(DESTDIR)/etc/iscsi/initiatorname.iscsi ]; then \
