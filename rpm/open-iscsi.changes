@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Mon Jan 22 20:58:30 UTC 2018 - lduncan@suse.com
+
+- Update to latest upstream vesion 2.0.876, with very few
+  SUSE-specific modifications, namely around things upstream
+  does not care about, like SUSE-specific systemd files. Also,
+  version number modified to add "-suse", as usual. See
+  the Changelog file for more details on changes in this
+  upstream version.
+
+-------------------------------------------------------------------
 Thu Dec 14 01:45:23 UTC 2017 - lduncan@suse.com
 
 - Fix vulnerabilities found in iscsiuio by qualsys (bsc#1072312),
