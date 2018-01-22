@@ -1,8 +1,42 @@
 # This Makefile will work only with GNU make.
 
+ifeq ($(TOPDIR),)
+	TOPDIR = ..
+endif
+
+OSNAME=$(shell uname -s)
+
+# allow users to override these
+# eg to compile for a kernel that you aren't currently running
+KERNELRELEASE ?= $(shell uname -r)
+KSRC ?= /lib/modules/$(KERNELRELEASE)/build
+
+KSUBLEVEL=$(shell cat $(KSRC)/Makefile | awk -F= '/^SUBLEVEL =/ {print $$2}' | \
+			sed 's/^[ \t]*//;s/[ \t]*$$//')
+
+ifeq ($(OSNAME),Linux)
+	ifeq ($(KSUBLEVEL),11)
+		IPC_CFLAGS=-DNETLINK_ISCSI=12 -D_GNU_SOURCE
+	else
+	ifeq ($(KSUBLEVEL),12)
+		IPC_CFLAGS=-DNETLINK_ISCSI=12 -D_GNU_SOURCE
+	else
+		IPC_CFLAGS=-DNETLINK_ISCSI=8 -D_GNU_SOURCE
+	endif
+	endif
+IPC_OBJ=netlink.o
+else
+ifeq ($(OSNAME),FreeBSD)
+IPC_CFLAGS=
+IPC_OBJ=ioctl.o
+endif
+endif
+
 CFLAGS ?= -O2 -g
 WARNFLAGS ?= -Wall -Wstrict-prototypes
-CFLAGS += $(WARNFLAGS) -I../include -I. -D_GNU_SOURCE
+CFLAGS += $(WARNFLAGS) -I../include -I. -D_GNU_SOURCE \
+	  -I$(TOPDIR)/libopeniscsiusr
+ISCSI_LIB = -L$(TOPDIR)/libopeniscsiusr -lopeniscsiusr
 PROGRAMS = iscsid iscsiadm iscsistart
 
 # libc compat files
@@ -26,14 +60,14 @@ all: $(PROGRAMS)
 
 iscsid: $(ISCSI_LIB_SRCS) $(INITIATOR_SRCS) $(DISCOVERY_SRCS) \
 	iscsid.o session_mgmt.o discoveryd.o mntcheck.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@  -lisns -lcrypto -lrt -lmount
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@  -lisns -lcrypto -lrt -lmount $(ISCSI_LIB)
 
 iscsiadm: $(ISCSI_LIB_SRCS) $(DISCOVERY_SRCS) iscsiadm.o session_mgmt.o mntcheck.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@ -lisns -lcrypto -lmount
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@ -lisns -lcrypto -lmount $(ISCSI_LIB)
 
 iscsistart: $(ISCSI_LIB_SRCS) $(INITIATOR_SRCS) $(FW_BOOT_SRCS) \
 		iscsistart.o statics.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@ -lrt
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@ -lrt $(ISCSI_LIB)
 clean:
 	rm -f *.o $(PROGRAMS) .depend $(LIBSYS)
 
