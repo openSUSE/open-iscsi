@@ -8,6 +8,11 @@ Mon Jan 22 20:58:30 UTC 2018 - lduncan@suse.com
   the Changelog file for more details on changes in this
   upstream version.
 
+  This replaces open-iscsi-2.0.875-suse.tar.bz2 with
+  open-iscsi-2.0.876-suse.tar.bz2, and resets
+  open-iscsi-SUSE-latest.diff.bz2 to contain only changes
+  since the 2.0.876-suse tag.
+
 -------------------------------------------------------------------
 Thu Dec 14 01:45:23 UTC 2017 - lduncan@suse.com
 
