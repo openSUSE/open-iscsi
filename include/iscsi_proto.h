@@ -60,7 +60,7 @@
 #else
 #define __bitwise
 #endif
-#endif	/* !defined(__bitwise) */
+#endif
 
 /* initiator tags; opaque for target */
 typedef uint32_t __bitwise__ itt_t;
