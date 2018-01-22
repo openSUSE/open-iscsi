@@ -30,10 +30,10 @@ BuildRequires:  systemd
 BuildRequires:  suse-module-tools
 BuildRequires:  libmount-devel
 Url:            http://www.open-iscsi.com
-Version:        2.0.875
+Version:        2.0.876
 Release:        0
 %{?systemd_requires}
-%define iscsi_release 875-suse
+%define iscsi_release 876-suse
 Summary:        Linux* Open-iSCSI Software Initiator
 License:        GPL-2.0+
 Group:          Productivity/Networking/Other
