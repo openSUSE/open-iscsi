@@ -60,7 +60,7 @@ user: iscsiuio/Makefile
 	@echo "Built management application:        usr/iscsiadm"
 	@echo "Built boot tool:                     usr/iscsistart"
 	@echo "Built iscsiuio daemon:               iscsiuio/src/unix/iscsiuio"
-	@echo "Built libopeniscsiusr library:           libopeniscsiusr/libopeniscsiusr.so"
+	@echo "Built libopeniscsiusr library:       libopeniscsiusr/libopeniscsiusr.so"
 	@echo
 	@echo "Read README file for detailed information."
 
@@ -94,7 +94,8 @@ install: install_programs install_doc install_etc \
 	install_udev_rules
 
 install_user: install_programs install_doc install_etc \
-	install_initd install_iname install_iface install_udev_rules
+	install_initd install_iname install_iface install_udev_rules \
+	install_libopeniscsiusr
 
 install_udev_rules:
 	$(INSTALL) -d $(DESTDIR)$(rulesdir)
