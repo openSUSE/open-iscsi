@@ -13,6 +13,12 @@ Mon Jan 22 20:58:30 UTC 2018 - lduncan@suse.com
   open-iscsi-SUSE-latest.diff.bz2 to contain only changes
   since the 2.0.876-suse tag.
 
+  These changes added a new libopeniscsiusr.so library, as
+  well as include files under a new open-iscsi-dev package,
+  if you want to link against this library.
+
+  The SPEC file was also cleaned up using spec-cleaner.
+
 -------------------------------------------------------------------
 Thu Dec 14 01:45:23 UTC 2017 - lduncan@suse.com
 
