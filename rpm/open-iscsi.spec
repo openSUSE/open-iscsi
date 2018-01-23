@@ -29,6 +29,8 @@ BuildRequires:  open-isns-devel
 BuildRequires:  systemd
 BuildRequires:  suse-module-tools
 BuildRequires:  libmount-devel
+BuildRequires:  %{name}-devel
+Requires:       %{name}-devel
 Url:            http://www.open-iscsi.com
 Version:        2.0.876
 Release:        0
@@ -81,6 +83,13 @@ Broadcom Network Controllers:
 This utility will provide the ARP and DHCP functionality for the iSCSI offload.
 The communication to the driver is done via Userspace I/O (Kernel module name
 'uio').
+
+%package devel
+Summary:        Linux open-iscsi user-level library and include files
+Group:          Development/Libraries/C and C++
+Version:        2.0.876
+Release:        0
+
 
 %prep
 %setup -n %{name}-2.0.%{iscsi_release}
@@ -140,6 +149,12 @@ fi
 %preun -n iscsiuio
 %{service_del_preun iscsiuio.socket iscsiuio.service}
 
+%post devel
+%{run_ldconfig}
+
+%postun devel
+%{run_ldconfig}
+
 %files
 %defattr(-,root,root)
 %dir /etc/iscsi
@@ -182,5 +197,9 @@ fi
 %{_unitdir}/iscsiuio.service
 %{_unitdir}/iscsiuio.socket
 %{_sbindir}/rciscsiuio
+
+%files devel
+%{_libdir}/libopeniscsiusr.so*
+%{_includedir}/libopeniscsiusr*.h
 
 %changelog
