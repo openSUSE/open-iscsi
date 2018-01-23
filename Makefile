@@ -101,10 +101,6 @@ install_udev_rules:
 	$(INSTALL) -d $(DESTDIR)$(rulesdir)
 	$(INSTALL) -m 644 $(RULESFILES) $(DESTDIR)/$(rulesdir)
 
-install_udev_rules:
-	$(INSTALL) -d $(DESTDIR)$(rulesdir)
-	$(INSTALL) -m 644 $(RULESFILES) $(DESTDIR)/$(rulesdir)
-
 install_programs:  $(PROGRAMS) $(SCRIPTS)
 	$(INSTALL) -d $(DESTDIR)$(sbindir)
 	$(INSTALL) -m 755 $^ $(DESTDIR)$(sbindir)
