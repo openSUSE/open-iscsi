@@ -29,8 +29,6 @@ BuildRequires:  open-isns-devel
 BuildRequires:  systemd
 BuildRequires:  suse-module-tools
 BuildRequires:  libmount-devel
-BuildRequires:  %{name}-devel
-Requires:       %{name}-devel
 Url:            http://www.open-iscsi.com
 Version:        2.0.876
 Release:        0
@@ -89,7 +87,11 @@ Summary:        Linux open-iscsi user-level library and include files
 Group:          Development/Libraries/C and C++
 Version:        2.0.876
 Release:        0
+Requires:       %{name}
 
+%description devel
+This development package contains the open-iscsi user-level library
+include files and documentation.
 
 %prep
 %setup -n %{name}-2.0.%{iscsi_release}
@@ -187,6 +189,7 @@ fi
 %dir %{_sysconfdir}/udev
 %dir %{_sysconfdir}/udev/rules.d
 %config %{_sysconfdir}/udev/rules.d/50-iscsi-firmware-login.rules
+%{_libdir}/libopeniscsiusr.so*
 
 %files -n iscsiuio
 %defattr(-,root,root)
@@ -199,7 +202,6 @@ fi
 %{_sbindir}/rciscsiuio
 
 %files devel
-%{_libdir}/libopeniscsiusr.so*
 %{_includedir}/libopeniscsiusr*.h
 
 %changelog
