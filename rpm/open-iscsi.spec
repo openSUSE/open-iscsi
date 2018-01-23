@@ -16,32 +16,31 @@
 #
 
 
+%define iscsi_release 876-suse
 Name:           open-iscsi
+Version:        2.0.876
+Release:        0
+Summary:        Linux* Open-iSCSI Software Initiator
+License:        GPL-2.0+
+Group:          Productivity/Networking/Other
+Url:            http://www.open-iscsi.com
+Source:         %{name}-2.0.%{iscsi_release}.tar.bz2
+Patch1:         %{name}-SUSE-latest.diff.bz2
 BuildRequires:  autoconf
 BuildRequires:  automake
 BuildRequires:  bison
 BuildRequires:  db-devel < 5
+BuildRequires:  fdupes
 BuildRequires:  flex
+BuildRequires:  libmount-devel
 BuildRequires:  libtool
 BuildRequires:  make
-BuildRequires:  openssl-devel
 BuildRequires:  open-isns-devel
-BuildRequires:  systemd
+BuildRequires:  openssl-devel
 BuildRequires:  suse-module-tools
-BuildRequires:  libmount-devel
-BuildRequires:  fdupes
-Url:            http://www.open-iscsi.com
-Version:        2.0.876
-Release:        0
-%{?systemd_requires}
-%define iscsi_release 876-suse
-Summary:        Linux* Open-iSCSI Software Initiator
-License:        GPL-2.0+
-Group:          Productivity/Networking/Other
+BuildRequires:  systemd
 Requires(post): coreutils
-Source:         %{name}-2.0.%{iscsi_release}.tar.bz2
-Patch1:         %{name}-SUSE-latest.diff.bz2
-BuildRoot:      %{_tmppath}/%{name}-%{version}-build
+%{?systemd_requires}
 
 %description
 Open-iSCSI is a high-performance, transport independent, multi-platform
@@ -63,10 +62,10 @@ The user space Open-iSCSI consists of a daemon process called iscsid,
 and a management utility iscsiadm.
 
 %package -n iscsiuio
-Summary:        Linux Broadcom NetXtremem II iscsi server
-Group:          Productivity/Networking/Other
 Version:        0.7.8.2
 Release:        0
+Summary:        Linux Broadcom NetXtremem II iscsi server
+Group:          Productivity/Networking/Other
 Requires:       logrotate
 
 %description -n iscsiuio
@@ -84,10 +83,10 @@ The communication to the driver is done via Userspace I/O (Kernel module name
 'uio').
 
 %package devel
-Summary:        Linux open-iscsi user-level library and include files
-Group:          Development/Libraries/C and C++
 Version:        2.0.876
 Release:        0
+Summary:        Linux open-iscsi user-level library and include files
+Group:          Development/Libraries/C and C++
 Requires:       %{name}
 
 %description devel
@@ -96,36 +95,36 @@ include files and documentation. These are used to compile against
 the libopeniscsiusr library.
 
 %prep
-%setup -n %{name}-2.0.%{iscsi_release}
+%setup -q -n %{name}-2.0.%{iscsi_release}
 %patch1 -p1
 
 %build
-%{__make} OPTFLAGS="${RPM_OPT_FLAGS} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"/etc/iscsi\\\"" LDFLAGS="" user
+make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" LDFLAGS="" user
 cd iscsiuio
 touch NEWS
 touch AUTHORS
 autoreconf --install
 %configure --sbindir=/sbin
-make CFLAGS="${RPM_OPT_FLAGS}"
+make %{?_smp_mflags} CFLAGS="%{optflags}"
 
 %install
-make DESTDIR=${RPM_BUILD_ROOT} install_user
+make DESTDIR=%{buildroot} install_user
 # install service files
-make DESTDIR=${RPM_BUILD_ROOT} install_service_suse
+make DESTDIR=%{buildroot} install_service_suse
 # create rc symlinks
-[ -d ${RPM_BUILD_ROOT}/usr/sbin ] || mkdir -p ${RPM_BUILD_ROOT}/usr/sbin
+[ -d %{buildroot}%{_sbindir} ] || mkdir -p %{buildroot}%{_sbindir}
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsi
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsid
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsiuio
-(cd ${RPM_BUILD_ROOT}/etc; ln -sf iscsi/iscsid.conf iscsid.conf)
-touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
+(cd %{buildroot}/etc; ln -sf iscsi/iscsid.conf iscsid.conf)
+touch %{buildroot}%{_sysconfdir}/iscsi/initiatorname.iscsi
 install -m 0755 usr/iscsistart %{buildroot}/sbin
-make DESTDIR=${RPM_BUILD_ROOT} -C iscsiuio install
+make DESTDIR=%{buildroot} -C iscsiuio install
 %fdupes %{buildroot}
 
 %post
 %{?regenerate_initrd_post}
-if [ ! -f /etc/iscsi/initiatorname.iscsi ] ; then
+if [ ! -f %{_sysconfdir}/iscsi/initiatorname.iscsi ] ; then
     /sbin/iscsi-gen-initiatorname
 fi
 %{run_ldconfig}
@@ -157,13 +156,12 @@ fi
 %{service_del_preun iscsiuio.socket iscsiuio.service}
 
 %files
-%defattr(-,root,root)
-%dir /etc/iscsi
-%attr(0600,root,root) %config(noreplace) /etc/iscsi/iscsid.conf
-%ghost /etc/iscsi/initiatorname.iscsi
-%dir /etc/iscsi/ifaces
-%config /etc/iscsi/ifaces/iface.example
-/etc/iscsid.conf
+%dir %{_sysconfdir}/iscsi
+%attr(0600,root,root) %config(noreplace) %{_sysconfdir}/iscsi/iscsid.conf
+%ghost %{_sysconfdir}/iscsi/initiatorname.iscsi
+%dir %{_sysconfdir}/iscsi/ifaces
+%config %{_sysconfdir}/iscsi/ifaces/iface.example
+%{_sysconfdir}/iscsid.conf
 %{_unitdir}/iscsid.service
 %{_unitdir}/iscsid.socket
 %{_unitdir}/iscsi.service
@@ -179,27 +177,26 @@ fi
 /sbin/iscsi_discovery
 /sbin/iscsi_fw_login
 %doc COPYING README
-%doc %{_mandir}/man8/iscsiadm.8.gz
-%doc %{_mandir}/man8/iscsid.8.gz
-%doc %{_mandir}/man8/iscsi_discovery.8.gz
-%doc %{_mandir}/man8/iscsistart.8.gz
-%doc %{_mandir}/man8/iscsi-iname.8.gz
-%doc %{_mandir}/man8/iscsi_fw_login.8.gz
+%{_mandir}/man8/iscsiadm.8%{ext_man}
+%{_mandir}/man8/iscsid.8%{ext_man}
+%{_mandir}/man8/iscsi_discovery.8%{ext_man}
+%{_mandir}/man8/iscsistart.8%{ext_man}
+%{_mandir}/man8/iscsi-iname.8%{ext_man}
+%{_mandir}/man8/iscsi_fw_login.8%{ext_man}
 %{_udevrulesdir}/50-iscsi-firmware-login.rules
 %{_libdir}/libopeniscsiusr.so*
 
 %files -n iscsiuio
-%defattr(-,root,root)
 /sbin/iscsiuio
 /sbin/brcm_iscsiuio
-%doc %{_mandir}/man8/iscsiuio.8.gz
-%config /etc/logrotate.d/iscsiuiolog
+%{_mandir}/man8/iscsiuio.8%{ext_man}
+%config %{_sysconfdir}/logrotate.d/iscsiuiolog
 %{_unitdir}/iscsiuio.service
 %{_unitdir}/iscsiuio.socket
 %{_sbindir}/rciscsiuio
 
 %files devel
 %{_includedir}/libopeniscsiusr*.h
-%doc %{_mandir}/man3/*.3.gz
+%{_mandir}/man3/*.3%{ext_man}
 
 %changelog
