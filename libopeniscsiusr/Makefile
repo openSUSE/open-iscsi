@@ -77,8 +77,8 @@ install: $(LIBS) $(LIBS_MAJOR)
 	$(INSTALL) -m 644 $(HEADERS) $(DESTDIR)$(INCLUDE_DIR)/
 
 install_docs: doc
-	$(INSTALL) -d $(DESTDIR)$(MAN_DIR)
-	$(INSTALL) -m 644 docs/man/*.gz $(DESTDIR)$(MAN_DIR)/man3/
+	$(INSTALL) -d $(DESTDIR)$(MAN_DIR)/man3
+	$(INSTALL) -m 644 docs/man/*.gz $(DESTDIR)$(MAN_DIR)/man3
 
 install_pkgfiles:
 	$(INSTALL) -m 644 -D $(PKGFILE).in $(DESTDIR)$(PKGCONF_DIR)/$(PKGFILE)
