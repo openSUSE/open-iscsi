@@ -29,6 +29,7 @@ BuildRequires:  open-isns-devel
 BuildRequires:  systemd
 BuildRequires:  suse-module-tools
 BuildRequires:  libmount-devel
+BuildRequires:  fdupes
 Url:            http://www.open-iscsi.com
 Version:        2.0.876
 Release:        0
@@ -91,7 +92,8 @@ Requires:       %{name}
 
 %description devel
 This development package contains the open-iscsi user-level library
-include files and documentation.
+include files and documentation. These are used to compile against
+the libopeniscsiusr library.
 
 %prep
 %setup -n %{name}-2.0.%{iscsi_release}
@@ -119,18 +121,21 @@ ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsiuio
 touch ${RPM_BUILD_ROOT}/etc/iscsi/initiatorname.iscsi
 install -m 0755 usr/iscsistart %{buildroot}/sbin
 make DESTDIR=${RPM_BUILD_ROOT} -C iscsiuio install
+%fdupes %{buildroot}
 
 %post
 %{?regenerate_initrd_post}
 if [ ! -f /etc/iscsi/initiatorname.iscsi ] ; then
     /sbin/iscsi-gen-initiatorname
 fi
+%{run_ldconfig}
 %{service_add_post iscsid.socket iscsid.service iscsi.service}
 
 %posttrans
 %{?regenerate_initrd_posttrans}
 
 %postun
+%{run_ldconfig}
 %{service_del_postun iscsid.socket iscsid.service iscsi.service}
 
 %pre
@@ -150,12 +155,6 @@ fi
 
 %preun -n iscsiuio
 %{service_del_preun iscsiuio.socket iscsiuio.service}
-
-%post devel
-%{run_ldconfig}
-
-%postun devel
-%{run_ldconfig}
 
 %files
 %defattr(-,root,root)
@@ -203,5 +202,6 @@ fi
 
 %files devel
 %{_includedir}/libopeniscsiusr*.h
+%doc %{_mandir}/man3/*.3.gz
 
 %changelog
