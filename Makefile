@@ -176,6 +176,7 @@ install_iname:
 
 install_libopeniscsiusr:
 	$(MAKE) -C libopeniscsiusr install
+	$(MAKE) -C libopeniscsiusr install_docs
 
 depend:
 	for dir in usr utils utils/fwparam_ibft; do \
