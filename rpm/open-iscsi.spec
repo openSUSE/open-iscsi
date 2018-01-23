@@ -185,9 +185,7 @@ fi
 %doc %{_mandir}/man8/iscsistart.8.gz
 %doc %{_mandir}/man8/iscsi-iname.8.gz
 %doc %{_mandir}/man8/iscsi_fw_login.8.gz
-%dir /usr/lib/udev
-%dir /usr/lib/udev/rules.d
-%config /usr/lib/udev/rules.d/50-iscsi-firmware-login.rules
+%{_udevrulesdir}/50-iscsi-firmware-login.rules
 %{_libdir}/libopeniscsiusr.so*
 
 %files -n iscsiuio
