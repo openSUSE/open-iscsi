@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu Jan 25 19:18:33 UTC 2018 - lduncan@suse.com
+
+- Fixed coredump when printing session information (bsc#1035236),
+  updating:
+  * open-iscsi-sles12-update.diff.bz2 
+
+-------------------------------------------------------------------
 Sun Dec 31 02:14:24 UTC 2017 - lduncan@suse.com
 
 - Fix vulnerabilities found in iscsiuio by qualsys (bsc#1072312),
