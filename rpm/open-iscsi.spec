@@ -20,7 +20,7 @@
 Name:           open-iscsi
 Version:        2.0.876
 Release:        0
-Summary:        Linux* Open-iSCSI Software Initiator
+Summary:        Linux Open-iSCSI Software Initiator
 License:        GPL-2.0+
 Group:          Productivity/Networking/Other
 Url:            http://www.open-iscsi.com
@@ -43,23 +43,27 @@ Requires(post): coreutils
 %{?systemd_requires}
 
 %description
-Open-iSCSI is a high-performance, transport independent, multi-platform
-implementation of RFC3720 iSCSI.
+Open-iSCSI is a transport independent implementation of RFC 3720
+iSCSI. It is partitioned into user and kernel parts.
 
-Open-iSCSI is partitioned into user and kernel parts.
+The kernel portion of Open-iSCSI implements the iSCSI data path (that
+is, iSCSI Read and iSCSI Write), and consists of two loadable
+modules: iscsi_if.ko and iscsi_tcp.ko.
 
-The kernel portion of Open-iSCSI is a from-scratch code licensed under
-GPL. The kernel part implements iSCSI data path (that is, iSCSI Read
-and iSCSI Write), and consists of two loadable modules: iscsi_if.ko and
-iscsi_tcp.ko.
+The user space part contains the entire control plane: configuration
+manager, iSCSI Discovery, Login and Logout processing,
+connection-level error processing, Nop-In and Nop-Out handling. It
+comes with a daemon process called iscsid, and a management utility,
+iscsiadm.
 
-User space contains the entire control plane: configuration manager,
-iSCSI Discovery, Login and Logout processing, connection-level error
-processing, Nop-In and Nop-Out handling, and (in the future:) Text
-processing, iSNS, SLP, Radius, etc.
+%package -n libopeniscsiusr0_1_0
+Version:        2.0.876
+Release:        0
+Summary:        iSCSI userspace API
+Group:          System/Libraries
 
-The user space Open-iSCSI consists of a daemon process called iscsid,
-and a management utility iscsiadm.
+%description -n libopeniscsiusr0_1_0
+The iSCSI userspace API from the open-iscsi project.
 
 %package -n iscsiuio
 Version:        0.7.8.2
@@ -70,24 +74,25 @@ Requires:       logrotate
 
 %description -n iscsiuio
 This tool is to be used in conjunction with the Broadcom NetXtreme II Linux
-driver (Kernel module name: 'bnx2' and 'bnx2x'), Broadcom CNIC driver,
-and the Broadcom iSCSI driver (Kernel module name: 'bnx2i').
+driver (Kernel module name: "bnx2" and "bnx2x"), Broadcom CNIC driver,
+and the Broadcom iSCSI driver (Kernel module name: "bnx2i").
 This user space tool is used in conjunction with the following
 Broadcom Network Controllers:
-  bnx2:  BCM5706, BCM5708, BCM5709 devices
-  bnx2x: BCM57710, BCM57711, BCM57711E, BCM57712, BCM57712E,
+
+* bnx2:  BCM5706, BCM5708, BCM5709 devices
+* bnx2x: BCM57710, BCM57711, BCM57711E, BCM57712, BCM57712E,
          BCM57800, BCM57810, BCM57840 devices
 
 This utility will provide the ARP and DHCP functionality for the iSCSI offload.
 The communication to the driver is done via Userspace I/O (Kernel module name
-'uio').
+"uio").
 
 %package devel
 Version:        2.0.876
 Release:        0
 Summary:        Linux open-iscsi user-level library and include files
 Group:          Development/Libraries/C and C++
-Requires:       %{name}
+Requires:       libopeniscsiusr0 = %{version}
 
 %description devel
 This development package contains the open-iscsi user-level library
@@ -101,8 +106,7 @@ the libopeniscsiusr library.
 %build
 make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" LDFLAGS="" user
 cd iscsiuio
-touch NEWS
-touch AUTHORS
+touch AUTHORS NEWS
 autoreconf --install
 %configure --sbindir=/sbin
 make %{?_smp_mflags} CFLAGS="%{optflags}"
@@ -119,22 +123,20 @@ ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsiuio
 (cd %{buildroot}/etc; ln -sf iscsi/iscsid.conf iscsid.conf)
 touch %{buildroot}%{_sysconfdir}/iscsi/initiatorname.iscsi
 install -m 0755 usr/iscsistart %{buildroot}/sbin
-make DESTDIR=%{buildroot} -C iscsiuio install
-%fdupes %{buildroot}
+%make_install -C iscsiuio
+%fdupes %{buildroot}/%{_prefix}
 
 %post
 %{?regenerate_initrd_post}
 if [ ! -f %{_sysconfdir}/iscsi/initiatorname.iscsi ] ; then
     /sbin/iscsi-gen-initiatorname
 fi
-%{run_ldconfig}
 %{service_add_post iscsid.socket iscsid.service iscsi.service}
 
 %posttrans
 %{?regenerate_initrd_posttrans}
 
 %postun
-%{run_ldconfig}
 %{service_del_postun iscsid.socket iscsid.service iscsi.service}
 
 %pre
@@ -142,6 +144,9 @@ fi
 
 %preun
 %{service_del_preun iscsid.socket iscsid.service iscsi.service}
+
+%post   -n libopeniscsiusr0_1_0 -p /sbin/ldconfig
+%postun -n libopeniscsiusr0_1_0 -p /sbin/ldconfig
 
 %post -n iscsiuio
 %{service_add_post iscsiuio.socket iscsiuio.service}
@@ -184,6 +189,8 @@ fi
 %{_mandir}/man8/iscsi-iname.8%{ext_man}
 %{_mandir}/man8/iscsi_fw_login.8%{ext_man}
 %{_udevrulesdir}/50-iscsi-firmware-login.rules
+
+%files -n libopeniscsiusr0_1_0
 %{_libdir}/libopeniscsiusr.so*
 
 %files -n iscsiuio
