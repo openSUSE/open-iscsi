@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Tue Feb 20 19:40:58 UTC 2018 - lduncan@suse.com
+
+- Fix ARP booting issue with different subnets
+  (bsc#1058463), updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Wed Feb  7 17:50:15 UTC 2018 - jengelh@inai.de
 
 - Trim filler wording from description.
