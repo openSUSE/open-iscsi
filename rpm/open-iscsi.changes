@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu Feb 22 22:53:50 UTC 2018 - lduncan@suse.com
+
+- Fix ARP booting issue with different subnets
+  (bsc#1058463), updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Thu Jan 25 19:18:33 UTC 2018 - lduncan@suse.com
 
 - Fixed coredump when printing session information (bsc#1035236),
