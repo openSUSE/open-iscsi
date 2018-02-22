@@ -40,6 +40,7 @@ BuildRequires:  openssl-devel
 BuildRequires:  suse-module-tools
 BuildRequires:  systemd
 Requires(post): coreutils
+Requires:       libopeniscsiusr0_1_0 = %{version}
 %{?systemd_requires}
 
 %description
@@ -92,7 +93,7 @@ Version:        2.0.876
 Release:        0
 Summary:        Linux open-iscsi user-level library and include files
 Group:          Development/Libraries/C and C++
-Requires:       libopeniscsiusr0 = %{version}
+Requires:       %{name}
 
 %description devel
 This development package contains the open-iscsi user-level library

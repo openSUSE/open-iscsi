@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Feb 21 19:19:13 UTC 2018 - lduncan@suse.com
+
+- Ensure correct dependencies: main package must depend
+  on (new) libopeniscsiusr package, and devel package
+  must depend on main package (updating spec file)
+
+-------------------------------------------------------------------
 Tue Feb 20 19:40:58 UTC 2018 - lduncan@suse.com
 
 - Fix ARP booting issue with different subnets
