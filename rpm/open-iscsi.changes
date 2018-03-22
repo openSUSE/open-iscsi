@@ -1,4 +1,15 @@
 -------------------------------------------------------------------
+Thu Mar 22 18:35:10 UTC 2018 - lduncan@suse.com
+
+- Cleaned up complaints by gcc-8 about strings (bsc#1084640)
+- Fixed rpmlint complaint about libopeniscsiusr summary
+  not starting with a capital letter
+- Fixed libopeniscsiusr global variable overload
+- No functional changes. This updates:
+  * open-iscsi-SUSE-latest.diff.bz2, and
+  * open-iscsi.spec
+
+-------------------------------------------------------------------
 Wed Feb 21 19:19:13 UTC 2018 - lduncan@suse.com
 
 - Ensure correct dependencies: main package must depend
