@@ -60,7 +60,7 @@ iscsiadm.
 %package -n libopeniscsiusr0_1_0
 Version:        2.0.876
 Release:        0
-Summary:        iSCSI userspace API
+Summary:        Userspace iSCSI API
 Group:          System/Libraries
 
 %description -n libopeniscsiusr0_1_0
