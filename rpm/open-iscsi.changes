@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Fri Apr 13 20:50:05 UTC 2018 - lduncan@suse.com
+
+- Added 2 upstream commits to address issue of
+  iscsi_if.h stayig in sync with kernel vesion (bsc#1086344)
+
+-------------------------------------------------------------------
 Thu Mar 22 18:35:10 UTC 2018 - lduncan@suse.com
 
 - Cleaned up complaints by gcc-8 about strings (bsc#1084640)
