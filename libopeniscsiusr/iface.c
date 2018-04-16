@@ -158,7 +158,6 @@ int _iscsi_iface_get(struct iscsi_context *ctx, uint32_t host_id, uint32_t sid,
 	char proc_name[ISCSI_TRANSPORT_NAME_MAXLEN];
 
 	assert(ctx != NULL);
-	assert(host_id != 0);
 	assert(sid != 0);
 	/* TODO(Gris Ge): Handle when sid == 0(ignored) */
 	assert(iface != NULL);
