@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Apr 18 17:17:52 UTC 2018 - lduncan@suse.com
+
+- Added upstream patch to allow host_id of 0 (bsc#1089687),
+  updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Fri Apr 13 20:50:05 UTC 2018 - lduncan@suse.com
 
 - Added 2 upstream commits to address issue of iscsi_if.h
