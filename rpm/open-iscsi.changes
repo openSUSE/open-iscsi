@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Mon Apr 23 18:23:29 UTC 2018 - lduncan@suse.com
+
+- Ensure we can get qedi transport name (bsc#1090275), updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Wed Apr 18 17:17:52 UTC 2018 - lduncan@suse.com
 
 - Added upstream patch to allow host_id of 0 (bsc#1089687),
