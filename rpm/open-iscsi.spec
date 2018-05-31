@@ -1,7 +1,7 @@
 #
 # spec file for package open-iscsi
 #
-# Copyright (c) 2017 SUSE LINUX GmbH, Nuernberg, Germany.
+# Copyright (c) 2018 SUSE LINUX GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -22,13 +22,13 @@ BuildRequires:  automake
 BuildRequires:  bison
 BuildRequires:  db-devel < 5
 BuildRequires:  flex
+BuildRequires:  libmount-devel
 BuildRequires:  libtool
 BuildRequires:  make
-BuildRequires:  openssl-devel
 BuildRequires:  open-isns-devel
-BuildRequires:  systemd
+BuildRequires:  openssl-devel
 BuildRequires:  suse-module-tools
-BuildRequires:  libmount-devel
+BuildRequires:  systemd
 Url:            http://www.open-iscsi.com
 Version:        2.0.874
 Release:        0
