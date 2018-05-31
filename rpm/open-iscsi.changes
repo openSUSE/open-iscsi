@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu May 31 21:24:19 UTC 2018 - lduncan@suse.com
+
+- Fix a core dump which can occur if iscsiuio is started then
+  immediately stopped (bsc#1094797), updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Thu Feb 22 19:05:32 UTC 2018 - lduncan@suse.com
 
 - Fix ARP booting issue with different subnets
