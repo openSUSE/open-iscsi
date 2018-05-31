@@ -162,7 +162,8 @@ fi
 /sbin/iscsi_offload
 /sbin/iscsi_discovery
 /sbin/iscsi_fw_login
-%doc COPYING README
+%license COPYING
+%doc README
 %doc %{_mandir}/man8/iscsiadm.8.gz
 %doc %{_mandir}/man8/iscsid.8.gz
 %doc %{_mandir}/man8/iscsi_discovery.8.gz
