@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu May 31 21:41:35 UTC 2018 - lduncan@suse.com
+
+- Fix a core dump which can occur if iscsiuio is started then
+  immediately stopped (bsc#1094797), updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Mon Apr 23 18:23:29 UTC 2018 - lduncan@suse.com
 
 - Ensure we can get qedi transport name (bsc#1090275), updating:
