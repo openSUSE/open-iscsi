@@ -29,6 +29,7 @@
 #include <signal.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <inttypes.h>
 
 #include <libopeniscsiusr/libopeniscsiusr.h>
 
@@ -93,6 +94,11 @@ enum iscsiadm_op {
 	OP_APPLY_ALL		= 0x40,
 	OP_LOGIN		= 0x80,
 	OP_LOGOUT		= 0x100
+};
+
+enum _print_node_tree_mode {
+	_PRINT_MODE_IFACE,
+	_PRINT_MODE_NODE,
 };
 
 static struct option const long_options[] =
@@ -675,26 +681,132 @@ static int login_portals(struct node_rec *pattern_rec)
 	return rc;
 }
 
-static int print_nodes(int info_level, struct node_rec *rec)
+static void print_node_flat(struct iscsi_node *node)
 {
-	struct node_rec tmp_rec;
+		printf("%s,%" PRIu16 "%s\n",
+		       iscsi_node_portal_get(node),
+		       iscsi_node_tpgt_get(node),
+		       iscsi_node_target_name_get(node));
+}
+
+// The 'iface_mode' argument is only used for command
+//	`iscsiadm -m iface -P 1`
+static void print_nodes_tree(struct iscsi_node **nodes, uint32_t node_count,
+			     enum _print_node_tree_mode print_mode)
+{
+	uint32_t i = 0;
+	struct iscsi_node *cur_node = NULL;
+	struct iscsi_node *pre_node = NULL;
+	const char *prefix = NULL;
+
+	if (print_mode == _PRINT_MODE_IFACE)
+		prefix = "\t";
+	else
+		prefix = "";
+
+	// According to libopeniscsiusr document, nodes are sorted. There
+	// is no need to create hash table for this.
+	for (i = 0; i < node_count; ++i) {
+		cur_node = nodes[i];
+		if ( i != 0)
+			pre_node = nodes[i - 1];
+		if ((pre_node == NULL) ||
+		    (strcmp(iscsi_node_target_name_get(cur_node),
+			    iscsi_node_target_name_get(pre_node)) != 0))
+			printf("%sTarget: %s\n", prefix,
+			       iscsi_node_target_name_get(cur_node));
+		if ((pre_node == NULL) ||
+		    (strcmp(iscsi_node_conn_address_get(cur_node),
+			    iscsi_node_conn_address_get(pre_node)) != 0) ||
+		    (iscsi_node_conn_port_get(cur_node) !=
+		     iscsi_node_conn_port_get(pre_node)))
+			printf("%s\tPortal: %s,%d\n", prefix,
+			       iscsi_node_portal_get(cur_node),
+			       iscsi_node_tpgt_get(cur_node));
+		if ((pre_node == NULL) ||
+		    (strcmp(iscsi_node_iface_name_get(cur_node),
+			    iscsi_node_iface_name_get(pre_node)) != 0))
+			if (print_mode == _PRINT_MODE_NODE)
+				printf("\t\tIface Name: %s\n",
+				       iscsi_node_iface_name_get(cur_node));
+	}
+}
+
+static int print_nodes(struct iscsi_context *ctx, int info_level)
+{
+	struct iscsi_node **nodes = NULL;
+	uint32_t node_count = 0;
+	uint32_t i = 0;
 	int rc = 0;
 
-	switch (info_level) {
-	case 0:
-	case -1:
-		rc = for_each_matched_rec(rec, NULL, idbm_print_node_flat);
-		break;
-	case 1:
-		memset(&tmp_rec, 0, sizeof(node_rec_t));
-		rc = for_each_matched_rec(rec, &tmp_rec,
-					  idbm_print_node_and_iface_tree);
-		break;
-	default:
+	if ((info_level != 0) && (info_level != -1) && (info_level != 1)) {
 		log_error("Invalid info level %d. Try 0 or 1.", info_level);
 		rc = ISCSI_ERR_INVAL;
+		goto out;
 	}
 
+	rc = iscsi_nodes_get(ctx, &nodes, &node_count);
+	if (rc != LIBISCSI_OK)
+		goto out;
+
+	if (info_level == 1)
+		print_nodes_tree(nodes, node_count, _PRINT_MODE_NODE);
+	else
+		for (i = 0; i < node_count; ++i)
+			print_node_flat(nodes[i]);
+
+out:
+	iscsi_nodes_free(nodes, node_count);
+	return rc;
+}
+
+static int print_nodes_config(struct iscsi_context *ctx, bool show_secret,
+			      const char *target_name, const char *address,
+			      int32_t port, const char *iface_name)
+{
+	int rc = 0;
+	struct iscsi_node **nodes = NULL;
+	struct iscsi_node *node = NULL;
+	uint32_t node_count = 0;
+	uint32_t i = 0;
+	bool match = false;
+	bool has_match = false;
+
+	rc = iscsi_nodes_get(ctx, &nodes, &node_count);
+	if (rc != LIBISCSI_OK)
+		return rc;
+
+	for (i = 0; i < node_count; ++i) {
+		node = nodes[i];
+		match = true;
+		if ((target_name != NULL) &&
+		    (strlen(target_name) != 0) &&
+		    (strcmp(target_name,
+			    iscsi_node_target_name_get(node)) != 0))
+			match = false;
+		if ((address != NULL) &&
+		    (strlen(address) != 0) &&
+		    (strcmp(address, iscsi_node_conn_address_get(node)) != 0))
+			match = false;
+		if ((port != -1) && (port != iscsi_node_conn_port_get(node)))
+			match = false;
+		if ((iface_name != NULL) &&
+		    (strlen(iface_name) != 0) &&
+		    (strcmp(iface_name, iscsi_node_iface_name_get(node)) != 0))
+			match = false;
+
+		if (match == true) {
+			iscsi_node_print_config(node, show_secret);
+			has_match = true;
+		}
+	}
+
+	iscsi_nodes_free(nodes, node_count);
+
+	if (has_match == false) {
+		log_error("No records found");
+		rc = ISCSI_ERR_NO_OBJS_FOUND;
+	}
 	return rc;
 }
 
@@ -2277,6 +2389,151 @@ static int verify_iface_params(struct list_head *params, struct node_rec *rec)
 	return 0;
 }
 
+static void _print_iface_tree(struct iscsi_node **nodes, uint32_t node_count,
+			      const char *iface_name,
+			      struct iscsi_node **matched_nodes)
+{
+	struct iscsi_node *node = NULL;
+	uint32_t matched_node_count = 0;
+	uint32_t i = 0;
+
+	for (i = 0; i < node_count; ++i) {
+		node = nodes[i];
+		if (strcmp(iface_name, iscsi_node_iface_name_get(node))
+		    == 0)
+			matched_nodes[matched_node_count++] = node;
+	}
+	printf("Iface: %s\n", iface_name);
+	print_nodes_tree(matched_nodes, matched_node_count, _PRINT_MODE_IFACE);
+}
+
+static int print_iface_tree(struct iscsi_context *ctx,
+			     const char *iface_name)
+{
+	int rc = 0;
+	struct iscsi_node **nodes = NULL;
+	struct iscsi_node **matched_nodes = NULL;
+	uint32_t node_count = 0;
+	struct iscsi_iface *iface = NULL;
+	struct iscsi_iface **ifaces = NULL;
+	uint32_t iface_count = 0;
+	uint32_t i = 0;
+
+	_good(iscsi_nodes_get(ctx, &nodes, &node_count),
+	      rc, out);
+	if (node_count == 0)
+		goto out;
+	matched_nodes = calloc(node_count, sizeof(struct iscsi_node *));
+	if (matched_nodes == NULL) {
+		log_error("No memory");
+		goto out;
+	}
+
+	if (iface_name != NULL) {
+		// Just make sure specified iface exists
+		_good(iscsi_iface_get(ctx, iface_name, &iface), rc, out);
+		_print_iface_tree(nodes, node_count, iface_name,
+				  matched_nodes);
+	} else {
+		_good(iscsi_ifaces_get(ctx, &ifaces, &iface_count),
+		      rc, out);
+		for (i = 0; i < iface_count; ++i)
+			_print_iface_tree(nodes, node_count,
+					  iscsi_iface_name_get(ifaces[i]),
+					  matched_nodes);
+	}
+
+out:
+	free(matched_nodes);
+	iscsi_ifaces_free(ifaces, iface_count);
+	iscsi_iface_free(iface);
+	iscsi_nodes_free(nodes, node_count);
+	return rc;
+}
+
+static int iface_param_update(struct iface_rec *iface, struct list_head *params)
+{
+	struct node_rec *rec;
+	int rc = 0;
+
+	rec = idbm_create_rec(NULL, -1, NULL, -1, iface, 1);
+	if (!rec) {
+		rc = ISCSI_ERR_INVAL;
+		goto update_fail;
+	}
+
+	if (iscsi_check_for_running_session(rec))
+		log_warning("Updating iface while iscsi sessions "
+			    "are using it. You must logout the running "
+			    "sessions then log back in for the "
+			    "new settings to take affect.");
+
+	rc = verify_iface_params(params, rec);
+	if (rc)
+		goto update_fail;
+
+	rc = iface_conf_update(params, &rec->iface);
+	if (rc)
+		goto update_fail;
+
+	rc = __for_each_matched_rec(0, rec, params, idbm_node_set_param);
+	if (rc == ISCSI_ERR_NO_OBJS_FOUND)
+		rc = 0;
+	else if (rc)
+		goto update_fail;
+
+	printf("%s updated.\n", iface->name);
+	free(rec);
+	return rc;
+
+update_fail:
+	log_error("Could not update iface %s: %s",
+		  iface->name, iscsi_err_to_str(rc));
+	free(rec);
+	return rc;
+}
+
+struct iface_param_sync {
+	struct iface_rec *primary;
+	struct list_head *params;
+	int count;
+};
+
+static int update_sync_params(void *data, struct iface_rec *iface)
+{
+	struct iface_param_sync *iface_params = data;
+	struct iface_rec *primary = iface_params->primary;
+	struct list_head *params = iface_params->params;
+
+	if ((strcmp(primary->transport_name, iface->transport_name)) ||
+	    (strcmp(primary->hwaddress, iface->hwaddress)) ||
+	    (primary->iface_num != iface->iface_num))
+		return 0;
+
+	return iface_param_update(iface, params);
+}
+
+static int split_vlan_params(struct list_head *params, struct list_head *vlan_params)
+{
+	struct user_param *param, *tmp;
+
+	list_for_each_entry_safe(param, tmp, params, list) {
+		if (!strncmp(param->name, "iface.vlan", 10)) {
+			list_move_tail(&param->list, vlan_params);
+		}
+	}
+	return 0;
+}
+
+static inline void list_splice_tail(struct list_head *list, struct list_head *head)
+{
+	list->prev->next = head;
+	list->next->prev = head->prev;
+	head->prev->next = list->next;
+	head->prev = list->prev;
+	INIT_LIST_HEAD(list);
+}
+
 /* TODO: merge iter helpers and clean them up, so we can use them here */
 static int exec_iface_op(struct iscsi_context *ctx, int op, int do_show,
 			 int info_level, struct iface_rec *iface,
@@ -2289,8 +2546,9 @@ static int exec_iface_op(struct iscsi_context *ctx, int op, int do_show,
 	struct iscsi_iface *iface_info = NULL;
 	uint32_t iface_count = 0;
 	uint32_t i = 0;
-	int num_found = 0;
 
+	LIST_HEAD(vlan_params);
+	struct iscsi_transport *t;
 	switch (op) {
 	case OP_NEW:
 		if (!iface) {
@@ -2352,36 +2610,27 @@ delete_fail:
 		rec = idbm_create_rec(NULL, -1, NULL, -1, iface, 1);
 		if (!rec) {
 			rc = ISCSI_ERR_INVAL;
-			goto update_fail;
-		}
-
-		if (iscsi_check_for_running_session(rec))
-			log_warning("Updating iface while iscsi sessions "
-				    "are using it. You must logout the running "
-				    "sessions then log back in for the "
-				    "new settings to take affect.");
-
-		rc = verify_iface_params(params, rec);
-		if (rc)
 			break;
-
-		/* pass rec's iface because it has the db values */
-		rc = iface_conf_update(params, &rec->iface);
-		if (rc)
-			goto update_fail;
-
-		rc = __for_each_matched_rec(0, rec, params,
-					    idbm_node_set_param);
-		if (rc == ISCSI_ERR_NO_OBJS_FOUND)
-			rc = 0;
-		else if (rc)
-			goto update_fail;
-
-		printf("%s updated.\n", iface->name);
-		break;
-update_fail:
-		log_error("Could not update iface %s: %s",
-			  iface->name, iscsi_err_to_str(rc));
+		}
+		t = iscsi_sysfs_get_transport_by_name(rec->iface.transport_name);
+		if (!t) {
+			log_error("Cound not locate transport for iface %s", iface->name);
+			rc = ISCSI_ERR_INVAL;
+			break;
+		}
+		if (t->template->sync_vlan_settings) {
+			/* sync shared vlan settings across ifaces */
+			int nr_found = 0;
+			struct iface_param_sync sync_params = {
+				.primary = &rec->iface,
+				.params = &vlan_params,
+				.count = 0,
+			};
+			split_vlan_params(params, &vlan_params);
+			iface_for_each_iface(&sync_params, 1, &nr_found, update_sync_params);
+		}
+		iface_param_update(&rec->iface, params);
+		list_splice_tail(&vlan_params, params);
 		break;
 	case OP_APPLY:
 		if (!iface) {
@@ -2472,26 +2721,7 @@ update_fail:
 			 * TODO(Gris Ge): Once we have node support from
 			 * libopeniscsiusr, change below codes.
 			 */
-			if (iface) {
-				rc = iface_conf_read(iface);
-				if (rc) {
-					log_error("Could not read iface %s.",
-						 iface->name);
-					goto out;
-				}
-				iface_print_tree(NULL, iface);
-			} else {
-				rc = iface_for_each_iface(NULL, 0, &num_found,
-							   iface_print_tree);
-				if (rc)
-					goto out;
-				if (num_found <= 0) {
-					log_error("No interfaces found.");
-					rc = ISCSI_ERR_NO_OBJS_FOUND;
-					goto out;
-				}
-			}
-
+			rc = print_iface_tree(ctx, iface ? iface->name : NULL);
 			break;
 		default:
 			log_error("Invalid info level %d. Try 0 - 1.",
@@ -2560,8 +2790,8 @@ static int verify_node_params(struct list_head *params, struct node_rec *rec)
 }
 
 /* TODO cleanup arguments */
-static int exec_node_op(int op, int do_login, int do_logout,
-			int do_show, int do_rescan, int do_stats,
+static int exec_node_op(struct iscsi_context *ctx, int op, int do_login,
+			int do_logout, int do_show, int do_rescan, int do_stats,
 			int info_level, struct node_rec *rec,
 			struct list_head *params)
 {
@@ -2601,9 +2831,10 @@ static int exec_node_op(int op, int do_login, int do_logout,
 	}
 
 	if ((!do_login && !do_logout && op == OP_NOOP) &&
-	    (!strlen(rec->name) && !strlen(rec->conn[0].address) &&
-	     !strlen(rec->iface.name))) {
-		rc = print_nodes(info_level, rec);
+	    ((rec == NULL) ||
+	     (!strlen(rec->name) && !strlen(rec->conn[0].address) &&
+	      !strlen(rec->iface.name)))) {
+		rc = print_nodes(ctx, info_level);
 		goto out;
 	}
 
@@ -2623,7 +2854,9 @@ static int exec_node_op(int op, int do_login, int do_logout,
 	}
 
 	if (op == OP_NOOP || (!do_login && !do_logout && op == OP_SHOW)) {
-		rc = for_each_matched_rec(rec, &do_show, idbm_print_node_info);
+		rc = print_nodes_config(ctx, do_show ? true : false,
+					rec->name, rec->conn[0].address,
+					rec->conn[0].port, rec->iface.name);
 		goto out;
 	}
 
@@ -3690,7 +3923,7 @@ main(int argc, char **argv)
 			goto out;
 		}
 
-		rc = exec_node_op(op, do_login, do_logout, do_show,
+		rc = exec_node_op(ctx, op, do_login, do_logout, do_show,
 				  do_rescan, do_stats, info_level, rec,
 				  &params);
 		break;
@@ -3775,7 +4008,7 @@ main(int argc, char **argv)
 			}
 
 			/* drop down to node ops */
-			rc = exec_node_op(op, do_login, do_logout, do_show,
+			rc = exec_node_op(ctx, op, do_login, do_logout, do_show,
 					  do_rescan, do_stats, info_level,
 					  rec, &params);
 free_info:
@@ -3789,7 +4022,7 @@ free_info:
 				goto out;
 			}
 			if (do_logout || do_rescan || do_stats) {
-				rc = exec_node_op(op, do_login, do_logout,
+				rc = exec_node_op(ctx, op, do_login, do_logout,
 						 do_show, do_rescan, do_stats,
 						 info_level, NULL, &params);
 				goto out;
