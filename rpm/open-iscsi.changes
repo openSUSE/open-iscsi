@@ -2,7 +2,8 @@
 Tue Aug  7 19:35:02 UTC 2018 - lduncan@suse.com
 
 - Update to latest upstream, including fixes for iscsiuio
-  (bsc#110349), updating 
+  (bsc#110349), updating:
+  * open-iscsi-SUSE-latest.diff.bz2
 
 -------------------------------------------------------------------
 Fri Jun 15 18:25:17 UTC 2018 - lduncan@suse.com
