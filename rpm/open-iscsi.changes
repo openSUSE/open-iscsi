@@ -1,4 +1,15 @@
 -------------------------------------------------------------------
+Tue Aug  7 19:35:02 UTC 2018 - lduncan@suse.com
+
+- Update to latest upstream, including fixes for iscsiuio
+  (bsc#110349), updating 
+
+-------------------------------------------------------------------
+Fri Jun 15 18:25:17 UTC 2018 - lduncan@suse.com
+
+- Updated SPEC file to use "%license" for COPYING file
+
+-------------------------------------------------------------------
 Thu May 31 21:41:35 UTC 2018 - lduncan@suse.com
 
 - Fix a core dump which can occur if iscsiuio is started then
