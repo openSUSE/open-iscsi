@@ -2,7 +2,7 @@
 Wed Aug  8 03:09:53 UTC 2018 - lduncan@suse.com
 
 - Update to latest upstream, including fixes for iscsiuio
-  (bsc#110349), updating:
+  (bsc#110351), updating:
   * open-iscsi-SUSE-latest.diff.bz2
   And update SPEC file to latest. Also, replace
   open-iscsi-2.0.874-suse.tar.bz2 with
