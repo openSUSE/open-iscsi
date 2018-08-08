@@ -13,9 +13,9 @@ bindir = $(exec_prefix)/bin
 mandir = $(prefix)/share/man
 etcdir = /etc
 initddir = $(etcdir)/init.d
-mkinitrd = $(exec_prefix)/lib/mkinitrd/scripts
 systemddir = $(prefix)/lib/systemd
-rulesdir = $(etcdir)/udev/rules.d
+libdir = $(prefix)/lib
+rulesdir = $(libdir)/udev/rules.d
 
 MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8 \
 		iscsiuio/docs/iscsiuio.8 doc/iscsi_fw_login.8 doc/iscsi-iname.8 \
@@ -23,6 +23,12 @@ MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8 \
 PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi-iname iscsiuio/src/unix/iscsiuio
 SCRIPTS = utils/iscsi_discovery utils/iscsi_fw_login utils/iscsi_offload \
 		  utils/iscsi-gen-initiatorname
+INSTALL = install
+ETCFILES = etc/iscsid.conf
+IFACEFILES = etc/iface.example
+RULESFILES = utils/50-iscsi-firmware-login.rules
+
+export DESTDIR prefix INSTALL
 
 # Compatibility: parse old OPTFLAGS argument
 ifdef OPTFLAGS
@@ -73,8 +79,8 @@ clean:
 	$(MAKE) -C utils clean
 	$(MAKE) -C usr clean
 	$(MAKE) -C libopeniscsiusr clean
-	[ ! -f iscsiuio/Makefile ] || $(MAKE) -C iscsiuio clean
 	[ ! -f iscsiuio/Makefile ] || $(MAKE) -C iscsiuio distclean
+	[ ! -f iscsiuio/Makefile ] || $(MAKE) -C iscsiuio clean
 
 # this is for safety
 # now -jXXX will still be safe
@@ -85,11 +91,12 @@ clean:
 	install_udev_rules
 
 install: install_programs install_doc install_etc \
-	install_initd install_iname install_iface install_udev_rules \
-	install_libopeniscsiusr
+	install_initd install_iname install_iface install_libopeniscsiusr \
+	install_udev_rules
 
 install_user: install_programs install_doc install_etc \
-	install_initd install_iname install_iface install_udev_rules
+	install_initd install_iname install_iface install_udev_rules \
+	install_libopeniscsiusr
 
 install_udev_rules:
 	$(INSTALL) -d $(DESTDIR)$(rulesdir)
@@ -108,7 +115,6 @@ install_initd:
 		$(MAKE) install_initd_redhat ; \
 	elif [ -f /etc/SuSE-release ]; then \
 		$(MAKE) install_initd_suse ; \
-		$(MAKE) install_mkinitrd_suse ; \
 	fi
 
 # these are external targets to allow bypassing distribution detection
@@ -118,15 +124,6 @@ install_initd_suse:
 		$(DESTDIR)$(initddir)/open-iscsi
 	$(INSTALL) -m 755 etc/initd/boot.suse \
 		$(DESTDIR)$(initddir)/boot.open-iscsi
-
-install_mkinitrd_suse:
-	$(INSTALL) -d $(DESTDIR)$(mkinitrd)
-	$(INSTALL) -m 755 etc/mkinitrd/mkinitrd-boot.sh \
-		$(DESTDIR)$(mkinitrd)/boot-iscsi.sh
-	$(INSTALL) -m 755 etc/mkinitrd/mkinitrd-setup.sh \
-		$(DESTDIR)$(mkinitrd)/setup-iscsi.sh
-	$(INSTALL) -m 755 etc/mkinitrd/mkinitrd-stop.sh \
-		$(DESTDIR)$(mkinitrd)/boot-killiscsi.sh
 
 install_initd_redhat:
 	$(INSTALL) -d $(DESTDIR)$(initddir)
@@ -180,6 +177,7 @@ install_iname:
 
 install_libopeniscsiusr:
 	$(MAKE) -C libopeniscsiusr install
+	$(MAKE) -C libopeniscsiusr install_docs
 
 depend:
 	for dir in usr utils utils/fwparam_ibft; do \
