@@ -22,6 +22,7 @@ endif
 
 INCLUDE_DIR ?= $(prefix)/include
 PKGCONF_DIR ?= $(LIB_DIR)/pkgconfig
+MAN_DIR ?= $(prefix)/share/man
 
 LIBISCSI_USR_DIR=$(TOPDIR)/libopeniscsiusr
 
@@ -68,12 +69,18 @@ check: $(LIBS) $(TESTS)
 		tests/runtest.sh || exit 1;
 
 install: $(LIBS) $(LIBS_MAJOR)
-	$(INSTALL) -d $(DESTDIR)/$(LIB_DIR)/
-	$(INSTALL) -d $(DESTDIR)/$(INCLUDE_DIR)/
-	$(INSTALL) $(LIBS) $(DESTDIR)$(LIB_DIR)/
-	ln -sf $(LIBS) $(DESTDIR)/$(LIB_DIR)/$(DEVLIB)
-	ln -sf $(LIBS) $(DESTDIR)/$(LIB_DIR)/$(LIBS_MAJOR)
-	$(INSTALL) $(HEADERS) $(DESTDIR)$(INCLUDE_DIR)/
+	$(INSTALL) -d $(DESTDIR)$(LIB_DIR)/
+	$(INSTALL) -d $(DESTDIR)$(INCLUDE_DIR)/
+	$(INSTALL) -m 644 $(LIBS) $(DESTDIR)$(LIB_DIR)/
+	$(INSTALL) -m 644 $(DEVLIB) $(DESTDIR)$(LIB_DIR)/
+	$(INSTALL) -m 644 $(LIBS_MAJOR) $(DESTDIR)$(LIB_DIR)/
+	$(INSTALL) -m 644 $(HEADERS) $(DESTDIR)$(INCLUDE_DIR)/
+
+install_docs: doc
+	$(INSTALL) -d $(DESTDIR)$(MAN_DIR)/man3
+	$(INSTALL) -m 644 docs/man/*.gz $(DESTDIR)$(MAN_DIR)/man3
+
+install_pkgfiles:
 	$(INSTALL) -m 644 -D $(PKGFILE).in $(DESTDIR)$(PKGCONF_DIR)/$(PKGFILE)
 	perl -i -pe 's|__VERSION__|$(LIBNVME_VERSION)|g' \
 		$(DESTDIR)$(PKGCONF_DIR)/$(PKGFILE)
