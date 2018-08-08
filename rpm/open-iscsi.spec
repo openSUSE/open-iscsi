@@ -35,7 +35,7 @@ Release:        0
 %{?systemd_requires}
 %define iscsi_release 874-suse
 Summary:        Linux* Open-iSCSI Software Initiator
-License:        GPL-2.0+
+License:        GPL-2.0-or-later
 Group:          Productivity/Networking/Other
 Requires(post): coreutils
 Source:         %{name}-2.0.%{iscsi_release}.tar.bz2
