@@ -30,10 +30,10 @@ BuildRequires:  openssl-devel
 BuildRequires:  suse-module-tools
 BuildRequires:  systemd
 Url:            http://www.open-iscsi.com
-Version:        2.0.874
+Version:        2.0.876
 Release:        0
 %{?systemd_requires}
-%define iscsi_release 874-suse
+%define iscsi_release 876-suse
 Summary:        Linux* Open-iSCSI Software Initiator
 License:        GPL-2.0-or-later
 Group:          Productivity/Networking/Other
