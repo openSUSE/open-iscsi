@@ -37,6 +37,7 @@
 #include "iscsi_ipc.h"
 #include "iscsi_err.h"
 #include "iscsi_util.h"
+#include "iscsid_req.h"
 
 #define PEERUSER_MAX	64
 #define EXTMSG_MAX	(64 * 1024)
@@ -60,7 +61,7 @@ mgmt_ipc_listen(void)
 		return fd;
 	}
 
-	addr_len = setup_abstract_addr(&addr, ISCSIADM_NAMESPACE);
+	addr_len = setup_abstract_addr(&addr, iscsid_namespace);
 
 	if ((err = bind(fd, (struct sockaddr *) &addr, addr_len)) < 0 ) {
 		log_error("Can not bind IPC socket");
@@ -349,7 +350,6 @@ mgmt_ipc_notify_del_portal(queue_task_t *qtask)
 static int
 mgmt_peeruser(int sock, char *user)
 {
-#if defined(SO_PEERCRED)
 	/* Linux style: use getsockopt(SO_PEERCRED) */
 	struct ucred peercred;
 	socklen_t so_len = sizeof(peercred);
@@ -372,62 +372,6 @@ mgmt_peeruser(int sock, char *user)
 
 	strlcpy(user, pass->pw_name, PEERUSER_MAX);
 	return 1;
-
-#elif defined(SCM_CREDS)
-	struct msghdr msg;
-	typedef struct cmsgcred Cred;
-#define cruid cmcred_uid
-	Cred *cred;
-
-	/* Compute size without padding */
-	/* for NetBSD */
-	char cmsgmem[_ALIGN(sizeof(struct cmsghdr)) + _ALIGN(sizeof(Cred))];
-
-	/* Point to start of first structure */
-	struct cmsghdr *cmsg = (struct cmsghdr *) cmsgmem;
-
-	struct iovec iov;
-	char buf;
-	struct passwd *pw;
-
-	memset(&msg, 0, sizeof(msg));
-	msg.msg_iov = &iov;
-	msg.msg_iovlen = 1;
-	msg.msg_control = (char *) cmsg;
-	msg.msg_controllen = sizeof(cmsgmem);
-	memset(cmsg, 0, sizeof(cmsgmem));
-
-	/*
-	 * The one character which is received here is not meaningful; its
-	 * purposes is only to make sure that recvmsg() blocks long enough for
-	 * the other side to send its credentials.
-	 */
-	iov.iov_base = &buf;
-	iov.iov_len = 1;
-
-	if (recvmsg(sock, &msg, 0) < 0 || cmsg->cmsg_len < sizeof(cmsgmem) ||
-			cmsg->cmsg_type != SCM_CREDS) {
-		log_error("ident_unix: error receiving credentials: %m");
-		return 0;
-	}
-
-	cred = (Cred *) CMSG_DATA(cmsg);
-
-	pw = getpwuid(cred->cruid);
-	if (pw == NULL) {
-		log_error("ident_unix: unknown local user with uid %d",
-				(int) cred->cruid);
-		return 0;
-	}
-
-	strlcpy(user, pw->pw_name, PEERUSER_MAX);
-	return 1;
-
-#else
-	log_error("'mgmg_ipc' auth is not supported on local connections "
-		"on this platform");
-	return 0;
-#endif
 }
 
 static void

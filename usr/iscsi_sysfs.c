@@ -706,6 +706,11 @@ static int iscsi_sysfs_read_boot(struct iface_rec *iface, char *session)
 		log_debug(5, "could not read %s/%s/subnet", boot_root,
 			  boot_nic);
 
+	if (sysfs_get_str(boot_nic, boot_root, "gateway",
+			  iface->gateway, NI_MAXHOST))
+		log_debug(5, "could not read %s/%s/gateway", boot_root,
+			  boot_nic);
+
 	log_debug(5, "sysfs read boot returns %s/%s/ vlan = %d subnet = %s",
 		  boot_root, boot_nic, iface->vlan_id, iface->subnet_mask);
 	return 0;
@@ -1091,6 +1096,7 @@ static int iscsi_sysfs_read_iface(struct iface_rec *iface, int host_no,
 	if (sscanf(iface_kern_id, "ipv%d-iface-%u-%u", &iface_type,
 		   &tmp_host_no, &iface_num) == 3)
 		iface->iface_num = iface_num;
+
 done:
 	if (ret)
 		return ISCSI_ERR_SYSFS_LOOKUP;
@@ -1153,7 +1159,7 @@ int iscsi_sysfs_for_each_iface_on_host(void *data, uint32_t host_no,
 	int rc = 0, i, n;
 	struct iface_rec iface;
         char devpath[PATH_SIZE];
-        char sysfs_path[PATH_SIZE];
+        char sysfs_dev_iscsi_iface_path[PATH_SIZE];
         char id[NAME_SIZE];
 
         snprintf(id, sizeof(id), "host%u", host_no);
@@ -1163,11 +1169,11 @@ int iscsi_sysfs_for_each_iface_on_host(void *data, uint32_t host_no,
                 return ISCSI_ERR_SYSFS_LOOKUP;
         }
 
-	sprintf(sysfs_path, "/sys");
-	strlcat(sysfs_path, devpath, sizeof(sysfs_path));
-	strlcat(sysfs_path, "/iscsi_iface", sizeof(sysfs_path));
+	sprintf(sysfs_dev_iscsi_iface_path, "/sys");
+	strlcat(sysfs_dev_iscsi_iface_path, devpath, sizeof(sysfs_dev_iscsi_iface_path));
+	strlcat(sysfs_dev_iscsi_iface_path, "/iscsi_iface", sizeof(sysfs_dev_iscsi_iface_path));
 
-	n = scandir(sysfs_path, &namelist, trans_filter, alphasort);
+	n = scandir(sysfs_dev_iscsi_iface_path, &namelist, trans_filter, alphasort);
 	if (n <= 0)
 		/* older kernels or some drivers will not have ifaces */
 		return 0;
@@ -1806,7 +1812,7 @@ int iscsi_sysfs_for_each_device(void *data, int host_no, uint32_t sid,
 	int h, b, t, l, i, n, err = 0, target;
 	char devpath[PATH_SIZE];
 	char id[NAME_SIZE];
-	char path_full[PATH_SIZE];
+	char path_full[3*PATH_SIZE];
 
 	target = get_target_no_from_sid(sid, &err);
 	if (err)
@@ -1821,6 +1827,13 @@ int iscsi_sysfs_for_each_device(void *data, int host_no, uint32_t sid,
 
 	snprintf(path_full, sizeof(path_full), "%s%s/device/target%d:0:%d",
 		 sysfs_path, devpath, host_no, target);
+
+	if (strlen(path_full) > PATH_SIZE) {
+		log_debug(3, "Could not lookup devpath for %s %s (too long)",
+			  ISCSI_SESSION_SUBSYS, id);
+		return ISCSI_ERR_SYSFS_LOOKUP;
+	}
+
 	n = scandir(path_full, &namelist, trans_filter,
 		    alphasort);
 	if (n <= 0)
@@ -1883,18 +1896,19 @@ void iscsi_sysfs_rescan_device(void *data, int hostno, int target, int lun)
 			strlen(write_buf));
 }
 
-pid_t iscsi_sysfs_scan_host(int hostno, int async, int full_scan)
+pid_t iscsi_sysfs_scan_host(int hostno, int async, int autoscan)
 {
 	char id[NAME_SIZE];
-	char write_buf[6] = "- - 0";
+	char *write_buf = "- - -";
 	pid_t pid = 0;
-
-	if (full_scan)
-		write_buf[4] = '-';
 
 	if (async)
 		pid = fork();
-	if (pid == 0) {
+
+	if (pid >= 0 && !autoscan) {
+		if (pid)
+			log_debug(4, "host%d in manual scan mode, skipping scan", hostno);
+	} else if (pid == 0) {
 		/* child */
 		log_debug(4, "scanning host%d", hostno);
 

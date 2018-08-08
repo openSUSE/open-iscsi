@@ -76,14 +76,12 @@ static const char uio_uevent_path_template[] = "/sys/class/uio/uio%d/uevent";
 
 static const char base_iscsi_host_name[] = "/sys/class/iscsi_host/";
 static const char host_template[] = "host%d";
-static const char iscsi_host_path_template[] = "/sys/class/iscsi_host/host%d";
 static const char iscsi_host_path_netdev_template[] =
 	"/sys/class/iscsi_host/host%d/netdev";
 static const char cnic_uio_sysfs_resc_template[] =
 	"/sys/class/uio/uio%i/device/resource%i";
 static const char iscsi_transport_handle_template[] =
 	"/sys/class/iscsi_transport/%s/handle";
-static const char eth_pfx[] = "eth";
 static const char host_pfx[] = "host";
 
 /**
@@ -307,7 +305,7 @@ static int nic_util_enable_disable_multicast(nic_t *nic, uint32_t cmd)
 	/* Prepare the request */
 	memset(&ifr, 0, sizeof(ifr));
 	strncpy(ifr.ifr_name, nic->eth_device_name,
-		sizeof(nic->eth_device_name));
+		sizeof(ifr.ifr_name));
 	memcpy(ifr.ifr_hwaddr.sa_data, multicast_addr.addr, ETH_ALEN);
 
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -1435,6 +1433,10 @@ nic_interface_t *nic_find_nic_iface(nic_t *nic,
 	nic_interface_t *current_vlan = NULL;
 
 	while (current != NULL) {
+		LOG_DEBUG(PFX "%s: incoming protocol: %d, vlan_id:%d iface_num: %d, request_type: %d",
+			  nic->log_name, protocol, vlan_id, iface_num,  request_type);
+		LOG_DEBUG(PFX "%s: host:%d iface_num: 0x%x VLAN: %d protocol: %d",
+			  nic->log_name, nic->host_no, current->iface_num, current->vlan_id, current->protocol);
 		if (current->protocol != protocol)
 			goto next;
 

@@ -4,7 +4,7 @@
 
 # if you are packaging open-iscsi, set this variable to the location
 # that you want everything installed into.
-DESTDIR ?= 
+DESTDIR ?=
 
 prefix = /usr
 exec_prefix = /
@@ -18,15 +18,11 @@ systemddir = $(prefix)/lib/systemd
 rulesdir = $(etcdir)/udev/rules.d
 
 MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8 \
-	iscsiuio/docs/iscsiuio.8 doc/iscsistart.8 doc/iscsi-iname.8 \
-	doc/iscsi_fw_login.8
+		iscsiuio/docs/iscsiuio.8 doc/iscsi_fw_login.8 doc/iscsi-iname.8 \
+		doc/iscsistart.8
 PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi-iname iscsiuio/src/unix/iscsiuio
-SCRIPTS = utils/iscsi_discovery utils/iscsi_offload \
-	utils/iscsi-gen-initiatorname utils/iscsi_fw_login
-INSTALL = install
-ETCFILES = etc/iscsid.conf
-IFACEFILES = etc/iface.example
-RULESFILES = utils/50-iscsi-firmware-login.rules 
+SCRIPTS = utils/iscsi_discovery utils/iscsi_fw_login utils/iscsi_offload \
+		  utils/iscsi-gen-initiatorname
 
 # Compatibility: parse old OPTFLAGS argument
 ifdef OPTFLAGS
@@ -46,6 +42,7 @@ endif
 all: user
 
 user: iscsiuio/Makefile
+	$(MAKE) -C libopeniscsiusr
 	$(MAKE) -C utils/sysdeps
 	$(MAKE) -C utils/fwparam_ibft
 	$(MAKE) -C usr
@@ -58,6 +55,7 @@ user: iscsiuio/Makefile
 	@echo "Built management application:        usr/iscsiadm"
 	@echo "Built boot tool:                     usr/iscsistart"
 	@echo "Built iscsiuio daemon:               iscsiuio/src/unix/iscsiuio"
+	@echo "Built libopeniscsiusr library:       libopeniscsiusr/libopeniscsiusr.so"
 	@echo
 	@echo "Read README file for detailed information."
 
@@ -67,15 +65,6 @@ iscsiuio/Makefile: iscsiuio/configure iscsiuio/Makefile.in
 iscsiuio/configure iscsiuio/Makefile.in: iscsiuio/configure.ac iscsiuio/Makefile.am
 	cd iscsiuio; autoreconf --install
 
-kernel: force
-	$(MAKE) -C kernel
-	@echo "Kernel Compilation complete          Output file"
-	@echo "-----------------------------------  ----------------"
-	@echo "Built iSCSI Open Interface module:   kernel/scsi_transport_iscsi.ko"
-	@echo "Built iSCSI library module:          kernel/libiscsi.ko"
-	@echo "Built iSCSI over TCP library module: kernel/libiscsi_tcp.ko"
-	@echo "Built iSCSI over TCP kernel module:  kernel/iscsi_tcp.ko"
-
 force: ;
 
 clean:
@@ -83,7 +72,7 @@ clean:
 	$(MAKE) -C utils/fwparam_ibft clean
 	$(MAKE) -C utils clean
 	$(MAKE) -C usr clean
-	$(MAKE) -C kernel clean
+	$(MAKE) -C libopeniscsiusr clean
 	[ ! -f iscsiuio/Makefile ] || $(MAKE) -C iscsiuio clean
 	[ ! -f iscsiuio/Makefile ] || $(MAKE) -C iscsiuio distclean
 
@@ -92,11 +81,12 @@ clean:
 # note that make may still execute the blocks in parallel
 .NOTPARALLEL: install_user install_programs install_initd \
 	install_initd_suse install_initd_redhat install_initd_debian \
-	install_etc install_iface install_doc install_kernel install_iname \
+	install_etc install_iface install_doc install_iname \
 	install_udev_rules
 
 install: install_programs install_doc install_etc \
-	install_initd install_iname install_iface install_udev_rules
+	install_initd install_iname install_iface install_udev_rules \
+	install_libopeniscsiusr
 
 install_user: install_programs install_doc install_etc \
 	install_initd install_iname install_iface install_udev_rules
@@ -179,9 +169,6 @@ install_doc: $(MANPAGES)
 	$(INSTALL) -d $(DESTDIR)$(mandir)/man8
 	$(INSTALL) -m 644 $^ $(DESTDIR)$(mandir)/man8
 
-install_kernel:
-	$(MAKE) -C kernel install_kernel
-
 install_iname:
 	if [ ! -f $(DESTDIR)/etc/iscsi/initiatorname.iscsi ]; then \
 		echo "InitiatorName=`$(DESTDIR)/sbin/iscsi-iname`" > $(DESTDIR)/etc/iscsi/initiatorname.iscsi ; \
@@ -190,6 +177,9 @@ install_iname:
 		echo "To override edit $(DESTDIR)/etc/iscsi/initiatorname.iscsi" ; \
 		echo "***************************************************" ; \
 	fi
+
+install_libopeniscsiusr:
+	$(MAKE) -C libopeniscsiusr install
 
 depend:
 	for dir in usr utils utils/fwparam_ibft; do \

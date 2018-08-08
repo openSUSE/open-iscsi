@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <arpa/inet.h>
+#include <libopeniscsiusr/libopeniscsiusr.h>
 
 #include "log.h"
 #include "list.h"
@@ -42,6 +43,8 @@
 #include "sysdeps.h"
 #include "iscsi_err.h"
 #include "iscsi_netlink.h"
+
+#define _unwrap(x) (x && strlen(x)) ? x : UNKNOWN_VALUE
 
 /*
  * Default ifaces for use with transports that do not bind to hardware
@@ -531,7 +534,7 @@ static int __iface_setup_host_bindings(void *data, struct host_info *hinfo)
 					   &nr_found,
 					   iface_setup_binding_from_kern_iface);
 	if (!nr_found)
-		iface_setup_binding_from_kern_iface(hinfo, NULL);	
+		iface_setup_binding_from_kern_iface(hinfo, NULL);
 	return 0;
 }
 
@@ -782,40 +785,36 @@ int iface_is_bound_by_ipaddr(struct iface_rec *iface)
 	return 0;
 }
 
-void iface_print(struct iface_rec *iface, char *prefix)
+void iface_print(struct iscsi_iface *iface, char *prefix)
 {
-	if (strlen(iface->name))
-		printf("%sIface Name: %s\n", prefix, iface->name);
-	else
-		printf("%sIface Name: %s\n", prefix, UNKNOWN_VALUE);
+	const char *ipaddress = iscsi_iface_ipaddress_get(iface);
 
-	if (strlen(iface->transport_name))
-		printf("%sIface Transport: %s\n", prefix,
-		      iface->transport_name);
-	else
-		printf("%sIface Transport: %s\n", prefix, UNKNOWN_VALUE);
+	printf("%sIface Name: %s\n", prefix,
+	       (strlen(iscsi_iface_name_get(iface)) > 0) ?
+	       iscsi_iface_name_get(iface) : UNKNOWN_VALUE);
 
-	if (strlen(iface->iname))
-		printf("%sIface Initiatorname: %s\n", prefix, iface->iname);
-	else
-		printf("%sIface Initiatorname: %s\n", prefix, UNKNOWN_VALUE);
+	printf("%sIface Transport: %s\n", prefix,
+	       (strlen(iscsi_iface_transport_name_get(iface)) > 0) ?
+	       iscsi_iface_transport_name_get(iface) : UNKNOWN_VALUE);
 
-	if (!strlen(iface->ipaddress))
+	printf("%sIface Initiatorname: %s\n", prefix,
+	       (strlen(iscsi_iface_iname_get(iface)) > 0) ?
+	       iscsi_iface_iname_get(iface) : UNKNOWN_VALUE);
+
+	if (!strlen(ipaddress))
 		printf("%sIface IPaddress: %s\n", prefix, UNKNOWN_VALUE);
-	else if (strchr(iface->ipaddress, '.'))
-		printf("%sIface IPaddress: %s\n", prefix, iface->ipaddress);
+	else if (strchr(ipaddress, '.'))
+		printf("%sIface IPaddress: %s\n", prefix, ipaddress);
 	else
-		printf("%sIface IPaddress: [%s]\n", prefix, iface->ipaddress);
+		printf("%sIface IPaddress: [%s]\n", prefix, ipaddress);
 
-	if (strlen(iface->hwaddress))
-		printf("%sIface HWaddress: %s\n", prefix, iface->hwaddress);
-	else
-		printf("%sIface HWaddress: %s\n", prefix, UNKNOWN_VALUE);
+	printf("%sIface HWaddress: %s\n", prefix,
+	       (strlen(iscsi_iface_hwaddress_get(iface)) > 0) ?
+	       iscsi_iface_hwaddress_get(iface) : UNKNOWN_VALUE);
 
-	if (strlen(iface->netdev))
-		printf("%sIface Netdev: %s\n", prefix, iface->netdev);
-	else
-		printf("%sIface Netdev: %s\n", prefix, UNKNOWN_VALUE);
+	printf("%sIface Netdev: %s\n", prefix,
+	       (strlen(iscsi_iface_netdev_get(iface)) > 0) ?
+	       iscsi_iface_netdev_get(iface) : UNKNOWN_VALUE);
 }
 
 struct iface_print_node_data {
@@ -859,17 +858,15 @@ int iface_print_tree(void *data, struct iface_rec *iface)
 	return 0;
 }
 
-int iface_print_flat(void *data, struct iface_rec *iface)
+void iface_print_flat(struct iscsi_iface *iface)
 {
 	printf("%s %s,%s,%s,%s,%s\n",
-		strlen(iface->name) ? iface->name : UNKNOWN_VALUE,
-		strlen(iface->transport_name) ? iface->transport_name :
-							UNKNOWN_VALUE,
-		strlen(iface->hwaddress) ? iface->hwaddress : UNKNOWN_VALUE,
-		strlen(iface->ipaddress) ? iface->ipaddress : UNKNOWN_VALUE,
-		strlen(iface->netdev) ? iface->netdev : UNKNOWN_VALUE,
-		strlen(iface->iname) ? iface->iname : UNKNOWN_VALUE);
-	return 0;
+	       _unwrap(iscsi_iface_name_get(iface)),
+	       _unwrap(iscsi_iface_transport_name_get(iface)),
+	       _unwrap(iscsi_iface_hwaddress_get(iface)),
+	       _unwrap(iscsi_iface_ipaddress_get(iface)),
+	       _unwrap(iscsi_iface_netdev_get(iface)),
+	       _unwrap(iscsi_iface_iname_get(iface)));
 }
 
 int iface_for_each_iface(void *data, int skip_def, int *nr_found,

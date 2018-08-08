@@ -64,26 +64,40 @@ int fw_setup_nics(void)
 	 * For each target in iBFT bring up required NIC and use routing
 	 * to force iSCSI traffic through correct NIC
 	 */
-	list_for_each_entry(context, &targets, list) {			
-		/* if it is a offload nic ignore it */
-		if (!net_get_transport_name_from_netdev(context->iface,
-							transport))
-			continue;
-
+	list_for_each_entry(context, &targets, list) {
 		if (iface_prev == NULL || strcmp(context->iface, iface_prev)) {
-			/* Note: test above works because there is a
-			 * maximum of two targets in the iBFT
-			 */
-			iface_prev = context->iface;
-			needs_bringup = 1;
+				/* Note: test above works because there is a
+				 * maximum of two targets in the iBFT
+				 */
+				iface_prev = context->iface;
+				needs_bringup = 1;
 		}
+		if (net_get_transport_name_from_netdev(context->iface, transport)) {
+			/* Setup software NIC, */
+			printf("Setting up software interface %s\n", context->iface);
+			err = net_setup_netdev(context->iface, context->ipaddr,
+								   context->mask, context->gateway,
+								   context->vlan,
+								   context->target_ipaddr, needs_bringup);
+			if (err) {
+				printf("Setting up software interface %s failed\n",
+						context->iface);
+				ret = err;
+			}
+		} else {
+			/* Setup offload NIC. */
+			struct iface_rec iface;
 
-		err = net_setup_netdev(context->iface, context->ipaddr,
-				       context->mask, context->gateway,
-				       context->vlan,
-				       context->target_ipaddr, needs_bringup);
-		if (err)
-			ret = err;
+			memset(&iface, 0, sizeof(iface));
+			iface_setup_defaults(&iface);
+			printf("Setting up offload interface %s\n", context->iface);
+			if (!iface_setup_from_boot_context(&iface, context)) {
+					printf("Setting up offload interface %s failed\n",
+						   context->iface);
+
+					ret = ISCSI_ERR;
+			}
+		}
 	}
 
 	fw_free_targets(&targets);
