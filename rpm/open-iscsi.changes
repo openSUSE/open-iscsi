@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Wed Aug  8 03:09:53 UTC 2018 - lduncan@suse.com
+
+- Update to latest upstream, including fixes for iscsiuio
+  (bsc#110349), updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+  And update SPEC file to latest. Also, replace
+  open-iscsi-2.0.874-suse.tar.bz2 with
+  open-iscsi-2.0.876-suse.tar.bz2
+
+-------------------------------------------------------------------
 Thu May 31 21:24:19 UTC 2018 - lduncan@suse.com
 
 - Fix a core dump which can occur if iscsiuio is started then
