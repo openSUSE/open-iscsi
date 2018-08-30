@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu Aug 30 21:17:19 UTC 2018 - Lee Duncan <lduncan@suse.com>
+
+- Add iscsiuio upstream fix for limiting dhpcv6 retries
+  (bsc#1105916), updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Wed Aug  8 03:09:53 UTC 2018 - lduncan@suse.com
 
 - Update to latest upstream, including fixes for iscsiuio
