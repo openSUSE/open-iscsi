@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Fri Aug 31 16:53:25 UTC 2018 - Lee Duncan <lduncan@suse.com>
+
+- iscsiuio: limit retries of dhpcv6 (bsc#1106694), updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Tue Aug  7 19:35:02 UTC 2018 - lduncan@suse.com
 
 - Update to latest upstream, including fixes for iscsiuio
