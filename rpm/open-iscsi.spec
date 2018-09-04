@@ -21,7 +21,7 @@ Name:           open-iscsi
 Version:        2.0.876
 Release:        0
 Summary:        Linux Open-iSCSI Software Initiator
-License:        GPL-2.0+
+License:        GPL-2.0-or-later
 Group:          Productivity/Networking/Other
 Url:            http://www.open-iscsi.com
 Source:         %{name}-2.0.%{iscsi_release}.tar.bz2
@@ -32,6 +32,7 @@ BuildRequires:  bison
 BuildRequires:  db-devel < 5
 BuildRequires:  fdupes
 BuildRequires:  flex
+BuildRequires:  libkmod-devel
 BuildRequires:  libmount-devel
 BuildRequires:  libtool
 BuildRequires:  make
@@ -105,7 +106,7 @@ the libopeniscsiusr library.
 %patch1 -p1
 
 %build
-make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" LDFLAGS="" user
+make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DUSE_KMOD -I/usr/include/kmod -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" LDFLAGS="-lkmod" user
 cd iscsiuio
 touch AUTHORS NEWS
 autoreconf --install

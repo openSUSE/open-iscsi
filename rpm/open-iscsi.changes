@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Tue Sep  4 17:35:55 UTC 2018 - lduncan@suse.com
+
+- Use libkmod instead of running modprobe (bsc#1106685), updating
+  the spec file, and:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Fri Aug 31 16:15:47 UTC 2018 - lduncan@suse.com
 
 - iscsiuio: limit retries on dhcpv6 (bsc#1106694 and bsc#1105916),
