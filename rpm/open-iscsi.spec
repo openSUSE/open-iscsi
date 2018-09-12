@@ -12,7 +12,7 @@
 # license that conforms to the Open Source Definition (Version 1.9)
 # published by the Open Source Initiative.
 
-# Please submit bugfixes or comments via http://bugs.opensuse.org/
+# Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
 
@@ -23,7 +23,7 @@ Release:        0
 Summary:        Linux Open-iSCSI Software Initiator
 License:        GPL-2.0-or-later
 Group:          Productivity/Networking/Other
-Url:            http://www.open-iscsi.com
+Url:            https://www.open-iscsi.com
 Source:         %{name}-2.0.%{iscsi_release}.tar.bz2
 Patch1:         %{name}-SUSE-latest.diff.bz2
 BuildRequires:  autoconf
