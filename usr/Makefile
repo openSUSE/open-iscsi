@@ -60,14 +60,14 @@ all: $(PROGRAMS)
 
 iscsid: $(ISCSI_LIB_SRCS) $(INITIATOR_SRCS) $(DISCOVERY_SRCS) \
 	iscsid.o session_mgmt.o discoveryd.o mntcheck.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@  -lisns -lcrypto -lrt -lmount $(ISCSI_LIB)
+	$(CC) $(CFLAGS) $^ -o $@  $(LDFLAGS) -lisns -lcrypto -lrt -lmount $(ISCSI_LIB)
 
 iscsiadm: $(ISCSI_LIB_SRCS) $(DISCOVERY_SRCS) iscsiadm.o session_mgmt.o mntcheck.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@ -lisns -lcrypto -lmount $(ISCSI_LIB)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS) -lisns -lcrypto -lmount $(ISCSI_LIB)
 
 iscsistart: $(ISCSI_LIB_SRCS) $(INITIATOR_SRCS) $(FW_BOOT_SRCS) \
 		iscsistart.o statics.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@ -lrt -lmount $(ISCSI_LIB)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS) -lrt -lmount $(ISCSI_LIB)
 
 clean:
 	rm -f *.o $(PROGRAMS) .depend $(LIBSYS)

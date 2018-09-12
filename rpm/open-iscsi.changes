@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Sep 12 18:15:59 UTC 2018 - Lee Duncan <lduncan@suse.com>
+
+- Use libkmod instead of running modprobe (bsc#1106685), updating
+  the spec file, and:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Thu Aug 30 21:17:19 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
 - Add iscsiuio upstream fix for limiting dhpcv6 retries
