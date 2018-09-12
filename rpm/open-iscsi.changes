@@ -1,5 +1,6 @@
 -------------------------------------------------------------------
-Tue Sep  4 17:35:55 UTC 2018 - lduncan@suse.com
+Wed Sep 12 18:15:59 UTC 2018 - Lee Duncan <lduncan@suse.com>
+
 
 - Use libkmod instead of running modprobe (bsc#1106685), updating
   the spec file, and:
