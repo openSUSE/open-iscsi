@@ -12,7 +12,7 @@
 # license that conforms to the Open Source Definition (Version 1.9)
 # published by the Open Source Initiative.
 
-# Please submit bugfixes or comments via http://bugs.opensuse.org/
+# Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
 
@@ -34,7 +34,7 @@ Release:        0
 %{?systemd_requires}
 %define iscsi_release 873
 Summary:        Linux* Open-iSCSI Software Initiator
-License:        GPL-2.0+
+License:        GPL-2.0-or-later
 Group:          Productivity/Networking/Other
 Source:         %{name}-2.0-%{iscsi_release}.tar.bz2
 Patch1:         %{name}-git-update.diff.bz2
@@ -75,7 +75,7 @@ Authors:
 
 %package -n iscsiuio
 Summary:        Linux Broadcom NetXtremem II iscsi server
-License:        GPL-2.0+
+License:        GPL-2.0-or-later
 Group:          Productivity/Networking/Other
 Version:        0.7.8.2
 Release:        0
@@ -102,7 +102,7 @@ Authors:
 
 %package -n open-isns
 Summary:        Partial Implementation of iSNS iSCSI registration
-License:        LGPL-2.1+
+License:        LGPL-2.1-or-later
 Group:          System Environment/Kernel
 Version:        0.95
 Release:        0
