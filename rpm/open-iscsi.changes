@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Wed Sep 26 17:16:03 UTC 2018 - Lee Duncan <lduncan@suse.com>
+
+- Allow target discovery using "db" mode (bsc#1109477), updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Thu Feb 22 22:53:50 UTC 2018 - lduncan@suse.com
 
 - Fix ARP booting issue with different subnets
