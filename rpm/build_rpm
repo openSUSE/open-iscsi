@@ -99,7 +99,7 @@ git archive --format=tar --prefix=$RPM-$VERSION/ --worktree-attributes "$VERSION
 # patch: create a diff file for changes between the base version
 # and the update tag if there are any differences
 git diff ${VERSION}..${BRANCH} \
-	$(git diff --name-only ${VERSION}..${BRANCH}|grep -v '^rpm/')| \
+	$(git diff --name-only --diff-filter=d ${VERSION}..${BRANCH}|grep -v '^rpm/')| \
 	bzip2 > $DESTDIR/$RPM-SUSE-latest.diff.bz2
 
 echo "$RPM src rpm copied to $DESTDIR"
