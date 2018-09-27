@@ -24,6 +24,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <dirent.h>
+#include <net/if.h>
 
 #include "libopeniscsiusr/libopeniscsiusr.h"
 
@@ -33,6 +34,9 @@
 		if (rc_val != LIBISCSI_OK) \
 			goto out; \
 	} while(0)
+
+#define _asprintf(...) \
+	(asprintf(__VA_ARGS__) == -1 ? LIBISCSI_ERR_NOMEM : LIBISCSI_OK)
 
 __DLL_LOCAL void _iscsi_log(struct iscsi_context *ctx, int priority,
 			    const char *file, int line, const char *func_name,
@@ -79,8 +83,41 @@ __DLL_LOCAL void _iscsi_log_stderr(struct iscsi_context *ctx, int priority,
 		} \
 	} while(0)
 
+#define _STRERR_BUFF_LEN	1024
+#define _strerror(err_no, buff) \
+	strerror_r(err_no, buff, _STRERR_BUFF_LEN)
+
+/* Workaround for suppress GCC 8 `stringop-truncation` warnings. */
+#define _strncpy(dst, src, size) \
+	do { \
+		memcpy(dst, src, \
+		       (size_t) size > strlen(src) ? \
+		       strlen(src) : (size_t) size); \
+		* (char *) (dst + \
+			    ((size_t) size - 1 > strlen(src) ? \
+			     strlen(src) : (size_t) (size - 1))) = '\0'; \
+	} while(0)
+
 __DLL_LOCAL int _scan_filter_skip_dot(const struct dirent *dir);
 
 __DLL_LOCAL bool _file_exists(const char *path);
+
+
+#define _ETH_DRIVER_NAME_MAX_LEN	32
+/* ^ Defined in linux/ethtool.h `struct ethtool_drvinfo`. */
+
+struct _eth_if {
+	char driver_name[_ETH_DRIVER_NAME_MAX_LEN];
+	char if_name[IF_NAMESIZE];
+};
+
+__DLL_LOCAL int _eth_ifs_get(struct iscsi_context *ctx,
+			     struct _eth_if ***eifs, uint32_t *eif_count);
+
+__DLL_LOCAL void _eth_ifs_free(struct _eth_if **eifs, uint32_t eif_count);
+
+__DLL_LOCAL int _scandir(struct iscsi_context *ctx, const char *dir_path,
+			 struct dirent ***namelist, int *count);
+__DLL_LOCAL void _scandir_free(struct dirent **namelist, int count);
 
 #endif /* End of __ISCSI_USR_MISC_H__ */

@@ -319,9 +319,9 @@ static int find_nics(const char *fpath, const struct stat *sb, int tflag,
 	return 0;
 }
 
-int nic_cmp(const char **a, const char **b)
+static int nic_cmp(const void *a, const void *b)
 {
-	return strcmp(*a, *b);
+	return strcmp(a, b);
 }
 
 static int find_initiator(const char *fpath, const struct stat *sb, int tflag,
@@ -356,7 +356,7 @@ static int loop_devs(const char *devtree)
 	 * Sort the nics into "natural" order.	The proc fs
 	 * device-tree has them in somewhat random, or reversed order.
 	 */
-	qsort(niclist, nic_count, sizeof(char *), (__compar_fn_t)nic_cmp);
+	qsort(niclist, nic_count, sizeof(char *), nic_cmp);
 
 	snprintf(prefix, sizeof(prefix), "%s/%s", devtree, "aliases");
 	dev_count = 0;

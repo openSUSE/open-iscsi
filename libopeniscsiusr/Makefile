@@ -27,7 +27,7 @@ MAN_DIR ?= $(prefix)/share/man
 LIBISCSI_USR_DIR=$(TOPDIR)/libopeniscsiusr
 
 LIBISCSI_USR_VERSION_MAJOR=0
-LIBISCSI_USR_VERSION=0.1.0
+LIBISCSI_USR_VERSION=0.2.0
 SONAME=$(LIBISCSI_USR_VERSION)
 DEVLIB = libopeniscsiusr.so
 LIBS = $(DEVLIB).$(SONAME)
@@ -37,10 +37,10 @@ HEADERS = libopeniscsiusr/libopeniscsiusr.h \
 	  libopeniscsiusr/libopeniscsiusr_common.h \
 	  libopeniscsiusr/libopeniscsiusr_session.h \
 	  libopeniscsiusr/libopeniscsiusr_iface.h
-TESTS = tests/test_context tests/test_session
+TESTS = tests/test_context tests/test_session tests/test_iface tests/test_node
 EXTRA_MAN_FILES = libopeniscsiusr.h.3
 
-OBJS = context.o misc.o session.o sysfs.o iface.o
+OBJS = context.o misc.o session.o sysfs.o iface.o idbm.o node.o default.o
 
 CFLAGS ?= -O2 -g
 CFLAGS += -Wall -Werror -Wextra -fvisibility=hidden -fPIC
@@ -50,7 +50,7 @@ LIBADD =
 all: $(LIBS) $(LIBS_MAJOR) $(TESTS) doc
 
 $(LIBS): $(OBJS)
-	$(CC) $(LDFLAGS) -shared -Wl,-soname=$@ -o $@ $(OBJS) $(LIBADD)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -Wl,-soname=$@ -o $@ $(OBJS) $(LIBADD)
 	ln -sf $@ $(DEVLIB)
 
 $(LIBS_MAJOR): $(LIBS)
@@ -74,6 +74,8 @@ install: $(LIBS) $(LIBS_MAJOR)
 	$(INSTALL) -m 644 $(LIBS) $(DESTDIR)$(LIB_DIR)/
 	$(INSTALL) -m 644 $(DEVLIB) $(DESTDIR)$(LIB_DIR)/
 	$(INSTALL) -m 644 $(LIBS_MAJOR) $(DESTDIR)$(LIB_DIR)/
+	ln -sf $(LIBS) $(DESTDIR)/$(LIB_DIR)/$(DEVLIB)
+	ln -sf $(LIBS) $(DESTDIR)/$(LIB_DIR)/$(LIBS_MAJOR)
 	$(INSTALL) -m 644 $(HEADERS) $(DESTDIR)$(INCLUDE_DIR)/
 
 install_docs: doc

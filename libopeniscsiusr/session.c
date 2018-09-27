@@ -84,8 +84,6 @@ struct iscsi_session {
 	struct iscsi_iface *iface;
 };
 
-static uint32_t session_str_to_sid(const char *session_str);
-
 _iscsi_getter_func_gen(iscsi_session, sid, uint32_t);
 _iscsi_getter_func_gen(iscsi_session, persistent_address, const char *);
 _iscsi_getter_func_gen(iscsi_session, persistent_port, int32_t);
@@ -103,25 +101,12 @@ _iscsi_getter_func_gen(iscsi_session, address, const char *);
 _iscsi_getter_func_gen(iscsi_session, port, int32_t);
 _iscsi_getter_func_gen(iscsi_session, iface, struct iscsi_iface *);
 
-/*
- * The session string is "session%u" used by /sys/class/iscsi_session/session%u.
- * Return 0 if error parsing session string.
- */
-static uint32_t session_str_to_sid(const char *session_str)
-{
-	uint32_t sid = 0;
-
-	if (sscanf(session_str, "session%" SCNu32, &sid) != 1)
-		return 0; /* error */
-	return sid;
-}
-
 int iscsi_session_get(struct iscsi_context *ctx, uint32_t sid,
 		      struct iscsi_session **se)
 {
 	int rc = LIBISCSI_OK;
-	char sysfs_se_dir_path[PATH_MAX];
-	char sysfs_con_dir_path[PATH_MAX];
+	char *sysfs_se_dir_path = NULL;
+	char *sysfs_con_dir_path = NULL;
 	uint32_t host_id = 0;
 
 	assert(ctx != NULL);
@@ -129,17 +114,16 @@ int iscsi_session_get(struct iscsi_context *ctx, uint32_t sid,
 
 	_debug(ctx, "Querying iSCSI session for sid %" PRIu32, sid);
 
-	snprintf(sysfs_se_dir_path, PATH_MAX, "%s/session%" PRIu32,
-		 _ISCSI_SYS_SESSION_DIR, sid);
-	snprintf(sysfs_con_dir_path, PATH_MAX, "%s/connection%" PRIu32 ":0",
-		 _ISCSI_SYS_CONNECTION_DIR, sid);
+	_good(_asprintf(&sysfs_se_dir_path, "%s/session%" PRIu32,
+			_ISCSI_SYS_SESSION_DIR, sid), rc, out);
+	_good(_asprintf(&sysfs_con_dir_path, "%s/connection%" PRIu32 ":0",
+			_ISCSI_SYS_CONNECTION_DIR, sid), rc, out);
 	/* ^ BUG(Gris Ge): ':0' here in kernel is referred as connection id.
 	 *		   but the open-iscsi assuming it's always 0, need
 	 *		   investigation.
 	 */
 
-	*se = (struct iscsi_session *)
-		calloc(sizeof(struct iscsi_session), 1);
+	*se = (struct iscsi_session *) calloc(1, sizeof(struct iscsi_session));
 	_alloc_null_check(ctx, *se , rc, out);
 
 	if (! _file_exists(sysfs_se_dir_path)) {
@@ -189,25 +173,23 @@ int iscsi_session_get(struct iscsi_context *ctx, uint32_t sid,
 	      rc, out);
 
 	_good(_sysfs_prop_get_i32(ctx, sysfs_se_dir_path, "recovery_tmo",
-				  &((*se)->recovery_tmo),
-				  -1),
+				  &((*se)->recovery_tmo), -1, true),
 	      rc, out);
 
 	_good(_sysfs_prop_get_i32(ctx, sysfs_se_dir_path, "lu_reset_tmo",
-				  &((*se)->lu_reset_tmo), -1),
+				  &((*se)->lu_reset_tmo), -1, true),
 	      rc, out);
 
-	_good(_sysfs_prop_get_i32(ctx, sysfs_se_dir_path,
-				  "tgt_reset_tmo", &((*se)->tgt_reset_tmo), -1),
+	_good(_sysfs_prop_get_i32(ctx, sysfs_se_dir_path, "tgt_reset_tmo",
+				  &((*se)->tgt_reset_tmo), -1, true),
 	      rc, out);
 
 	_good(_sysfs_prop_get_i32(ctx, sysfs_se_dir_path, "abort_tmo",
-				  &((*se)->abort_tmo), -1),
+				  &((*se)->abort_tmo), -1, true),
 	      rc, out);
 
 	_good(_sysfs_prop_get_i32(ctx, sysfs_se_dir_path, "tpgt",
-				  &((*se)->tpgt),
-				  INT32_MAX /* raise error if not found */),
+				  &((*se)->tpgt), -1, true),
 	      rc, out);
 
 	_good(_sysfs_prop_get_str(ctx, sysfs_con_dir_path, "persistent_address",
@@ -217,27 +199,24 @@ int iscsi_session_get(struct iscsi_context *ctx, uint32_t sid,
 	      rc, out);
 
 	_good(_sysfs_prop_get_i32(ctx, sysfs_con_dir_path, "persistent_port",
-				  &((*se)->persistent_port), -1),
+				  &((*se)->persistent_port), -1, true),
 	      rc, out);
 
-	_good(_sysfs_prop_get_str(ctx, sysfs_con_dir_path, "address",
-				  (*se)->address,
-				  sizeof((*se)->address) / sizeof(char),
-				  ""),
-	      rc, out);
+	_sysfs_prop_get_str(ctx, sysfs_con_dir_path, "address", (*se)->address,
+			    sizeof((*se)->address) / sizeof(char), "");
 
 	_good(_sysfs_prop_get_i32(ctx, sysfs_con_dir_path, "port",
-				  &((*se)->port), -1), rc, out);
+				  &((*se)->port), -1, false), rc, out);
 
 	if ((strcmp((*se)->address, "") == 0) &&
 	    (strcmp((*se)->persistent_address, "") != 0))
-		strncpy((*se)->persistent_address, (*se)->address,
-			sizeof((*se)->persistent_address) / sizeof(char));
+		_strncpy((*se)->persistent_address, (*se)->address,
+			 sizeof((*se)->persistent_address) / sizeof(char));
 
 	if ((strcmp((*se)->address, "") != 0) &&
 	    (strcmp((*se)->persistent_address, "") == 0))
-		strncpy((*se)->address, (*se)->persistent_address,
-			sizeof((*se)->address) / sizeof(char));
+		_strncpy((*se)->address, (*se)->persistent_address,
+			 sizeof((*se)->address) / sizeof(char));
 
 	if (((*se)->persistent_port != -1) &&
 	    ((*se)->port == -1))
@@ -249,8 +228,8 @@ int iscsi_session_get(struct iscsi_context *ctx, uint32_t sid,
 
 	_good(_iscsi_host_id_of_session(ctx, sid, &host_id), rc, out);
 
-	_good(_iscsi_iface_get(ctx, host_id, sid, NULL /*iface kernel id */,
-			       &((*se)->iface)),
+	/* does this need to the correct iface_kern_id for the session? */
+	_good(_iscsi_iface_get_from_sysfs(ctx, host_id, sid, NULL, &((*se)->iface)),
 	      rc, out);
 
 out:
@@ -258,6 +237,8 @@ out:
 		iscsi_session_free(*se);
 		*se = NULL;
 	}
+	free(sysfs_se_dir_path);
+	free(sysfs_con_dir_path);
 	return rc;
 }
 
@@ -265,13 +246,9 @@ int iscsi_sessions_get(struct iscsi_context *ctx,
 		       struct iscsi_session ***sessions,
 		       uint32_t *session_count)
 {
-	struct dirent **namelist = NULL;
-	int n = 0;
 	int rc = LIBISCSI_OK;
-	int errno_save = 0;
 	uint32_t i = 0;
-	uint32_t sid = 0;
-	int j = 0;
+	uint32_t *sids = NULL;
 
 	assert(ctx != NULL);
 	assert(sessions != NULL);
@@ -280,49 +257,19 @@ int iscsi_sessions_get(struct iscsi_context *ctx,
 	*sessions = NULL;
 	*session_count = 0;
 
-	n = scandir(_ISCSI_SYS_SESSION_DIR, &namelist, _scan_filter_skip_dot,
-		    alphasort);
-	if (n < 0) {
-		errno_save = errno;
-		if (errno_save == ENOENT)
-			goto out;
-		if (errno_save == ENOMEM) {
-			rc = LIBISCSI_ERR_NOMEM;
-			goto out;
-		}
-		if (errno_save == ENOTDIR) {
-			rc = LIBISCSI_ERR_BUG;
-			_error(ctx, "Got ENOTDIR error when scandir %s",
-			       _ISCSI_SYS_SESSION_DIR);
-			goto out;
-		}
-		rc = LIBISCSI_ERR_BUG;
-		_error(ctx, "Got unexpected error %d when scandir %s",
-		       errno_save, _ISCSI_SYS_SESSION_DIR);
-		goto out;
-	}
-	_info(ctx, "Got %d iSCSI sessions", n);
-	*sessions = (struct iscsi_session **)
-		calloc (sizeof(struct iscsi_session *), n);
+	_good(_iscsi_sids_get(ctx, &sids, session_count), rc ,out);
+
+	*sessions = calloc (*session_count, sizeof(struct iscsi_session *));
 	_alloc_null_check(ctx, *sessions, rc, out);
 
-	*session_count = n & UINT32_MAX;
-
 	for (i = 0; i < *session_count; ++i) {
-		sid = session_str_to_sid(namelist[i]->d_name);
-		if (sid == 0) {
-			_error(ctx, "Got illegal iscsi session string %s",
-			       namelist[i]->d_name);
-			rc = LIBISCSI_ERR_BUG;
-			goto out;
-		}
-		_good(iscsi_session_get(ctx, sid, &((*sessions)[i])), rc, out);
+		_debug(ctx, "sid %" PRIu32, sids[i]);
+		_good(iscsi_session_get(ctx, sids[i], &((*sessions)[i])),
+		      rc, out);
 	}
 
 out:
-	for (j = n - 1; j >= 0; --j)
-		free(namelist[j]);
-	free(namelist);
+	free(sids);
 	if (rc != LIBISCSI_OK) {
 		iscsi_sessions_free(*sessions, *session_count);
 		*sessions = NULL;
@@ -334,7 +281,7 @@ out:
 void iscsi_session_free(struct iscsi_session *se)
 {
 	if (se != NULL)
-		_iscsi_iface_free(se->iface);
+		iscsi_iface_free(se->iface);
 	free(se);
 }
 
@@ -342,7 +289,7 @@ void iscsi_sessions_free(struct iscsi_session **ses, uint32_t se_count)
 {
 	uint32_t i = 0;
 
-	if (ses == NULL)
+	if ((ses == NULL) || (se_count == 0))
 		return;
 
 	for (i = 0; i < se_count; ++i)

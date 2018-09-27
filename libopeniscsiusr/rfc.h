@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 Red Hat, Inc.
+ * Copyright (C) 2017 Red Hat, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,20 +16,12 @@
  *
  * Author: Gris Ge <fge@redhat.com>
  */
-#ifndef __ISCSI_USR_CONTEXT_H__
-#define __ISCSI_USR_CONTEXT_H__
-
-#include "idbm.h"
-#include <stdarg.h>
-
-struct iscsi_context {
-	void (*log_func)(struct iscsi_context *ctx, int priority,
-			 const char *file, int line, const char *func_name,
-			 const char *format, va_list args);
-	int log_priority;
-	void *userdata;
-	struct idbm *db;
-};
 
 
-#endif /* End of __ISCSI_USR_CONTEXT_H__ */
+#ifndef _LIB_OPEN_ISCSI_USR_RFC_H_
+#define _LIB_OPEN_ISCSI_USR_RFC_H_
+
+#define ISCSI_DEFAULT_PORT		3260
+#define ISCSI_DEF_TIME2WAIT			2
+
+#endif /* End of _LIB_OPEN_ISCSI_USR_RFC_H_ */
