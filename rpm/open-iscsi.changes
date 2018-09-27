@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Thu Sep 27 17:47:27 UTC 2018 - lduncan@suse.com
+
+- Merge the latest upstream code, updating the libopeniscsiusr
+  version from 0_1_0 to 0_2_0, which updates the SPEC file. Also
+  updated with new code:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Tue Sep  4 17:35:55 UTC 2018 - lduncan@suse.com
 
 - Use libkmod instead of running modprobe (bsc#1106685), updating
