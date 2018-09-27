@@ -41,7 +41,7 @@ BuildRequires:  openssl-devel
 BuildRequires:  suse-module-tools
 BuildRequires:  systemd
 Requires(post): coreutils
-Requires:       libopeniscsiusr0_1_0 = %{version}
+Requires:       libopeniscsiusr0_2_0 = %{version}
 %{?systemd_requires}
 
 %description
@@ -58,17 +58,17 @@ connection-level error processing, Nop-In and Nop-Out handling. It
 comes with a daemon process called iscsid, and a management utility,
 iscsiadm.
 
-%package -n libopeniscsiusr0_1_0
+%package -n libopeniscsiusr0_2_0
 Version:        2.0.876
 Release:        0
 Summary:        Userspace iSCSI API
 Group:          System/Libraries
 
-%description -n libopeniscsiusr0_1_0
+%description -n libopeniscsiusr0_2_0
 The iSCSI userspace API from the open-iscsi project.
 
 %package -n iscsiuio
-Version:        0.7.8.2
+Version:        0.7.8.4
 Release:        0
 Summary:        Linux Broadcom NetXtremem II iscsi server
 Group:          Productivity/Networking/Other
@@ -147,8 +147,8 @@ fi
 %preun
 %{service_del_preun iscsid.socket iscsid.service iscsi.service}
 
-%post   -n libopeniscsiusr0_1_0 -p /sbin/ldconfig
-%postun -n libopeniscsiusr0_1_0 -p /sbin/ldconfig
+%post   -n libopeniscsiusr0_2_0 -p /sbin/ldconfig
+%postun -n libopeniscsiusr0_2_0 -p /sbin/ldconfig
 
 %post -n iscsiuio
 %{service_add_post iscsiuio.socket iscsiuio.service}
@@ -192,7 +192,7 @@ fi
 %{_mandir}/man8/iscsi_fw_login.8%{ext_man}
 %{_udevrulesdir}/50-iscsi-firmware-login.rules
 
-%files -n libopeniscsiusr0_1_0
+%files -n libopeniscsiusr0_2_0
 %{_libdir}/libopeniscsiusr.so*
 
 %files -n iscsiuio
