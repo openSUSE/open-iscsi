@@ -1,4 +1,19 @@
 -------------------------------------------------------------------
+Wed Oct 17 18:23:30 UTC 2018 - lduncan@suse.com
+
+- Upgraded to upstream open-iscsi version 2.0.877, which will be
+  merged with our (few) changes and tagged 2.0.877-suse. See the
+  Changelog file for a details list of changes in this upstream
+  update. This update replaces:
+  * open-iscsi-2.0.876-suse.tar.bz2 (old)
+  with
+  *  open-iscsi-2.0.877-suse.tar.bz2 (new)
+  and resets the file:
+  * open-iscsi-SUSE-latest.diff.bz2
+  to be our local changes since version 2.0.877-suse. The spec
+  file is updated as well.
+
+-------------------------------------------------------------------
 Thu Sep 27 17:47:27 UTC 2018 - lduncan@suse.com
 
 - Merge the latest upstream code, updating the libopeniscsiusr

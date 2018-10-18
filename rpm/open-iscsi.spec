@@ -16,11 +16,11 @@
 #
 
 
-%define iscsi_release 876-suse
+%define iscsi_release 877-suse
 Name:           open-iscsi
-Version:        2.0.876
+Version:        2.0.877
 Release:        0
-Summary:        Linux Open-iSCSI Software Initiator
+Summary:        Linux Open Source iSCSI Software Initiator
 License:        GPL-2.0-or-later
 Group:          Productivity/Networking/Other
 Url:            http://www.open-iscsi.com
@@ -40,12 +40,13 @@ BuildRequires:  open-isns-devel
 BuildRequires:  openssl-devel
 BuildRequires:  suse-module-tools
 BuildRequires:  systemd
+BuildRequires:  systemd-devel
 Requires(post): coreutils
 Requires:       libopeniscsiusr0_2_0 = %{version}
 %{?systemd_requires}
 
 %description
-Open-iSCSI is a transport independent implementation of RFC 3720
+This is a transport independent implementation of RFC 3720
 iSCSI. It is partitioned into user and kernel parts.
 
 The kernel portion of Open-iSCSI implements the iSCSI data path (that
@@ -59,9 +60,9 @@ comes with a daemon process called iscsid, and a management utility,
 iscsiadm.
 
 %package -n libopeniscsiusr0_2_0
-Version:        2.0.876
+Version:        2.0.877
 Release:        0
-Summary:        Userspace iSCSI API
+Summary:        Userspace Open-Source iSCSI API
 Group:          System/Libraries
 
 %description -n libopeniscsiusr0_2_0
@@ -90,11 +91,11 @@ The communication to the driver is done via Userspace I/O (Kernel module name
 "uio").
 
 %package devel
-Version:        2.0.876
+Version:        2.0.877
 Release:        0
-Summary:        Linux open-iscsi user-level library and include files
+Summary:        Linux Open-Source iSCSI user-level library and include files
 Group:          Development/Libraries/C and C++
-Requires:       %{name}
+Requires:       %{name} = %{version}
 
 %description devel
 This development package contains the open-iscsi user-level library
@@ -106,7 +107,7 @@ the libopeniscsiusr library.
 %patch1 -p1
 
 %build
-make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DUSE_KMOD -I/usr/include/kmod -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" LDFLAGS="-lkmod" user
+make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DUSE_KMOD -I/usr/include/kmod -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" LDFLAGS="-lkmod -lsystemd" user
 cd iscsiuio
 touch AUTHORS NEWS
 autoreconf --install
@@ -193,7 +194,7 @@ fi
 %{_udevrulesdir}/50-iscsi-firmware-login.rules
 
 %files -n libopeniscsiusr0_2_0
-%{_libdir}/libopeniscsiusr.so*
+%{_libdir}/libopeniscsiusr.so.*
 
 %files -n iscsiuio
 /sbin/iscsiuio
@@ -207,5 +208,6 @@ fi
 %files devel
 %{_includedir}/libopeniscsiusr*.h
 %{_mandir}/man3/*.3%{ext_man}
+%{_libdir}/libopeniscsiusr.so
 
 %changelog
