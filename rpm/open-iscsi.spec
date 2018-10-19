@@ -20,7 +20,7 @@
 Name:           open-iscsi
 Version:        2.0.877
 Release:        0
-Summary:        Linux Open Source iSCSI Software Initiator
+Summary:        Linux iSCSI Software Initiator
 License:        GPL-2.0-or-later
 Group:          Productivity/Networking/Other
 Url:            http://www.open-iscsi.com
@@ -51,9 +51,10 @@ iSCSI. It is partitioned into user and kernel parts.
 
 The kernel portion of Open-iSCSI implements the iSCSI data path (that
 is, iSCSI Read and iSCSI Write), and consists of two loadable
-modules: iscsi_if.ko and iscsi_tcp.ko.
+modules: iscsi_if.ko and iscsi_tcp.ko, and is now is delivered
+as part of the kernel.
 
-The user space part contains the entire control plane: configuration
+The user-space part contains the entire control plane: configuration
 manager, iSCSI Discovery, Login and Logout processing,
 connection-level error processing, Nop-In and Nop-Out handling. It
 comes with a daemon process called iscsid, and a management utility,
@@ -62,11 +63,11 @@ iscsiadm.
 %package -n libopeniscsiusr0_2_0
 Version:        2.0.877
 Release:        0
-Summary:        Userspace Open-Source iSCSI API
+Summary:        iSCSI User-level Library
 Group:          System/Libraries
 
 %description -n libopeniscsiusr0_2_0
-The iSCSI userspace API from the open-iscsi project.
+The iSCSI user-space API from the open-iscsi project.
 
 %package -n iscsiuio
 Version:        0.7.8.4
@@ -79,7 +80,7 @@ Requires:       logrotate
 This tool is to be used in conjunction with the Broadcom NetXtreme II Linux
 driver (Kernel module name: "bnx2" and "bnx2x"), Broadcom CNIC driver,
 and the Broadcom iSCSI driver (Kernel module name: "bnx2i").
-This user space tool is used in conjunction with the following
+This user-space tool is used in conjunction with the following
 Broadcom Network Controllers:
 
 * bnx2:  BCM5706, BCM5708, BCM5709 devices
@@ -87,13 +88,13 @@ Broadcom Network Controllers:
          BCM57800, BCM57810, BCM57840 devices
 
 This utility will provide the ARP and DHCP functionality for the iSCSI offload.
-The communication to the driver is done via Userspace I/O (Kernel module name
+The communication to the driver is done via user-space I/O (Kernel module name
 "uio").
 
 %package devel
 Version:        2.0.877
 Release:        0
-Summary:        Linux Open-Source iSCSI user-level library and include files
+Summary:        iSCSI User-level Library Development Library and Include files
 Group:          Development/Libraries/C and C++
 Requires:       %{name} = %{version}
 
