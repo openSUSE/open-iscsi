@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Sat Oct 20 01:27:45 UTC 2018 - Lee Duncan <lduncan@suse.com>
+
+- Restore space to output of "iscsiadm -m node" (bsc#1111608),
+  using upstream commit, updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Wed Sep 12 18:15:59 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
 - Use libkmod instead of running modprobe (bsc#1106685), updating
