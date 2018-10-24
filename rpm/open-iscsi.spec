@@ -63,6 +63,7 @@ Version:        2.0.876
 Release:        0
 Summary:        Userspace iSCSI API
 Group:          System/Libraries
+Obsoletes:      libopeniscsiusr0_1_0
 
 %description -n libopeniscsiusr0_2_0
 The iSCSI userspace API from the open-iscsi project.
