@@ -4,6 +4,9 @@ Wed Oct 24 19:06:27 UTC 2018 - lduncan@suse.com
 - Updated SPEC file with Obsoletes for library, and disclaimer
   abot updating SPEC file directly.
 
+  Also, added using KBUILD_BUILD_TIMESTAMP to create reproducable
+  man pages (bsc#1047218)
+
 -------------------------------------------------------------------
 Wed Oct 17 18:23:30 UTC 2018 - lduncan@suse.com
 
