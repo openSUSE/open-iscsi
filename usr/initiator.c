@@ -735,7 +735,7 @@ static void iscsi_login_eh(struct iscsi_conn *conn, struct queue_task *qtask,
 				  session->reopen_cnt, session->reopen_max);
 			if (session->reopen_max &&
 			    (session->reopen_cnt > session->reopen_max)) {
-				log_info("Giving up on session %d after %d retries", 
+				log_info("Giving up on session %d after %d retries",
 						session->id, session->reopen_max);
 				session_conn_shutdown(conn, qtask, err);
 				break;
