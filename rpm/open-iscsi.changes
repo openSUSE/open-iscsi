@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Oct 24 22:25:29 UTC 2018 - Lee Duncan <lduncan@suse.com>
+
+- New library version needs to Obsolete the prevoius version,
+  and add a note about *not* editing the SPEC file directly,
+  both updating the SPEC file
+
+-------------------------------------------------------------------
 Sat Oct 20 01:27:45 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
 - Restore space to output of "iscsiadm -m node" (bsc#1111608),
