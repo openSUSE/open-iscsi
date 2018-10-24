@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Wed Oct 24 22:30:59 UTC 2018 - Lee Duncan <lduncan@suse.com>
+
+- when iscsid started up and found stale sessions it tried
+  forever to reconnect them, during which time the session
+  info was printed incorrectly. Fix that printing, and add
+  ability to limit reconnect retries (bsc#1088389), updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Wed Oct 24 22:25:29 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
 - New library version needs to Obsolete the prevoius version,
