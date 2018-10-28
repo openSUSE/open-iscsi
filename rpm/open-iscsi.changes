@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Sun Oct 28 22:30:30 UTC 2018 - Lee Duncan <lduncan@suse.com>
+
+- Do not allow multiple sessions just because they were started
+  in parallel (bsc#1107753)
+
+-------------------------------------------------------------------
 Wed Oct 24 21:34:17 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
 - when iscsid started up and found stale sessions it tried
