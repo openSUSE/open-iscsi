@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Sun Oct 28 22:37:15 UTC 2018 - Lee Duncan <lduncan@suse.com>
+
+- iscsiuio: Do not flush tx queue on each uio interrupt. This
+  makes ping to such NICs work better (bsc#1102589)
+
+-------------------------------------------------------------------
 Sun Oct 28 22:30:30 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
 - Do not allow multiple sessions just because they were started
