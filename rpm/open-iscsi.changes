@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Thu Aug 16 11:13:38 UTC 2018 - bbrunner@suse.com
+
+- Add iscsiuio to CaaSP3 (bsc#1104471)
+
+-------------------------------------------------------------------
 Wed Aug  8 03:09:53 UTC 2018 - lduncan@suse.com
 
 - Update to latest upstream, including fixes for iscsiuio
