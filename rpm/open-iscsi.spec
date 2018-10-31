@@ -14,12 +14,6 @@
 
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
-# NOTE: do NOT make changes to this file directly in the build service,
-# as this file is auto-generated from sources at:
-#  https://github.com/hreinecke/open-iscsi
-# So changes here will be overwritten. Instead, submit issues or pull
-# requests there.
-#
 
 
 %define iscsi_release 876-suse
