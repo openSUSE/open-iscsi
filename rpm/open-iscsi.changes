@@ -13,6 +13,9 @@ Wed Oct 31 16:50:01 UTC 2018 - Lee Duncan <lduncan@suse.com>
   add a note about *not* editing the SPEC file directly, and
   change http to https, all updating SPEC file
 
+- Added new README.updates, to warn people not to update
+  ANY file here in the build service directly!
+
 -------------------------------------------------------------------
 Thu Aug 16 11:13:38 UTC 2018 - bbrunner@suse.com
 
