@@ -1,25 +1,4 @@
 -------------------------------------------------------------------
-Sat Oct 20 01:27:45 UTC 2018 - Lee Duncan <lduncan@suse.com>
-
-- Restore space to output of "iscsiadm -m node" (bsc#1111608),
-  using upstream commit, updating:
-  * open-iscsi-SUSE-latest.diff.bz2
-
--------------------------------------------------------------------
-Wed Sep 12 18:15:59 UTC 2018 - Lee Duncan <lduncan@suse.com>
-
-- Use libkmod instead of running modprobe (bsc#1106685), updating
-  the spec file, and:
-  * open-iscsi-SUSE-latest.diff.bz2
-
--------------------------------------------------------------------
-Thu Aug 30 21:17:19 UTC 2018 - Lee Duncan <lduncan@suse.com>
-
-- Add iscsiuio upstream fix for limiting dhpcv6 retries
-  (bsc#1105916), updating:
-  * open-iscsi-SUSE-latest.diff.bz2
-
--------------------------------------------------------------------
 Wed Aug  8 03:09:53 UTC 2018 - lduncan@suse.com
 
 - Update to latest upstream, including fixes for iscsiuio

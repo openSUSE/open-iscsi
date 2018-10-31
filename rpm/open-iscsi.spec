@@ -38,7 +38,6 @@ BuildRequires:  bison
 BuildRequires:  db-devel < 5
 BuildRequires:  fdupes
 BuildRequires:  flex
-BuildRequires:  libkmod-devel
 BuildRequires:  libmount-devel
 BuildRequires:  libtool
 BuildRequires:  make
@@ -113,7 +112,7 @@ the libopeniscsiusr library.
 %patch1 -p1
 
 %build
-make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DUSE_KMOD -I/usr/include/kmod -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" LDFLAGS="-lkmod" user
+make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" LDFLAGS="" user
 cd iscsiuio
 touch AUTHORS NEWS
 autoreconf --install
