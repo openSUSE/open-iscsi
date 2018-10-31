@@ -31,6 +31,7 @@ License:        GPL-2.0-or-later
 Group:          Productivity/Networking/Other
 Url:            https://www.open-iscsi.com
 Source:         %{name}-2.0.%{iscsi_release}.tar.bz2
+Source1:        README.updates
 Patch1:         %{name}-SUSE-latest.diff.bz2
 BuildRequires:  autoconf
 BuildRequires:  automake
