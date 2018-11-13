@@ -14,12 +14,6 @@
 
 # Please submit bugfixes or comments via http://bugs.opensuse.org/
 #
-# NOTE: do NOT make changes to this file directly in the build service,
-# as this file is auto-generated from sources at:
-#  https://github.com/hreinecke/open-iscsi
-# So changes here will be overwritten. Instead, submit issues or pull
-# requests there.
-#
 
 
 %define iscsi_release 877-suse
@@ -44,6 +38,7 @@ BuildRequires:  libtool
 BuildRequires:  make
 BuildRequires:  open-isns-devel
 BuildRequires:  openssl-devel
+BuildRequires:  pkg-config
 BuildRequires:  suse-module-tools
 BuildRequires:  systemd
 BuildRequires:  systemd-devel
@@ -116,7 +111,7 @@ the libopeniscsiusr library.
 
 %build
 [ -z "$SOURCE_DATE_EPOCH" ] || export KBUILD_BUILD_TIMESTAMP=@$SOURCE_DATE_EPOCH
-make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DUSE_KMOD -I/usr/include/kmod -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" LDFLAGS="-lkmod -lsystemd" user
+make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" user
 cd iscsiuio
 touch AUTHORS NEWS
 autoreconf --install

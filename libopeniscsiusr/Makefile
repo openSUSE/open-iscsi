@@ -67,7 +67,7 @@ clean:
 
 $(TESTS): $(LIBS)
 $(TESTS): CFLAGS += -I$(TOPDIR)/libopeniscsiusr -g
-$(TESTS): LDFLAGS += $(LIBADD) -L$(TOPDIR)/libopeniscsiusr -lopeniscsiusr
+$(TESTS): LDFLAGS += $(LIBADD)
 
 check: $(LIBS) $(TESTS)
 	sudo env LD_LIBRARY_PATH=$(LIBISCSI_USR_DIR) TESTS="$(TESTS)" \
