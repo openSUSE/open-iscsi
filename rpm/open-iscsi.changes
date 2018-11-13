@@ -1,4 +1,18 @@
 -------------------------------------------------------------------
+Tue Nov 13 01:48:12 UTC 2018 - lduncan@suse.com
+
+- Updated to latest upstream, with fixes:
+  * Use pkg-config in Makefiles for newer libraries.
+  * Merge pull request #145 from gonzoleeman/fix-i586-build-warnings
+  * Fix i586 build issues with string length overflow.
+  * iscsistart is not installed
+  * iscsiuio: Do not flush tx queue on each uio interrupt.
+  updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+  Also, update the SPEC file: no more need to specify libkmod
+  or libsystemd, since upstream handles that now.
+
+-------------------------------------------------------------------
 Wed Oct 24 19:06:27 UTC 2018 - lduncan@suse.com
 
 - Updated SPEC file with Obsoletes for library, and disclaimer
