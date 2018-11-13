@@ -103,8 +103,7 @@ if [[ -z $files_changed ]] ; then
 	# no changes except rpm/ subdir changes, so create an empty changes file
 	bzip2 < /dev/null > $DESTDIR/$RPM-SUSE-latest.diff.bz2
 else
-	git diff ${VERSION}..${BRANCH} $files_changed
-		$(git diff --name-only --diff-filter=d ${VERSION}..${BRANCH}|grep -v '^rpm/')| \
+	git diff ${VERSION}..${BRANCH} $files_changed | \
 		bzip2 > $DESTDIR/$RPM-SUSE-latest.diff.bz2
 fi
 
