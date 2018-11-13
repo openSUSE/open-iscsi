@@ -24,6 +24,8 @@ INCLUDE_DIR ?= $(prefix)/include
 PKGCONF_DIR ?= $(LIB_DIR)/pkgconfig
 MAN_DIR ?= $(prefix)/share/man
 
+PKG_CONFIG = /usr/bin/pkg-config
+
 LIBISCSI_USR_DIR=$(TOPDIR)/libopeniscsiusr
 
 LIBISCSI_USR_VERSION_MAJOR=0
@@ -44,6 +46,9 @@ OBJS = context.o misc.o session.o sysfs.o iface.o idbm.o node.o default.o
 
 CFLAGS ?= -O2 -g
 CFLAGS += -Wall -Werror -Wextra -fvisibility=hidden -fPIC
+CFLAGS += $(shell $(PKG_CONFIG) --cflags libkmod)
+
+LDFLAGS += $(shell $(PKG_CONFIG) --libs libkmod)
 
 LIBADD =
 
