@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu Dec  6 18:38:33 UTC 2018 - lduncan@suse.com
+
+- Fixed iscsiuio issues (bsc#1116712) by merging the latest from
+  upstream, bringing the iscsiuio version to v0.7.8.5, updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Tue Nov 13 01:48:12 UTC 2018 - lduncan@suse.com
 
 - Updated to latest upstream, with fixes:
