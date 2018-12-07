@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Fri Dec  7 19:08:17 UTC 2018 - Lee Duncan <lduncan@suse.com>
+
+- Cherry-picked 3 upstream changes for iscsiuio (bsc#1116712),
+  updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Mon Oct 29 15:44:23 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
 - iscsiuio: Do not flush tx queue on each uio interrupt. This
