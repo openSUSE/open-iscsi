@@ -2,6 +2,10 @@
 Fri Dec  7 19:08:17 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
 - Cherry-picked 3 upstream changes for iscsiuio (bsc#1116712),
+  adding the following iscsiuio commits:
+  * iscsiuio: v0.7.8.5
+  * qedi: Use uio BD index instead on buffer index.
+  * qedi: Set buf_size in case of ICMP and ARP packet.
   updating:
   * open-iscsi-SUSE-latest.diff.bz2
 
@@ -9,13 +13,15 @@ Fri Dec  7 19:08:17 UTC 2018 - Lee Duncan <lduncan@suse.com>
 Mon Oct 29 15:44:23 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
 - iscsiuio: Do not flush tx queue on each uio interrupt. This
-  makes ping to such NICs work better (bsc#1102589)
+  makes ping to such NICs work better (bsc#1102589), updating:
+  * open-iscsi-SUSE-latest.diff.bz2
 
 -------------------------------------------------------------------
 Mon Oct 29 15:42:38 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
 - Do not allow multiple sessions just because they were started
-  in parallel (bsc#1107753)
+  in parallel (bsc#1107753), updating:
+  * open-iscsi-SUSE-latest.diff.bz2
 
 -------------------------------------------------------------------
 Wed Oct 24 22:30:59 UTC 2018 - Lee Duncan <lduncan@suse.com>
