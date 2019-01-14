@@ -1,7 +1,7 @@
 #
 # spec file for package open-iscsi
 #
-# Copyright (c) 2018 SUSE LINUX GmbH, Nuernberg, Germany.
+# Copyright (c) 2019 SUSE LINUX GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -12,7 +12,7 @@
 # license that conforms to the Open Source Definition (Version 1.9)
 # published by the Open Source Initiative.
 
-# Please submit bugfixes or comments via http://bugs.opensuse.org/
+# Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
 
@@ -111,17 +111,17 @@ the libopeniscsiusr library.
 
 %build
 [ -z "$SOURCE_DATE_EPOCH" ] || export KBUILD_BUILD_TIMESTAMP=@$SOURCE_DATE_EPOCH
-make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" user
+make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" LIB_DIR=%{_libdir} user
 cd iscsiuio
 touch AUTHORS NEWS
 autoreconf --install
 %configure --sbindir=/sbin
-make %{?_smp_mflags} CFLAGS="%{optflags}"
+make %{?_smp_mflags} CFLAGS="%{optflags}" LIB_DIR=%{_libdir}
 
 %install
-make DESTDIR=%{buildroot} install_user
+make DESTDIR=%{buildroot} LIB_DIR=%{_libdir} install_user
 # install service files
-make DESTDIR=%{buildroot} install_service_suse
+make DESTDIR=%{buildroot} LIB_DIR=%{_libdir} install_service_suse
 # create rc symlinks
 [ -d %{buildroot}%{_sbindir} ] || mkdir -p %{buildroot}%{_sbindir}
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsi
