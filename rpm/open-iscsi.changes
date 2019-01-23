@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Wed Jan 23 20:31:56 UTC 2019 - lduncan@suse.com
+
+- Merged latest upstream commits to get needed fix:
+  * Fix output for iscsiadm node/iface print level P1 (needed
+    for bsc#1122938)
+  * Updated iscsiadm man page: add "onboot" handling.
+  Updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Mon Jan 14 21:18:35 UTC 2019 - lduncan@suse.com
 
 - Update SPEC file to allow %_libdir macro to override LIB_DIR
