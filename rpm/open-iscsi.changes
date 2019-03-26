@@ -1,4 +1,15 @@
 -------------------------------------------------------------------
+Tue Mar 26 17:43:23 UTC 2019 - Lee Duncan <lduncan@suse.com>
+
+- Added latest upstream changes, including:
+  * Fix output of node printing for multiple paths.
+  * Fix printing of node database again.
+  * Add Restart=on-failure option to iscsid.service
+  * Fix node print return value when no nodes.
+  Updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Wed Jan 23 20:31:56 UTC 2019 - lduncan@suse.com
 
 - Merged latest upstream commits to get needed fix:
