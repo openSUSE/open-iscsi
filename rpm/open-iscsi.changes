@@ -1,4 +1,16 @@
 -------------------------------------------------------------------
+Tue Mar 26 18:36:21 UTC 2019 - Lee Duncan <lduncan@suse.com>
+
+- Fixed issues surrounding output from "iscsiadm -m node ... -P1" and
+  "iscsiadm -m discovery -t st ... -o new -P1" (bsc#1128972),
+  cherry-picking 3 commits from upstream:
+  * Fix output of node printing for multiple paths.
+  * Fix printing of node database again.
+  * Fix node print return value when no nodes.
+  Which updates:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Fri Mar  8 20:59:39 UTC 2019 - Lee Duncan <lduncan@suse.com>
 
 - Cherry picked upstream commit (bsc#1127913):
