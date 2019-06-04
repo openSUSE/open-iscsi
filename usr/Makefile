@@ -40,9 +40,11 @@ CFLAGS += $(WARNFLAGS) -I../include -I. -D_GNU_SOURCE \
 	  -I$(TOPDIR)/libopeniscsiusr
 CFLAGS += $(shell $(PKG_CONFIG) --cflags libkmod)
 CFLAGS += $(shell $(PKG_CONFIG) --cflags libsystemd)
-LDFLAGS += $(shell $(PKG_CONFIG) --libs libkmod)
-LDFLAGS += $(shell $(PKG_CONFIG) --libs libsystemd)
 ISCSI_LIB = -L$(TOPDIR)/libopeniscsiusr -lopeniscsiusr
+LDFLAGS += $(shell $(PKG_CONFIG) --libs libkmod)
+ifeq ($(NO_SYSTEMD),)
+LDFLAGS += $(shell $(PKG_CONFIG) --libs libsystemd)
+endif
 PROGRAMS = iscsid iscsiadm iscsistart
 
 # libc compat files

@@ -9,9 +9,11 @@ After=network.target
 Before=remote-fs-pre.target iscsid.service
 
 [Service]
-Type=forking
-PIDFile=/var/run/iscsiuio.pid
-ExecStart=/sbin/iscsiuio
+Type=notify
+NotifyAccess=main
+ExecStart=/sbin/iscsiuio -f
+KillMode=mixed
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
