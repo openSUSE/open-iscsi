@@ -28,6 +28,7 @@ iscsiuio_CFLAGS = 	$(AM_CFLAGS)		\
 			-DBYTE_ORDER=@ENDIAN@
 
 iscsiuio_LDFLAGS= 	$(AM_LDADD)		\
+			-lsystemd		\
 			-ldl			\
 			-rdynamic		\
 			$(LIBNL_LIBS)		\
