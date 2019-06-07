@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Fri Jun  7 15:45:35 UTC 2019 - Lee Duncan <lduncan@suse.com>
+
+- Cherry-picked upstream commits for iscsiuio support of systemd
+  (bsc#1135070), updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Tue Mar 26 18:19:37 UTC 2019 - Lee Duncan <lduncan@suse.com>
 
 - Fixed issues surrounding output from "iscsiadm -m node ... -P1" and
