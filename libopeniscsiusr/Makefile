@@ -46,9 +46,6 @@ OBJS = context.o misc.o session.o sysfs.o iface.o idbm.o node.o default.o
 
 CFLAGS ?= -O2 -g
 CFLAGS += -Wall -Werror -Wextra -fvisibility=hidden -fPIC
-CFLAGS += $(shell $(PKG_CONFIG) --cflags libkmod)
-
-LDFLAGS += $(shell $(PKG_CONFIG) --libs libkmod)
 
 LIBADD =
 

@@ -38,9 +38,7 @@ CFLAGS ?= -O2 -g
 WARNFLAGS ?= -Wall -Wstrict-prototypes
 CFLAGS += $(WARNFLAGS) -I../include -I. -D_GNU_SOURCE \
 	  -I$(TOPDIR)/libopeniscsiusr
-CFLAGS += $(shell $(PKG_CONFIG) --cflags libkmod)
 ISCSI_LIB = -L$(TOPDIR)/libopeniscsiusr -lopeniscsiusr
-LDFLAGS += $(shell $(PKG_CONFIG) --libs libkmod)
 LDFLAGS += $(shell $(PKG_CONFIG) --libs libsystemd)
 PROGRAMS = iscsid iscsiadm iscsistart
 
