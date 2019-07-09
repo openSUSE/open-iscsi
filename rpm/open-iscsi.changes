@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Tue Jul  9 15:41:53 UTC 2019 - Lee Duncan <lduncan@suse.com>
+
+- Added latest upstream changes, including:
+  * iscsiuio: update version to 0.7.8.6
+  * iscsiuio: allow processing of iscsid requests in DHCP failure condition
+  * rec update: disable the idbm_lock in read/write when updating the rec
+  Updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Tue Jun  4 17:45:40 UTC 2019 - Lee Duncan <lduncan@suse.com>
 
 - Added latest upstream changes, including:
