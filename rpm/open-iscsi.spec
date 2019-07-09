@@ -40,8 +40,8 @@ BuildRequires:  open-isns-devel
 BuildRequires:  openssl-devel
 BuildRequires:  pkg-config
 BuildRequires:  suse-module-tools
-BuildRequires:  systemd
-BuildRequires:  systemd-devel
+BuildRequires:  pkgconfig(systemd)
+BuildRequires:  pkgconfig(libsystemd)
 Requires(post): coreutils
 Requires:       libopeniscsiusr0_2_0 = %{version}
 %{?systemd_requires}
