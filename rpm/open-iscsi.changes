@@ -1,4 +1,85 @@
 -------------------------------------------------------------------
+Tue Jul  9 22:38:56 UTC 2019 - Lee Duncan <lduncan@suse.com>
+
+- Update to latest upstream/factory version of open-iscsi and
+  iscsiuio (bsc#1113712). Summary of changes:
+  ************************************************************
+    Christian Ehrhardt (2):
+	  iscsiuio: avoid loosing bad rc in nic_nl_open
+	  iscsiuio: fail on nic_nl_open failing
+
+    Floris Bos (1):
+	  context.h: add missing stdarg.h include
+
+    Lee Duncan (37):
+	  Plugging a memory leak from discovery.
+	  Allow reading sysfs "port" to fail gracefully.
+	  Fix incorrect sysfs logic for port and ip address.
+	  Fix reading of sysfs signed integers when negative.
+	  Create a new error for "target not connected".
+	  Fix bug in error message when reading sysfs numbers.
+	  Handle ENOTCONN error separately when reading sysfs values.
+	  Limit session relogin attempts using config value.
+	  Removed unused value 'one'.
+	  Include stdio.h for use of snprintf().
+	  Fix qsort() comparator function call.
+	  Do not allow multiple sessions when nr_sessions=1
+	  When reopen_max=0 retry reopening forever.
+	  Use libkmod instead of fork/exec of modprobe.
+	  Update GPLv2 License information.
+	  Make reconnect to session on startup forever default.
+	  Restore space in node-mode level 0 output
+	  Added service file for iscsi logins
+	  Use sd_notify() to tell systemd when iscsid is ready.
+	  Update systemd unit files for iscsid
+	  Preparing for version 2.0.877
+	  iscsistart is not installed
+	  Fix i586 build issues with string length overflow.
+	  Use pkg-config in Makefiles for newer libraries.
+	  Updated iscsiadm man page: add "onboot" handling.
+	  Fix output for iscsiadm node/iface print level P1
+	  When displaying interfaces, skip "iface.example"
+	  Fix node print return value when no nodes.
+	  Fix printing of node database again.
+	  Fix output of node printing for multiple paths.
+	  Stop using /var directory for PIDfile and locks
+	  Improve daemon synchronization, fix err msgs
+	  Fix pipe notification code
+	  Add systemd support for iscsiuio
+	  Make iscsid systemd usage optional
+	  Fix possible discovery hang when timing out
+	  Handle systemd disablement correctly in iscsiuio
+
+    Manish Rangankar (4):
+	  iscsiuio: Release xmit_mutex in error code path.
+	  iscsiuio: Do not flush tx queue on each uio interrupt.
+	  qedi: Set buf_size in case of ICMP and ARP packet.
+	  qedi: Use uio BD index instead on buffer index.
+
+    Nilesh Javali (4):
+	  iscsiuio: limit retries of performing dhcpv6 before declaring dhcp failure
+	  iscsiuio: v0.7.8.5
+	  iscsiuio: allow processing of iscsid requests in DHCP failure condition
+	  iscsiuio: update version to 0.7.8.6
+
+    Scott Moser (2):
+	  Close file handles when writing pid files.
+	  Better error message and failure if netlink socket fails.
+
+    Xiubo Li (1):
+	  rec update: disable the idbm_lock in read/write when updating the rec
+
+    fredvx (1):
+	  Add Restart=on-failure option to iscsid.service
+
+    igo95862 (2):
+	  Make iscsid.service a requirement.
+	  Fixed iscsi.service considering every signal and exit code as successful. Now only code 21 (no objects found to execute on) and normal exit conditions are valid.
+  ************************************************************
+  Which updates:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Tue Mar 26 18:36:21 UTC 2019 - Lee Duncan <lduncan@suse.com>
 
 - Fixed issues surrounding output from "iscsiadm -m node ... -P1" and
