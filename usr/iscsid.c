@@ -34,6 +34,9 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifndef	NO_SYSTEMD
+#include <systemd/sd-daemon.h>
+#endif
 
 #include "iscsid.h"
 #include "mgmt_ipc.h"
@@ -62,6 +65,7 @@ static pid_t log_pid;
 static gid_t gid;
 static int daemonize = 1;
 static int mgmt_ipc_fd;
+static int sessions_to_recover = 0;
 
 static struct option const long_options[] = {
 	{"config", required_argument, NULL, 'c'},
@@ -233,7 +237,7 @@ static int sync_session(void *data, struct session_info *info)
 
 	if (idbm_rec_read(&rec, info->targetname, info->tpgt,
 			  info->persistent_address, info->persistent_port,
-			  &info->iface)) {
+			  &info->iface, false)) {
 		log_warning("Could not read data from db. Using default and "
 			    "currently negotiated values");
 		setup_rec_from_negotiated_values(&rec, info);
@@ -332,6 +336,30 @@ static void missing_iname_warn(char *initiatorname_file)
 		  "Example: InitiatorName=iqn.2001-04.com.redhat:fc6.\n"
 		  "If using hardware iscsi like qla4xxx this message can be "
 		  "ignored.", initiatorname_file, initiatorname_file);
+}
+
+/* called right before we enter the event loop */
+static void set_state_to_ready(void)
+{
+#ifndef	NO_SYSTEMD
+	if (sessions_to_recover)
+		sd_notify(0, "READY=1\n"
+				"RELOADING=1\n"
+				"STATUS=Syncing existing session(s)\n");
+	else
+		sd_notify(0, "READY=1\n"
+				"STATUS=Ready to process requests\n");
+#endif
+}
+
+/* called when recovery process has been reaped */
+static void set_state_done_reloading(void)
+{
+#ifndef	NO_SYSTEMD
+	sessions_to_recover = 0;
+	sd_notifyf(0, "READY=1\n"
+			"STATUS=Ready to process requests\n");
+#endif
 }
 
 int main(int argc, char *argv[])
@@ -442,11 +470,6 @@ int main(int argc, char *argv[])
 			exit(0);
 		}
 
-		if ((control_fd = ipc->ctldev_open()) < 0) {
-			log_close(log_pid);
-			exit(ISCSI_ERR);
-		}
-
 		if (chdir("/") < 0)
 			log_debug(1, "Unable to chdir to /");
 		if (fd > 0) {
@@ -466,6 +489,12 @@ int main(int argc, char *argv[])
 				log_close(log_pid);
 				exit(ISCSI_ERR);
 			}
+		}
+		close(fd);
+
+		if ((control_fd = ipc->ctldev_open()) < 0) {
+			log_close(log_pid);
+			exit(ISCSI_ERR);
 		}
 
 		daemon_init();
@@ -525,18 +554,31 @@ int main(int argc, char *argv[])
 		daemon_config.safe_logout = 1;
 	free(safe_logout);
 
-	pid = fork();
-	if (pid == 0) {
-		int nr_found = 0;
-		/* child */
-		/* TODO - test with async support enabled */
-		iscsi_sysfs_for_each_session(NULL, &nr_found, sync_session, 0);
-		exit(0);
-	} else if (pid < 0) {
-		log_error("Fork failed error %d: existing sessions"
-			  " will not be synced", errno);
-	} else
-		reap_inc();
+	/* see if we have any stale sessions to recover */
+	sessions_to_recover = iscsi_sysfs_count_sessions();
+	if (sessions_to_recover) {
+
+		/*
+		 * recover stale sessions in the background
+		 */
+
+		pid = fork();
+		if (pid == 0) {
+			int nr_found; /* not used */
+			/* child */
+			/* TODO - test with async support enabled */
+			iscsi_sysfs_for_each_session(NULL, &nr_found, sync_session, 0);
+			exit(0);
+		} else if (pid < 0) {
+			log_error("Fork failed error %d: existing sessions"
+				  " will not be synced", errno);
+		} else {
+			/* parent */
+			log_debug(8, "forked child (pid=%d) to recover %d session(s)",
+					(int)pid, sessions_to_recover);
+			reap_track_reload_process(pid, set_state_done_reloading);
+		}
+	}
 
 	iscsi_initiator_init();
 	increase_max_files();
@@ -553,6 +595,7 @@ int main(int argc, char *argv[])
 		exit(ISCSI_ERR);
 	}
 
+	set_state_to_ready();
 	event_loop(ipc, control_fd, mgmt_ipc_fd);
 
 	idbm_terminate();

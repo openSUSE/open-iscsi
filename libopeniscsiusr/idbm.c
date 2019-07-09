@@ -93,7 +93,7 @@
 #define ISCSI_END_REC	"# END RECORD"
 
 #ifndef LOCK_DIR
-#define LOCK_DIR		"/var/lock/iscsi"
+#define LOCK_DIR		"/run/lock/iscsi"
 #endif
 #define LOCK_FILE		LOCK_DIR"/lock"
 #define LOCK_WRITE_FILE		LOCK_DIR"/lock.write"
@@ -831,6 +831,9 @@ int _idbm_iface_get(struct iscsi_context *ctx, const char *iface_name, struct
 	*iface = NULL;
 
 	if (iface_name == NULL)
+		goto out;
+
+	if (strcmp(iface_name, "iface.example") == 0)
 		goto out;
 
 	_good(_asprintf(&conf_path, "%s/%s", IFACE_CONFIG_DIR, iface_name),

@@ -6,9 +6,11 @@ After=network.target iscsiuio.service
 Before=remote-fs-pre.target
 
 [Service]
-Type=simple
+Type=notify
+NotifyAccess=main
 ExecStart=/sbin/iscsid -f
 KillMode=mixed
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target

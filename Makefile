@@ -20,7 +20,8 @@ rulesdir = $(libdir)/udev/rules.d
 MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8 \
 		iscsiuio/docs/iscsiuio.8 doc/iscsi_fw_login.8 doc/iscsi-iname.8 \
 		doc/iscsistart.8
-PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi-iname iscsiuio/src/unix/iscsiuio
+PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi-iname iscsiuio/src/unix/iscsiuio \
+		   usr/iscsistart
 SCRIPTS = utils/iscsi_discovery utils/iscsi_fw_login utils/iscsi_offload \
 		  utils/iscsi-gen-initiatorname
 INSTALL = install
@@ -39,6 +40,14 @@ endif
 # pick it up.
 ifneq (,$(CFLAGS))
 export CFLAGS
+endif
+
+# export systemd disablement if set
+ifneq ($(NO_SYSTEMD),)
+export NO_SYSTEMD
+WITHOUT_ARG = --without-systemd
+else
+WITHOUT_ARG =
 endif
 
 # Random comments:
@@ -66,7 +75,7 @@ user: iscsiuio/Makefile
 	@echo "Read README file for detailed information."
 
 iscsiuio/Makefile: iscsiuio/configure iscsiuio/Makefile.in
-	cd iscsiuio; ./configure
+	cd iscsiuio; ./configure $(WITHOUT_ARG)
 
 iscsiuio/configure iscsiuio/Makefile.in: iscsiuio/configure.ac iscsiuio/Makefile.am
 	cd iscsiuio; autoreconf --install

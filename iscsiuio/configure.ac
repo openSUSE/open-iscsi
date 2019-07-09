@@ -12,9 +12,9 @@ dnl             Benjamin Li  (benli@broadcom.com)
 dnl
 
 PACKAGE=iscsiuio
-VERSION=0.7.8.4
+VERSION=0.7.8.6
 
-AC_INIT([iscsiuio], [0.7.8.4], [QLogic-Storage-Upstream@cavium.com])
+AC_INIT([iscsiuio], [0.7.8.6], [QLogic-Storage-Upstream@cavium.com])
 
 AM_INIT_AUTOMAKE
 AC_CONFIG_HEADER(config.h)
@@ -63,6 +63,14 @@ AC_ARG_ENABLE(debug,
         CFLAGS="${CFLAGS} -g -O0"
     fi])
 AM_CONDITIONAL([DEBUG], [test x$debug = xtrue])
+## check for systemd support, default on
+AC_ARG_WITH([systemd],
+	    AS_HELP_STRING([--without-systemd], [Build without systemd]),
+    [case "${withval}" in
+     yes) LDFLAGS="`pkg-config --libs libsystemd`" ;;
+     no)  CFLAGS="${CFLAGS} -DNO_SYSTEMD" ;;
+     *)   AC_MSG_ERROR([bad value $withval for --with-systemd]) ;;
+     esac],[LDFLAGS="`pkg-config --libs libsystemd`"])
 
 AC_CONFIG_COMMANDS([default],[[
     if [ -n "$SOURCE_DATE_EPOCH" ] ; then

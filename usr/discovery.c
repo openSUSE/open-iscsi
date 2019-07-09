@@ -1055,6 +1055,11 @@ static void iscsi_destroy_session(struct iscsi_session *session)
 		log_error("Could not safely destroy session %d (err %d)",
 			  session->id, rc);
 done:
+	if (session->target_alias) {
+	    free(session->target_alias);
+	    session->target_alias = NULL;
+	}
+
 	if (conn->socket_fd >= 0) {
 		ipc->ctldev_close();
 		conn->socket_fd = -1;
@@ -1350,6 +1355,7 @@ reconnect:
 	if (--session->reopen_cnt < 0) {
 		log_error("connection login retries (reopen_max) %d exceeded",
 			  config->reopen_max);
+		rc = ISCSI_ERR_PDU_TIMEOUT;
 		goto login_failed;
 	}
 
