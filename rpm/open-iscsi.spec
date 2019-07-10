@@ -44,8 +44,9 @@ BuildRequires:  libtool
 BuildRequires:  make
 BuildRequires:  open-isns-devel
 BuildRequires:  openssl-devel
+BuildRequires:  pkg-config
 BuildRequires:  suse-module-tools
-BuildRequires:  systemd
+BuildRequires:  systemd-devel
 Requires(post): coreutils
 Requires:       libopeniscsiusr0_2_0 = %{version}
 %{?systemd_requires}
@@ -113,7 +114,7 @@ the libopeniscsiusr library.
 %patch1 -p1
 
 %build
-make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DUSE_KMOD -I/usr/include/kmod -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" LDFLAGS="-lkmod" user
+make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DUSE_KMOD -I/usr/include/kmod -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" user
 cd iscsiuio
 touch AUTHORS NEWS
 autoreconf --install
