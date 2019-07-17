@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Jul 17 11:58:21 UTC 2019 - Bernhard Wiedemann <bwiedemann@suse.com>
+
+- Ensure /etc/iscsi/initiatorname.iscsi has reproducible size
+  works around https://github.com/rpm-software-management/rpm/pull/229,
+  updating the SPEC file
+
+-------------------------------------------------------------------
 Tue Jul  9 15:41:53 UTC 2019 - Lee Duncan <lduncan@suse.com>
 
 - Added latest upstream changes, including:
