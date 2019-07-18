@@ -108,7 +108,7 @@ the libopeniscsiusr library.
 %patch1 -p1
 
 %build
-make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DUSE_KMOD -I/usr/include/kmod -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" LDFLAGS="-lkmod" user
+make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -DOFFLOAD_BOOT_SUPPORTED -DUSE_KMOD -I/usr/include/kmod -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" LDFLAGS="-lkmod -lsystemd" user
 cd iscsiuio
 touch AUTHORS NEWS
 autoreconf --install
