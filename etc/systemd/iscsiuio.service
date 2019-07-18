@@ -9,7 +9,6 @@ After=network.target
 Before=remote-fs-pre.target iscsid.service
 
 [Service]
-=======
 Type=notify
 NotifyAccess=main
 ExecStart=/sbin/iscsiuio -f
