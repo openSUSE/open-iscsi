@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Mon Jul 22 20:47:30 UTC 2019 - Lee Duncan <lduncan@suse.com>
+
+- Fixed merge error in iscsiuio.service file (bsc#1142029),
+  updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
 Fri Jun  7 15:45:35 UTC 2019 - Lee Duncan <lduncan@suse.com>
 
 - Cherry-picked upstream commits for iscsiuio support of systemd
