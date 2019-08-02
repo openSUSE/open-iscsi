@@ -1,6 +1,10 @@
 -------------------------------------------------------------------
 Tue Jul  9 22:38:56 UTC 2019 - Lee Duncan <lduncan@suse.com>
 
+- Branch sles12-sp5 created from branch sles15, with only this
+  file different, since it must contain the Changes entries from
+  sles12-sp4.
+
 - Update to latest upstream/factory version of open-iscsi and
   iscsiuio (bsc#1113712). Summary of changes:
   ************************************************************
@@ -80,7 +84,22 @@ Tue Jul  9 22:38:56 UTC 2019 - Lee Duncan <lduncan@suse.com>
   * open-iscsi-SUSE-latest.diff.bz2
 
 -------------------------------------------------------------------
-Tue Mar 26 18:36:21 UTC 2019 - Lee Duncan <lduncan@suse.com>
+Mon Jul 22 20:47:30 UTC 2019 - Lee Duncan <lduncan@suse.com>
+
+- Fixed merge error in iscsiuio.service file (bsc#1142029),
+  updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+
+-------------------------------------------------------------------
+Fri Jun  7 15:45:35 UTC 2019 - Lee Duncan <lduncan@suse.com>
+
+- Cherry-picked upstream commits for iscsiuio support of systemd
+  (bsc#1135070), updating:
+  * open-iscsi-SUSE-latest.diff.bz2
+  Also, updated spec file, adding a Requires for systemd-devel
+
+-------------------------------------------------------------------
+Tue Mar 26 18:19:37 UTC 2019 - Lee Duncan <lduncan@suse.com>
 
 - Fixed issues surrounding output from "iscsiadm -m node ... -P1" and
   "iscsiadm -m discovery -t st ... -o new -P1" (bsc#1128972),
@@ -90,54 +109,42 @@ Tue Mar 26 18:36:21 UTC 2019 - Lee Duncan <lduncan@suse.com>
   * Fix node print return value when no nodes.
   Which updates:
   * open-iscsi-SUSE-latest.diff.bz2
+  Also updated the year in the SPEC file.
 
 -------------------------------------------------------------------
-Fri Mar  8 20:59:39 UTC 2019 - Lee Duncan <lduncan@suse.com>
-
-- Cherry picked upstream commit (bsc#1127913):
-  + cda251fc8bcf iscsiuio: Release xmit_mutex in error code path.
-  updating:
-  * open-iscsi-SUSE-latest.diff.bz2 
-
--------------------------------------------------------------------
-Thu Jan 24 19:52:45 UTC 2019 - Lee Duncan <lduncan@suse.com>
+Thu Jan 24 19:44:23 UTC 2019 - Lee Duncan <lduncan@suse.com>
 
 - Fix output for iscsiadm node/iface print level P1 (bsc#1122938),
   updating: 
-  * open-iscsi-SUSE-latest.diff.bz2 
+  * open-iscsi-SUSE-latest.diff.bz2
 
 -------------------------------------------------------------------
-Mon Jan  7 19:48:16 UTC 2019 - Lee Duncan <lduncan@suse.com>
+Fri Dec  7 19:08:17 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
-- Added two upstream qedi/iscsiuio fixes (bsc#1116711):
-  * qedi: Set buf_size in case of ICMP and ARP packet.
+- Cherry-picked 3 upstream changes for iscsiuio (bsc#1116712),
+  adding the following iscsiuio commits:
+  * iscsiuio: v0.7.8.5
   * qedi: Use uio BD index instead on buffer index.
+  * qedi: Set buf_size in case of ICMP and ARP packet.
   updating:
   * open-iscsi-SUSE-latest.diff.bz2
 
 -------------------------------------------------------------------
-Tue Nov  6 19:29:05 UTC 2018 - Lee Duncan <lduncan@suse.com>
-
-- Update idbm.c files to stop i586 string overflow warnings,
-  updating:
-  * open-iscsi-SUSE-latest.diff.bz2
-
--------------------------------------------------------------------
-Sun Oct 28 22:37:15 UTC 2018 - Lee Duncan <lduncan@suse.com>
+Mon Oct 29 15:44:23 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
 - iscsiuio: Do not flush tx queue on each uio interrupt. This
   makes ping to such NICs work better (bsc#1102589), updating:
   * open-iscsi-SUSE-latest.diff.bz2
 
 -------------------------------------------------------------------
-Sun Oct 28 22:30:30 UTC 2018 - Lee Duncan <lduncan@suse.com>
+Mon Oct 29 15:42:38 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
 - Do not allow multiple sessions just because they were started
   in parallel (bsc#1107753), updating:
   * open-iscsi-SUSE-latest.diff.bz2
 
 -------------------------------------------------------------------
-Wed Oct 24 21:34:17 UTC 2018 - Lee Duncan <lduncan@suse.com>
+Wed Oct 24 22:30:59 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
 - when iscsid started up and found stale sessions it tried
   forever to reconnect them, during which time the session
@@ -146,17 +153,17 @@ Wed Oct 24 21:34:17 UTC 2018 - Lee Duncan <lduncan@suse.com>
   * open-iscsi-SUSE-latest.diff.bz2
 
 -------------------------------------------------------------------
-Wed Oct 24 21:17:43 UTC 2018 - Lee Duncan <lduncan@suse.com>
+Wed Oct 24 22:25:29 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
 - New library version needs to Obsolete the prevoius version,
   and add a note about *not* editing the SPEC file directly,
   both updating the SPEC file
 
 -------------------------------------------------------------------
-Sun Oct 21 17:36:38 UTC 2018 - Lee Duncan <lduncan@suse.com>
+Sat Oct 20 01:27:45 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
 - Restore space to output of "iscsiadm -m node" (bsc#1111608),
-  from upstream commit, updating:
+  using upstream commit, updating:
   * open-iscsi-SUSE-latest.diff.bz2
 
 -------------------------------------------------------------------
@@ -167,126 +174,41 @@ Wed Sep 12 18:15:59 UTC 2018 - Lee Duncan <lduncan@suse.com>
   * open-iscsi-SUSE-latest.diff.bz2
 
 -------------------------------------------------------------------
-Fri Aug 31 16:53:25 UTC 2018 - Lee Duncan <lduncan@suse.com>
+Thu Aug 30 21:17:19 UTC 2018 - Lee Duncan <lduncan@suse.com>
 
-- iscsiuio: limit retries of dhpcv6 (bsc#1106694), updating:
+- Add iscsiuio upstream fix for limiting dhpcv6 retries
+  (bsc#1105916), updating:
   * open-iscsi-SUSE-latest.diff.bz2
 
 -------------------------------------------------------------------
-Tue Aug  7 19:35:02 UTC 2018 - lduncan@suse.com
+Wed Aug  8 03:09:53 UTC 2018 - lduncan@suse.com
 
 - Update to latest upstream, including fixes for iscsiuio
-  (bsc#1100349), updating:
+  (bsc#1100351), updating:
   * open-iscsi-SUSE-latest.diff.bz2
+  And update SPEC file to latest. Also, replace
+  open-iscsi-2.0.874-suse.tar.bz2 with
+  open-iscsi-2.0.876-suse.tar.bz2
 
 -------------------------------------------------------------------
-Fri Jun 15 18:25:17 UTC 2018 - lduncan@suse.com
-
-- Updated SPEC file to use "%license" for COPYING file
-
--------------------------------------------------------------------
-Thu May 31 21:41:35 UTC 2018 - lduncan@suse.com
+Thu May 31 21:24:19 UTC 2018 - lduncan@suse.com
 
 - Fix a core dump which can occur if iscsiuio is started then
   immediately stopped (bsc#1094797), updating:
   * open-iscsi-SUSE-latest.diff.bz2
 
 -------------------------------------------------------------------
-Mon Apr 23 18:23:29 UTC 2018 - lduncan@suse.com
-
-- Ensure we can get qedi transport name (bsc#1090275), updating:
-  * open-iscsi-SUSE-latest.diff.bz2
-
--------------------------------------------------------------------
-Wed Apr 18 17:17:52 UTC 2018 - lduncan@suse.com
-
-- Added upstream patch to allow host_id of 0 (bsc#1089687),
-  updating:
-  * open-iscsi-SUSE-latest.diff.bz2
-
--------------------------------------------------------------------
-Fri Apr 13 20:50:05 UTC 2018 - lduncan@suse.com
-
-- Added 2 upstream commits to address issue of iscsi_if.h
-  stayig in sync with kernel vesion (bsc#1086344), updating:
-  * open-iscsi-SUSE-latest.diff.bz2
-
--------------------------------------------------------------------
-Thu Mar 22 18:35:10 UTC 2018 - lduncan@suse.com
-
-- Cleaned up complaints by gcc-8 about strings (bsc#1084640)
-- Fixed rpmlint complaint about libopeniscsiusr summary
-  not starting with a capital letter
-- Fixed libopeniscsiusr global variable overload
-- No functional changes. This updates:
-  * open-iscsi-SUSE-latest.diff.bz2, and
-  * open-iscsi.spec
-
--------------------------------------------------------------------
-Wed Feb 21 19:19:13 UTC 2018 - lduncan@suse.com
-
-- Ensure correct dependencies: main package must depend
-  on (new) libopeniscsiusr package, and devel package
-  must depend on main package (updating spec file)
-
--------------------------------------------------------------------
-Tue Feb 20 19:40:58 UTC 2018 - lduncan@suse.com
+Thu Feb 22 19:05:32 UTC 2018 - lduncan@suse.com
 
 - Fix ARP booting issue with different subnets
   (bsc#1058463), updating:
   * open-iscsi-SUSE-latest.diff.bz2
 
 -------------------------------------------------------------------
-Wed Feb  7 17:50:15 UTC 2018 - jengelh@inai.de
-
-- Trim filler wording from description.
-  Update old commands/RPM variables to macros.
-- Implement shared library packaging guideline.
-- Do not let fdupes run across partitions.
-
--------------------------------------------------------------------
-Tue Jan 23 22:43:51 UTC 2018 - lduncan@suse.com
-
-- Removed the "rpm/" source directory from both the
-  open-iscsi-2.0.876-suse.tar.bz2  and open-iscsi-SUSE-latest.diff.bz2
-  files, since they are not needed for building and are not part
-  of the upstream sources. They are still available under the
-  git repository at github.com/hreinecke/open-iscsi.git. This means
-  that changes to the spec file or the changes file will no longer
-  require a change to the "*SUSE-latest*" file.
-
--------------------------------------------------------------------
-Mon Jan 22 20:58:30 UTC 2018 - lduncan@suse.com
-
-- Update to latest upstream vesion 2.0.876, with very few
-  SUSE-specific modifications, namely around things upstream
-  does not care about, like SUSE-specific systemd files. Also,
-  version number modified to add "-suse", as usual. See
-  the Changelog file for more details on changes in this
-  upstream version.
-
-  This replaces open-iscsi-2.0.875-suse.tar.bz2 with
-  open-iscsi-2.0.876-suse.tar.bz2, and resets
-  open-iscsi-SUSE-latest.diff.bz2 to contain only changes
-  since the 2.0.876-suse tag.
-
-  These changes added a new libopeniscsiusr.so library, as
-  well as include files under a new open-iscsi-dev package,
-  if you want to link against this library.
-
-  The SPEC file was also cleaned up using spec-cleaner.
-
--------------------------------------------------------------------
-Thu Dec 14 01:45:23 UTC 2017 - lduncan@suse.com
+Wed Dec 20 02:22:00 UTC 2017 - lduncan@suse.com
 
 - Fix vulnerabilities found in iscsiuio by qualsys (bsc#1072312),
-  updating: open-iscsi-SUSE-latest.diff.bz2
-
--------------------------------------------------------------------
-Sat Dec  2 22:42:53 UTC 2017 - lduncan@suse.com
-
-- Added fixes for working with latest gcc (7.2.1),
-  updating: open-iscsi-SUSE-latest.diff.bz2
+  updating: open-iscsi-SUSE-latest.diff.bz2 
 
 -------------------------------------------------------------------
 Wed Sep  6 00:04:00 UTC 2017 - lduncan@suse.com
@@ -294,14 +216,6 @@ Wed Sep  6 00:04:00 UTC 2017 - lduncan@suse.com
 - Start iscsi logins before remote filesystems (bsc#1028323),
   updating:
       * open-iscsi-SUSE-latest.diff.bz2
-
--------------------------------------------------------------------
-Sat Sep 02 16:35:14 UTC 2017 - lduncan@suse.com
-
-- Update to latest upstream 2.0.875, with a few SUSE-only
-  modifications, replacing the 2.0.874-suse tarball with a
-  2.0.875-suse version, and resetting the SUSE-latest-diff
-  file to contain changes from 2.0.875-suse forward (bsc#1056689)
 
 -------------------------------------------------------------------
 Mon Aug 28 13:45:52 PDT 2017 - lduncan@suse.com
