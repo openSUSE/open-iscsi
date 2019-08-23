@@ -15,10 +15,6 @@
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
-%ifarch aarch64
-%define _lto_cflags %{nil}
-%endif
-
 %define iscsi_release 877-suse
 Name:           open-iscsi
 Version:        2.0.877
