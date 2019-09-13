@@ -120,7 +120,7 @@ make %{?_smp_mflags} CFLAGS="%{optflags}" LIB_DIR=%{_libdir}
 %install
 make DESTDIR=%{buildroot} LIB_DIR=%{_libdir} install_user
 # install service files
-make DESTDIR=%{buildroot} LIB_DIR=%{_libdir} install_service_suse
+make DESTDIR=%{buildroot} LIB_DIR=%{_libdir} install_systemd
 # create rc symlinks
 [ -d %{buildroot}%{_sbindir} ] || mkdir -p %{buildroot}%{_sbindir}
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsi

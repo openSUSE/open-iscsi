@@ -15,7 +15,7 @@ etcdir = /etc
 initddir = $(etcdir)/init.d
 libdir = $(prefix)/lib
 rulesdir = $(libdir)/udev/rules.d
-systemddir = $(prefix)/lib/systemd/system
+systemddir = $(prefix)/lib/systemd
 
 MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8 \
 		iscsiuio/docs/iscsiuio.8 doc/iscsi_fw_login.8 doc/iscsi-iname.8 \
@@ -115,8 +115,11 @@ install_udev_rules:
 	$(INSTALL) -m 644 $(RULESFILES) $(DESTDIR)/$(rulesdir)
 
 install_systemd:
-	$(INSTALL) -d $(DESTDIR)$(systemddir)
-	$(INSTALL) -m 644 $(SYSTEMDFILES) $(DESTDIR)/$(systemddir)
+	$(INSTALL) -d $(DESTDIR)$(systemddir)/system
+	$(INSTALL) -m 644 $(SYSTEMDFILES) $(DESTDIR)/$(systemddir)/system
+	$(INSTALL) -d $(DESTDIR)$(systemddir)/system-generators
+	$(INSTALL) -m 755 utils/ibft-rule-generator \
+		$(DESTDIR)$(systemddir)/system-generators
 
 install_programs:  $(PROGRAMS) $(SCRIPTS)
 	$(INSTALL) -d $(DESTDIR)$(sbindir)
@@ -150,23 +153,6 @@ install_initd_debian:
 	$(INSTALL) -d $(DESTDIR)$(initddir)
 	$(INSTALL) -m 755 etc/initd/initd.debian \
 		$(DESTDIR)$(initddir)/open-iscsi
-
-# install systemd service files for openSUSE
-install_service_suse:
-	$(INSTALL) -d $(DESTDIR)$(systemddir)/system
-	$(INSTALL) -m 644 etc/systemd/iscsid.service \
-		$(DESTDIR)$(systemddir)/system
-	$(INSTALL) -m 644 etc/systemd/iscsid.socket \
-		$(DESTDIR)$(systemddir)/system
-	$(INSTALL) -m 644 etc/systemd/iscsi.service \
-		$(DESTDIR)$(systemddir)/system
-	$(INSTALL) -m 644 etc/systemd/iscsiuio.service \
-		$(DESTDIR)$(systemddir)/system
-	$(INSTALL) -m 644 etc/systemd/iscsiuio.socket \
-		$(DESTDIR)$(systemddir)/system
-	$(INSTALL) -d $(DESTDIR)$(systemddir)/system-generators
-	$(INSTALL) -m 755 utils/ibft-rule-generator \
-		$(DESTDIR)$(systemddir)/system-generators
 
 install_iface: $(IFACEFILES)
 	$(INSTALL) -d $(DESTDIR)$(etcdir)/iscsi/ifaces
