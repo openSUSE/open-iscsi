@@ -15,9 +15,9 @@
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
-%define iscsi_release 877-suse
+%define iscsi_release 878-suse
 Name:           open-iscsi
-Version:        2.0.877
+Version:        2.0.878
 Release:        0
 Summary:        Linux iSCSI Software Initiator
 License:        GPL-2.0-or-later
@@ -61,7 +61,7 @@ comes with a daemon process called iscsid, and a management utility,
 iscsiadm.
 
 %package -n libopeniscsiusr0_2_0
-Version:        2.0.877
+Version:        2.0.878
 Release:        0
 Summary:        iSCSI User-level Library
 Group:          System/Libraries
@@ -93,7 +93,7 @@ The communication to the driver is done via user-space I/O (Kernel module name
 "uio").
 
 %package devel
-Version:        2.0.877
+Version:        2.0.878
 Release:        0
 Summary:        iSCSI User-level Library Development Library and Include files
 Group:          Development/Libraries/C and C++
