@@ -15,6 +15,7 @@
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
+
 %define iscsi_release 878-suse
 Name:           open-iscsi
 Version:        2.0.878
@@ -36,7 +37,7 @@ BuildRequires:  libmount-devel
 BuildRequires:  libtool
 BuildRequires:  make
 BuildRequires:  open-isns-devel
-BuildRequires:  openssl-devel
+BuildRequires:  openssl-devel >= 1.1.1c
 BuildRequires:  pkg-config
 BuildRequires:  suse-module-tools
 BuildRequires:  pkgconfig(libsystemd)
