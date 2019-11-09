@@ -179,7 +179,7 @@ fi
 %{_unitdir}/iscsid.service
 %{_unitdir}/iscsid.socket
 %{_unitdir}/iscsi.service
-%{_libexecdir}/systemd/system-generators/ibft-rule-generator
+%{_systemdgeneratordir}/ibft-rule-generator
 %{_sbindir}/rciscsi
 %{_sbindir}/rciscsid
 /sbin/iscsid
