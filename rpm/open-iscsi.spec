@@ -108,7 +108,7 @@ include files and documentation. These are used to compile against
 the libopeniscsiusr library.
 
 %prep
-%setup -q -n %{name}-2.%{iscsi_minor_release}.%{iscsi_patch_release}
+%setup -q -n %{name}-2.%{iscsi_minor_release}.%{iscsi_patch_release_suse}
 %patch1 -p1
 
 %build
