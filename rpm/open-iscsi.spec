@@ -17,7 +17,8 @@
 
 
 %define iscsi_minor_release 1
-%define iscsi_patch_release 0-suse
+%define iscsi_patch_release 0
+%define iscsi_patch_release_suse %{iscsi_patch_release}-suse
 Name:           open-iscsi
 Version:        2.1.0
 Release:        0
@@ -25,7 +26,7 @@ Summary:        Linux iSCSI Software Initiator
 License:        GPL-2.0-or-later
 Group:          Productivity/Networking/Other
 Url:            http://www.open-iscsi.com
-Source:         %{name}-2.%{iscsi_minor_release}.%{iscsi_patch_release}.tar.bz2
+Source:         %{name}-2.%{iscsi_minor_release}.%{iscsi_patch_release_suse}.tar.bz2
 Patch1:         %{name}-SUSE-latest.diff.bz2
 BuildRequires:  autoconf
 BuildRequires:  automake
