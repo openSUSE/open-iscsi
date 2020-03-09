@@ -92,7 +92,8 @@ static void print_host_info(struct iface_rec *iface, char *prefix)
 		printf("%sNetdev: %s\n", prefix, UNKNOWN_VALUE);
 }
 
-static int host_info_print_flat(void *data, struct host_info *hinfo)
+static int host_info_print_flat(__attribute__((unused))void *data,
+				struct host_info *hinfo)
 {
 	struct iface_rec *iface = &hinfo->iface;
 
@@ -217,7 +218,7 @@ static int print_host_iface(void *data, struct iface_rec *iface)
 
 static void print_host_ifaces(struct host_info *hinfo, char *prefix)
 {
-	int nr_found;
+	int nr_found = 0;
 
 	iscsi_sysfs_for_each_iface_on_host(prefix, hinfo->host_no, &nr_found,
 					   print_host_iface);
@@ -262,14 +263,14 @@ static int host_info_print_tree(void *data, struct host_info *hinfo)
 			matched_ses[matched_se_count++] = ses[i];
 
 	if (!matched_se_count)
-		return 0;
+		goto out;
 
 	printf("\t*********\n");
 	printf("\tSessions:\n");
 	printf("\t*********\n");
 	session_info_print_tree(matched_ses, matched_se_count, "\t",
 				session_info_flags, 0/* don't show password */);
-
+out:
 	free(matched_ses);
 	return 0;
 }
@@ -310,7 +311,8 @@ int host_info_print(int info_level, uint32_t host_no,
 		arg.flags = flags;
 		arg.ses = ses;
 		arg.se_count = se_count;
-		if (host_no != -1) {
+		/* set host_no if not yet done */
+		if (host_no > MAX_HOST_NO) {
 			struct host_info hinfo;
 
 			memset(&hinfo, 0, sizeof(struct host_info));

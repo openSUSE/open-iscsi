@@ -13,9 +13,9 @@ bindir = $(exec_prefix)/bin
 mandir = $(prefix)/share/man
 etcdir = /etc
 initddir = $(etcdir)/init.d
-systemddir = $(prefix)/lib/systemd
 libdir = $(prefix)/lib
 rulesdir = $(libdir)/udev/rules.d
+systemddir = $(prefix)/lib/systemd
 
 MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8 \
 		iscsiuio/docs/iscsiuio.8 doc/iscsi_fw_login.8 doc/iscsi-iname.8 \
@@ -28,6 +28,9 @@ INSTALL = install
 ETCFILES = etc/iscsid.conf
 IFACEFILES = etc/iface.example
 RULESFILES = utils/50-iscsi-firmware-login.rules
+SYSTEMDFILES = etc/systemd/iscsi.service \
+			   etc/systemd/iscsid.service etc/systemd/iscsid.socket \
+			   etc/systemd/iscsiuio.service etc/systemd/iscsiuio.socket
 
 export DESTDIR prefix INSTALL
 
@@ -111,6 +114,13 @@ install_udev_rules:
 	$(INSTALL) -d $(DESTDIR)$(rulesdir)
 	$(INSTALL) -m 644 $(RULESFILES) $(DESTDIR)/$(rulesdir)
 
+install_systemd:
+	$(INSTALL) -d $(DESTDIR)$(systemddir)/system
+	$(INSTALL) -m 644 $(SYSTEMDFILES) $(DESTDIR)/$(systemddir)/system
+	$(INSTALL) -d $(DESTDIR)$(systemddir)/system-generators
+	$(INSTALL) -m 755 utils/ibft-rule-generator \
+		$(DESTDIR)$(systemddir)/system-generators
+
 install_programs:  $(PROGRAMS) $(SCRIPTS)
 	$(INSTALL) -d $(DESTDIR)$(sbindir)
 	$(INSTALL) -m 755 $^ $(DESTDIR)$(sbindir)
@@ -143,23 +153,6 @@ install_initd_debian:
 	$(INSTALL) -d $(DESTDIR)$(initddir)
 	$(INSTALL) -m 755 etc/initd/initd.debian \
 		$(DESTDIR)$(initddir)/open-iscsi
-
-# install systemd service files for openSUSE
-install_service_suse:
-	$(INSTALL) -d $(DESTDIR)$(systemddir)/system
-	$(INSTALL) -m 644 etc/systemd/iscsid.service \
-		$(DESTDIR)$(systemddir)/system
-	$(INSTALL) -m 644 etc/systemd/iscsid.socket \
-		$(DESTDIR)$(systemddir)/system
-	$(INSTALL) -m 644 etc/systemd/iscsi.service \
-		$(DESTDIR)$(systemddir)/system
-	$(INSTALL) -m 644 etc/systemd/iscsiuio.service \
-		$(DESTDIR)$(systemddir)/system
-	$(INSTALL) -m 644 etc/systemd/iscsiuio.socket \
-		$(DESTDIR)$(systemddir)/system
-	$(INSTALL) -d $(DESTDIR)$(systemddir)/system-generators
-	$(INSTALL) -m 755 utils/ibft-rule-generator \
-		$(DESTDIR)$(systemddir)/system-generators
 
 install_iface: $(IFACEFILES)
 	$(INSTALL) -d $(DESTDIR)$(etcdir)/iscsi/ifaces

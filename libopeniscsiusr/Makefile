@@ -67,7 +67,7 @@ clean:
 
 $(TESTS): $(LIBS)
 $(TESTS): CFLAGS += -I$(TOPDIR)/libopeniscsiusr -g
-$(TESTS): LDFLAGS += $(LIBADD) -L$(TOPDIR)/libopeniscsiusr -lopeniscsiusr
+$(TESTS): LDFLAGS += $(LIBADD)
 
 check: $(LIBS) $(TESTS)
 	sudo env LD_LIBRARY_PATH=$(LIBISCSI_USR_DIR) TESTS="$(TESTS)" \
@@ -79,6 +79,8 @@ install: $(LIBS) $(LIBS_MAJOR)
 	$(INSTALL) -m 644 $(LIBS) $(DESTDIR)$(LIB_DIR)/
 	$(INSTALL) -m 644 $(DEVLIB) $(DESTDIR)$(LIB_DIR)/
 	$(INSTALL) -m 644 $(LIBS_MAJOR) $(DESTDIR)$(LIB_DIR)/
+	ln -sf $(LIBS) $(DESTDIR)/$(LIB_DIR)/$(DEVLIB)
+	ln -sf $(LIBS) $(DESTDIR)/$(LIB_DIR)/$(LIBS_MAJOR)
 	$(INSTALL) -m 644 $(HEADERS) $(DESTDIR)$(INCLUDE_DIR)/
 
 install_docs: doc

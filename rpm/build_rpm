@@ -14,7 +14,7 @@ fi
 
 RPM="open-iscsi"
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-VERSION="2.0.876-suse"
+VERSION="2.1.1-suse"
 DESTDIR=
 TMPDIR=
 
@@ -98,11 +98,16 @@ git archive --format=tar --prefix=$RPM-$VERSION/ --worktree-attributes "$VERSION
 
 # patch: create a diff file for changes between the base version
 # and the update tag if there are any differences
-git diff ${VERSION}..${BRANCH} \
-	$(git diff --name-only --diff-filter=d ${VERSION}..${BRANCH}|grep -v '^rpm/')| \
-	bzip2 > $DESTDIR/$RPM-SUSE-latest.diff.bz2
+files_changed=$(git diff --name-only --diff-filter=d ${VERSION}..${BRANCH}|grep -v '^rpm/')
+if [[ -z $files_changed ]] ; then
+	# no changes except rpm/ subdir changes, so create an empty changes file
+	bzip2 < /dev/null > $DESTDIR/$RPM-SUSE-latest.diff.bz2
+else
+	git diff ${VERSION}..${BRANCH} $files_changed | \
+		bzip2 > $DESTDIR/$RPM-SUSE-latest.diff.bz2
+fi
 
-echo "$RPM src rpm copied to $DESTDIR"
+echo "$RPM src RPMs copied to $DESTDIR"
 
 if [ -n "$remove_destdir" ] ; then
     rm -rf $DESTDIR

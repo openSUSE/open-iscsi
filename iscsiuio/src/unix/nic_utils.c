@@ -245,6 +245,7 @@ int nic_discover_iscsi_hosts()
 						"space for NIC %s "
 						"during scan", raw);
 
+					free(raw);
 					rc = -ENOMEM;
 					break;
 				}
@@ -1251,7 +1252,7 @@ int get_iscsi_transport_handle(nic_t *nic, uint64_t *handle)
 	if (rc != 0)
 		goto error;
 
-	elements_read = sscanf(raw, "%lu", handle);
+	elements_read = sscanf(raw, "%" PRIu64, handle);
 	if (elements_read != 1) {
 		LOG_ERR(PFX "%s: Couldn't parse transport handle from %s",
 			nic->log_name, temp_path);

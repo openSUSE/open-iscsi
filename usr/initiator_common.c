@@ -53,7 +53,7 @@ struct iscsi_session *session_find_by_sid(uint32_t sid)
 	return NULL;
 }
 
-const static unsigned int align_32_down(unsigned int param)
+static unsigned int align_32_down(unsigned int param)
 {
 	return param & ~0x3;
 }
@@ -93,6 +93,8 @@ int iscsi_setup_authentication(struct iscsi_session *session,
 	     auth_cfg->password_in_length))
 		memcpy(session->password_in, auth_cfg->password_in,
 		       session->password_in_length);
+
+	memcpy(session->chap_algs, auth_cfg->chap_algs, sizeof(auth_cfg->chap_algs));
 
 	if (session->password_length || session->password_in_length) {
 		/* setup the auth buffers */

@@ -29,7 +29,11 @@ enum {
 	AUTH_LARGE_BINARY_MAX_LEN = 1024,
 	AUTH_RECV_END_MAX_COUNT = 10,
 	ACL_SIGNATURE = 0x5984B2E3,
-	AUTH_CHAP_RSP_LEN = 16,
+	AUTH_CHAP_MD5_RSP_LEN = 16,
+	AUTH_CHAP_SHA1_RSP_LEN = 20,
+	AUTH_CHAP_SHA256_RSP_LEN = 32,
+	AUTH_CHAP_SHA3_256_RSP_LEN = 32,
+	AUTH_CHAP_RSP_MAX = 32,
 };
 
 /*
@@ -61,7 +65,10 @@ enum {
 	AUTH_METHOD_MAX_COUNT = 2,
 
 	AUTH_CHAP_ALG_MD5 = 5,
-	AUTH_CHAP_ALG_MAX_COUNT = 2
+	AUTH_CHAP_ALG_SHA1 = 6,
+	AUTH_CHAP_ALG_SHA256 = 7,
+	AUTH_CHAP_ALG_SHA3_256 = 8,
+	AUTH_CHAP_ALG_MAX_COUNT = 5
 };
 
 enum auth_neg_role {
@@ -264,6 +271,9 @@ extern int acl_send_transit_bit(struct iscsi_acl *client, int *value);
 extern int acl_set_user_name(struct iscsi_acl *client, const char *username);
 extern int acl_set_passwd(struct iscsi_acl *client,
 			  const unsigned char *pw_data, unsigned int pw_len);
+extern int acl_set_chap_alg_list(struct iscsi_acl *client, unsigned int option_count,
+		      const int *option_list);
+extern int acl_init_chap_digests(int *value_list, unsigned int *chap_algs, int count);
 extern int acl_set_auth_rmt(struct iscsi_acl *client, int auth_rmt);
 extern int acl_set_ip_sec(struct iscsi_acl *client, int ip_sec);
 extern int acl_get_dbg_status(struct iscsi_acl *client, int *value);

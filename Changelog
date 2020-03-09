@@ -1,4 +1,123 @@
-open-iscsi-2.0-876 - open-iscsi-2.0.877
+open-iscsi-2.1.0 - open-iscsi-2.1.1
+
+# output from "git shortlog --no-merges 2.1.0..HEAD"
+
+Chris Leech (2):
+      configuration support for CHAP algorithms
+      Revert "Out-of-bounds read: Overrunning array of 8 2-byte elements"
+
+Kiyotaka Nakamura (1):
+      Avoid logout of iscsi boot session
+
+Lee Duncan (13):
+      Fixed Changelog message, first line
+      Enabled compiler checking options, fixed issues.
+      Updates to support gcc -fno-common option.
+      Fix 586 compiler issues.
+      Beginning to get python tests set up.
+      First 32 tests working?
+      64 tests now working and passing
+      Update TODO list
+      Add in "-V" for version info
+      Test code rearranged to make discovery work.
+      more things to do
+      Allow sub-tests to be specified.
+      Fix memory leaks in libopeniscsiusr/idbm.c
+
+Patrick McCarty (1):
+      Fix bug with libopeniscsiusr.pc
+
+l00464806 (1):
+      Check whether socket is opened successfully in find_vlan_dev func
+
+
+open-iscsi-2.0.878 - open-iscsi-2.1.0
+
+# output from "git shortlog --no-merges 2.0.878..HEAD"
+
+Chris Leech (29):
+      CHAP SHA-1, SHA-256, SHA3-256 via OpenSSL's libcrypto
+      setup Travis-CI builds and Coverity scans
+      fix Coverity scan
+      Resource leak: returning without freeing netdev
+      Out-of-bounds-write: Overrunning array link_target
+      Resource leak: Variable rec going out of scope leaks the storage it points to
+      Out-of-bounds write: Overrunning array link_target
+      Buffer not null terminated: Calling strncpy with a maximum size argument on destination array might leave the destination string unterminated
+      Out-of-bounds access: Overrunning array value_list
+      Resource leak: Variable startup_cmd going out of scope leaks the storage it point to.
+      Buffer not null terminated: Calling strncpy with a maximum size argument on destination array
+      Uninitialized scalar variable
+      Uninitialized pointer read: Using uninitialized value ifaces.next
+      Uninitialized scalar variable: Using uninitialized value number when calling acl_text_to_number
+      Resource leak: Handle variable sockfd going out of scope leaks the handle.
+      Resource leak: Variable chap_info going out of scope leaks the storage it points to.
+      Resource leak: Variable matched_ses going out of scope leaks the storage it points to.
+      Resource leak: Handle variable fd going out of scope leaks the handle.
+      Resource leak: Handle variable fd going out of scope leaks the handle.
+      Out-of-bounds read: Overrunning array of 4 bytes at byte offset 7 by dereferencing pointer
+      iscsi-iname: change default IQN prefix
+      iscsi-iname: verify prefix length is at most 210 characters
+      iscsi-iname remove unneeded temp buffer
+      iscsistart -b probably never worked with PPC OF parsing?
+      fwparam_pcc mulitple resource leaks
+      Resource leak: Handle variable fd going out of scope leaks the handle.
+      Out-of-bounds read: Overrunning array of 8 2-byte elements
+      Resource leak: Variable raw going out of scope leaks the storage it points to.
+      Uninitialized scalar value rc
+
+Lee Duncan (2):
+      Initialize timeout for printing specific session info.
+      Fix version strings in ChangeLog
+
+open-iscsi-2.0.877 - open-iscsi-2.0.878
+
+# output from "git shortlog --no-merges 2.0.877..HEAD"
+
+Daniel Schaefer (1):
+      Add target to install systemd units
+
+Lee Duncan (18):
+      iscsistart is not installed
+      Fix i586 build issues with string length overflow.
+      Use pkg-config in Makefiles for newer libraries.
+      Updated iscsiadm man page: add "onboot" handling.
+      Fix output for iscsiadm node/iface print level P1
+      When displaying interfaces, skip "iface.example"
+      Fix node print return value when no nodes.
+      Fix printing of node database again.
+      Fix output of node printing for multiple paths.
+      Stop using /var directory for PIDfile and locks
+      Improve daemon synchronization, fix err msgs
+      Fix pipe notification code
+      Add systemd support for iscsiuio
+      Make iscsid systemd usage optional
+      Fix possible discovery hang when timing out
+      Handle systemd disablement correctly in iscsiuio
+      The iscsi login/logout service requires iscsid.
+      Remove redundant Requires= from iscsi.service
+
+Manish Rangankar (3):
+      iscsiuio: Do not flush tx queue on each uio interrupt.
+      qedi: Set buf_size in case of ICMP and ARP packet.
+      qedi: Use uio BD index instead on buffer index.
+
+Nilesh Javali (3):
+      iscsiuio: v0.7.8.5
+      iscsiuio: allow processing of iscsid requests in DHCP failure condition
+      iscsiuio: update version to 0.7.8.6
+
+Xiubo Li (1):
+      rec update: disable the idbm_lock in read/write when updating the rec
+
+fredvx (1):
+      Add Restart=on-failure option to iscsid.service
+
+igo95862 (2):
+      Make iscsid.service a requirement.
+      Fixed iscsi.service considering every signal and exit code as successful. Now only code 21 (no objects found to execute on) and normal exit conditions are valid.
+
+open-iscsi-2.0.876 - open-iscsi-2.0.877
 
 Antoine de Maleprade (1):
       iscsid: fix logging level when starting daemon
@@ -125,7 +244,7 @@ Scott Moser (2):
       Better error message and failure if netlink socket fails.
 
 
-open-iscsi-2.0-875 - open-iscsi-2.0.876
+open-iscsi-2.0.875 - open-iscsi-2.0.876
 
 Chris Leech (2):
       delete old kernel code
@@ -183,7 +302,7 @@ Lee Duncan (37):
       remove kernel subdir from clean Makefile target
 
 
-open-iscsi-2.0-874 - open-iscsi-2.0.875
+open-iscsi-2.0.874 - open-iscsi-2.0.875
 
 Andrew Patterson (3):
       iscsiuio must be present to use hardware offload for bnx2{,x}
@@ -256,7 +375,7 @@ Nilesh Javili (1):
       iscsid: Add qedi ping transport hook
 
 
-open-iscsi-2.0-873 - open-iscsi-2.0.874
+open-iscsi-2.0.873 - open-iscsi-2.0.874
 
 Adam Jackson (6):
       actor: Mark actor_check static
@@ -497,7 +616,7 @@ mikechristie (3):
       Merge pull request #8 from dscunkel/master
       Merge pull request #9 from xypron/kernel_source_path
 
-open-iscsi-2.0-872 - open-iscsi-2.0.873
+open-iscsi-2.0.872 - open-iscsi-2.0.873
 
 Ales Kozumplik (1):
       fwparam_sysfs: fix pathname manipulation error in fwparam_sysfs_boot_info.
