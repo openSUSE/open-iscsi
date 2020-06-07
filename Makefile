@@ -30,6 +30,7 @@ IFACEFILES = etc/iface.example
 RULESFILES = utils/50-iscsi-firmware-login.rules
 SYSTEMDFILES = etc/systemd/iscsi.service \
 			   etc/systemd/iscsid.service etc/systemd/iscsid.socket \
+			   etc/systemd/iscsi-init.service \
 			   etc/systemd/iscsiuio.service etc/systemd/iscsiuio.socket
 
 export DESTDIR prefix INSTALL
@@ -107,7 +108,7 @@ install: install_programs install_doc install_etc \
 	install_udev_rules
 
 install_user: install_programs install_doc install_etc \
-	install_initd install_iname install_iface install_udev_rules \
+	install_initd install_iface install_udev_rules \
 	install_libopeniscsiusr
 
 install_udev_rules:
