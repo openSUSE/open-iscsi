@@ -1,7 +1,8 @@
 -------------------------------------------------------------------
 Sat Jul 25 01:05:13 UTC 2020 - Lee Duncan <lduncan@suse.com>
 
-- Upgrade to upstream vresion 2.1.2 as 2.1.2-suse, including:
+- Upgrade to upstream vresion 2.1.2 as 2.1.2-suse (for
+  jre#SES-1081), including:
  * use openssl for random data generation
  * Misspelled socket name might cause confusion to inexperienced user.
  * iscsi/libopeniscsiusr:add libopeniscsiuser_node.h to HEADERS
