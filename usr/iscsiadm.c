@@ -133,9 +133,10 @@ static struct option const long_options[] =
 	{"interval", required_argument, NULL, 'i'},
 	{"index", required_argument, NULL, 'x'},
 	{"portal_type", optional_argument, NULL, 'A'},
+	{"no_wait", no_argument, NULL, 'W'},
 	{NULL, 0, NULL, 0},
 };
-static char *short_options = "RlDVhm:a:b:c:C:p:P:T:H:i:I:U:k:L:d:r:n:v:o:sSt:ux:A:";
+static char *short_options = "RlDVhm:a:b:c:C:p:P:T:H:i:I:U:k:L:d:r:n:v:o:sSt:ux:A:W";
 
 static void usage(int status)
 {
@@ -144,15 +145,15 @@ static void usage(int status)
 			program_name);
 	else {
 		printf("\
-iscsiadm -m discoverydb [ -hV ] [ -d debug_level ] [-P printlevel] [ -t type -p ip:port -I ifaceN ... [ -Dl ] ] | [ [ -p ip:port -t type] \
-[ -o operation ] [ -n name ] [ -v value ] [ -lD ] ] \n\
-iscsiadm -m discovery [ -hV ] [ -d debug_level ] [-P printlevel] [ -t type -p ip:port -I ifaceN ... [ -l ] ] | [ [ -p ip:port ] [ -l | -D ] ] \n\
-iscsiadm -m node [ -hV ] [ -d debug_level ] [ -P printlevel ] [ -L all,manual,automatic ] [ -U all,manual,automatic ] [ -S ] [ [ -T targetname -p ip:port -I ifaceN ] [ -l | -u | -R | -s] ] \
-[ [ -o  operation  ] [ -n name ] [ -v value ] ]\n\
-iscsiadm -m session [ -hV ] [ -d debug_level ] [ -P  printlevel] [ -r sessionid | sysfsdir [ -R | -u | -s ] [ -o operation ] [ -n name ] [ -v value ] ]\n\
-iscsiadm -m iface [ -hV ] [ -d debug_level ] [ -P printlevel ] [ -I ifacename | -H hostno|MAC ] [ [ -o  operation  ] [ -n name ] [ -v value ] ] [ -C ping [ -a ip ] [ -b packetsize ] [ -c count ] [ -i interval ] ]\n\
-iscsiadm -m fw [ -d debug_level ] [ -l ]\n\
-iscsiadm -m host [ -P printlevel ] [ -H hostno|MAC ] [ [ -C chap [ -x chap_tbl_idx ] ] | [ -C flashnode [ -A portal_type ] [ -x flashnode_idx ] ] | [ -C stats ] ] [ [ -o operation ] [ -n name ] [ -v value ] ] \n\
+iscsiadm -m discoverydb [-hV] [-d debug_level] [-P printlevel] [-t type -p ip:port -I ifaceN ... [-Dl]] | [[-p ip:port -t type] \
+[-o operation] [-n name] [-v value] [-lD]] \n\
+iscsiadm -m discovery [-hV] [-d debug_level] [-P printlevel] [-t type -p ip:port -I ifaceN ... [-l]] | [[-p ip:port] [-l | -D]] \n\
+iscsiadm -m node [-hV] [-d debug_level] [-P printlevel] [-L all,manual,automatic,onboot] [-W] [-U all,manual,automatic,onboot] [-S] [[-T targetname -p ip:port -I ifaceN] [-l | -u | -R | -s]] \
+[[-o  operation ] [-n name] [-v value]]\n\
+iscsiadm -m session [-hV] [-d debug_level] [-P  printlevel] [-r sessionid | sysfsdir [-R | -u | -s] [-o operation] [-n name] [-v value]]\n\
+iscsiadm -m iface [-hV] [-d debug_level] [-P printlevel] [-I ifacename | -H hostno|MAC] [[-o  operation ] [-n name] [-v value]] [-C ping [-a ip] [-b packetsize] [-c count] [-i interval]]\n\
+iscsiadm -m fw [-d debug_level] [-l]\n\
+iscsiadm -m host [-P printlevel] [-H hostno|MAC] [[-C chap [-x chap_tbl_idx]] | [-C flashnode [-A portal_type] [-x flashnode_idx]] | [-C stats]] [[-o operation] [-n name] [-v value]] \n\
 iscsiadm -k priority\n");
 	}
 	exit(status);
@@ -452,6 +453,8 @@ __do_leading_login(void *data, struct list_head *list, struct node_rec *rec)
 	struct iface_rec *pattern_iface = data;
 	int nr_found;
 
+	log_debug(1, "doing leading login using iface: %s", pattern_iface->name);
+
 	/* Skip any records that do not match the pattern iface */
 	if (!iface_match(pattern_iface, &rec->iface))
 		return -1;
@@ -471,7 +474,7 @@ __do_leading_login(void *data, struct list_head *list, struct node_rec *rec)
 }
 
 static int
-login_by_startup(char *mode)
+login_by_startup(char *mode, bool wait)
 {
 	int nr_found = 0, err, rc;
 	struct startup_data startup;
@@ -512,7 +515,7 @@ login_by_startup(char *mode)
 	if (!list_empty(&startup.all_logins)) {
 		log_debug(1, "Logging into normal (non-leading-login) portals");
 		/* Login all regular (non-leading-login) portals first */
-		err = iscsi_login_portals(NULL, &nr_found, 1,
+		err = iscsi_login_portals(NULL, &nr_found, wait,
 				&startup.all_logins, iscsi_login_portal);
 		if (err)
 			log_error("Could not log into all portals");
@@ -657,7 +660,7 @@ static int for_each_matched_rec(struct node_rec *rec, void *data,
 }
 
 
-static int login_portals(struct node_rec *pattern_rec)
+static int login_portals(struct node_rec *pattern_rec, bool wait)
 {
 	LIST_HEAD(rec_list);
 	int nr_found, rc, err;
@@ -671,7 +674,7 @@ static int login_portals(struct node_rec *pattern_rec)
 	rc = err;
 	/* if there is an err but some recs then try to login to what we have */
 
-	err = iscsi_login_portals(pattern_rec, &nr_found, 1, &rec_list,
+	err = iscsi_login_portals(pattern_rec, &nr_found, wait ? 1 : 0, &rec_list,
 				  iscsi_login_portal);
 	if (err)
 		log_error("Could not log into all portals");
@@ -2806,7 +2809,7 @@ static int verify_node_params(struct list_head *params, struct node_rec *rec)
 /* TODO cleanup arguments */
 static int exec_node_op(struct iscsi_context *ctx, int op, int do_login,
 			int do_logout, int do_show, int do_rescan, int do_stats,
-			int info_level, struct node_rec *rec,
+			bool wait, int info_level, struct node_rec *rec,
 			struct list_head *params)
 {
 	int rc = 0;
@@ -2853,7 +2856,7 @@ static int exec_node_op(struct iscsi_context *ctx, int op, int do_login,
 	}
 
 	if (do_login) {
-		rc = login_portals(rec);
+		rc = login_portals(rec, wait);
 		goto out;
 	}
 
@@ -3559,6 +3562,7 @@ main(int argc, char **argv)
 	struct iscsi_session **ses = NULL;
 	uint32_t se_count = 0;
 	struct iscsi_session *se = NULL;
+	bool wait = true;
 
 	ctx = iscsi_context_new();
 	if (ctx == NULL) {
@@ -3727,6 +3731,9 @@ main(int argc, char **argv)
 			break;
 		case 'A':
 			portal_type = str_to_portal_type(optarg);
+			break;
+		case 'W':
+			wait = false;
 			break;
 		case 'h':
 			usage(0);
@@ -3900,7 +3907,7 @@ main(int argc, char **argv)
 				  do_show);
 		break;
 	case MODE_NODE:
-		if ((rc = verify_mode_params(argc, argv, "RsPIdmlSonvupTUL",
+		if ((rc = verify_mode_params(argc, argv, "RsPIdmlSonvupTULW",
 					     0))) {
 			log_error("node mode: option '-%c' is not "
 				  "allowed/supported", rc);
@@ -3909,7 +3916,7 @@ main(int argc, char **argv)
 		}
 
 		if (do_login_all) {
-			rc = login_by_startup(group_session_mgmt_mode);
+			rc = login_by_startup(group_session_mgmt_mode, wait);
 			goto out;
 		}
 
@@ -3939,7 +3946,7 @@ main(int argc, char **argv)
 		}
 
 		rc = exec_node_op(ctx, op, do_login, do_logout, do_show,
-				  do_rescan, do_stats, info_level, rec,
+				  do_rescan, do_stats, wait, info_level, rec,
 				  &params);
 		break;
 	case MODE_SESSION:
@@ -4025,7 +4032,7 @@ main(int argc, char **argv)
 
 			/* drop down to node ops */
 			rc = exec_node_op(ctx, op, do_login, do_logout, do_show,
-					  do_rescan, do_stats, info_level,
+					  do_rescan, do_stats, wait, info_level,
 					  rec, &params);
 free_info:
 			free(info);
@@ -4040,7 +4047,7 @@ free_info:
 			if (do_logout || do_rescan || do_stats) {
 				rc = exec_node_op(ctx, op, do_login, do_logout,
 						 do_show, do_rescan, do_stats,
-						 info_level, NULL, &params);
+						 wait, info_level, NULL, &params);
 				goto out;
 			}
 
