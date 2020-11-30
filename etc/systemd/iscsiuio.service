@@ -5,7 +5,7 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 Requires=iscsid.service
 BindTo=iscsid.service
-After=network.target
+After=network-online.target
 Before=remote-fs-pre.target iscsid.service
 Wants=remote-fs-pre.target
 
