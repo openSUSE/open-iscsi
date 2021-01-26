@@ -31,7 +31,6 @@ RULESFILES = utils/50-iscsi-firmware-login.rules
 SYSTEMDFILES = etc/systemd/iscsi.service \
 			   etc/systemd/iscsi-init.service \
 			   etc/systemd/iscsid.service etc/systemd/iscsid.socket \
-			   etc/systemd/iscsi-init.service \
 			   etc/systemd/iscsiuio.service etc/systemd/iscsiuio.socket
 
 export DESTDIR prefix INSTALL
