@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Thu Jan 28 22:29:04 UTC 2021 - Lee Duncan <lduncan@suse.com>
+
+- Cherry-picked 3 commits from upstream/factory, for bsc#1179908:
+  * check for TCP urgent pointer past end of frame
+  * check for u8 overflow when processing TCP options
+  * check for header length underflow during checksum calculation
+
+-------------------------------------------------------------------
 Fri Apr  3 18:08:04 UTC 2020 - Lee Duncan <lduncan@suse.com>
 
 - Added upstream/factory commit 6a9b0728c55b8 "Fix iscsi.service
