@@ -1,7 +1,9 @@
 -------------------------------------------------------------------
 Thu Jan 28 22:29:04 UTC 2021 - Lee Duncan <lduncan@suse.com>
 
-- Cherry-picked 3 commits from upstream/factory, for bsc#1179908:
+- Cherry-picked 3 commits from upstream/factory, for bsc#1179908
+  (which addresses CVE-2020-17437, CVE-2020-17438, CVE-2020-13987,
+  and CVE-2020-13988), changes include:
   * check for TCP urgent pointer past end of frame
   * check for u8 overflow when processing TCP options
   * check for header length underflow during checksum calculation
