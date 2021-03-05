@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Fri Mar  5 20:23:19 UTC 2021 - Lee Duncan <lduncan@suse.com>
+
+- Added two upstream commits:
+  * 40a39d7b93a1 Implement login "no_wait" for iscsiadm NODE mode
+  * e27ac1318510 Add ability to attempt target logins asynchronously
+  for bsc#1173886. This adds the ability to perform async logins.
+
+-------------------------------------------------------------------
 Fri Apr  3 18:47:21 UTC 2020 - Lee Duncan <lduncan@suse.com>
 
 - Added upstream commit 6a9b0728c55b8 "Fix iscsi.service so it
