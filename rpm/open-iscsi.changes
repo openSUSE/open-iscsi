@@ -1,4 +1,18 @@
 -------------------------------------------------------------------
+Thu Mar 11 21:29:25 UTC 2021 - Lee Duncan <lduncan@suse.com>
+
+- Updated to latest upstream 2.1.4 as 2.1.4-suse, which contains
+  these changes not already present:
+  * Enable iscsi.service asynchronous logins, cleanup services
+    (bsc#1183421)
+  * libopeniscsiusr: dont error loudly if a session isn't found when
+    working through iscsi_sessions_get()
+  * libopeniscsiusr: skip over removed sessions
+  * libopeniscsiusr: fix error messages
+  * Avoid hardcoding pkg-config to fix cross build
+  * Fix iscsistart login issue when target is delayed.
+
+-------------------------------------------------------------------
 Tue Jan 26 20:03:42 UTC 2021 - Lee Duncan <lduncan@suse.com>
 
 - Update to latest upstream (no new tag yet). To fix
