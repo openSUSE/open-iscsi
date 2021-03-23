@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Tue Mar 23 18:34:26 UTC 2021 - Lee Duncan <lduncan@suse.com>
+
+- Cherry picked 3 factory commits (from upstream) for bsc#1183421:
+  * Enable iscsi.service asynchronous logins, cleanup services
+  * Implement login "no_wait" for iscsiadm NODE mode
+  * Add ability to attempt target logins asynchronously
+
+-------------------------------------------------------------------
 Thu Jan 28 22:29:04 UTC 2021 - Lee Duncan <lduncan@suse.com>
 
 - Cherry-picked 3 commits from upstream/factory, for bsc#1179908
