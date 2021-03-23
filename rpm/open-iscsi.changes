@@ -2,7 +2,7 @@
 Fri Mar  5 20:46:09 UTC 2021 - Lee Duncan <lduncan@suse.com>
 
 - Enabled no-wait ("-W") iscsiadm option for iscsi login
-  service (bsc#1173886)
+  service (bsc#1173886, bsc#1183421)
 
 -------------------------------------------------------------------
 Fri Mar  5 20:23:19 UTC 2021 - Lee Duncan <lduncan@suse.com>
