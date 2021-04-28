@@ -9,6 +9,8 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/sbin/iscsiadm -m node --loginall=automatic -W
+ExecStart=/sbin/iscsiadm -m node --loginall=onboot -W
+ExecStart=/sbin/iscsiadm -m fw -l -W
 ExecStop=/sbin/iscsiadm -m node --logoutall=automatic
 ExecStop=/sbin/iscsiadm -m node --logoutall=manual
 SuccessExitStatus=21 15

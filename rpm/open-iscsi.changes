@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Wed Apr 28 16:26:08 UTC 2021 - Lee Duncan <lduncan@suse.com>
+
+- Local (SUSE) change: update iscsi.service so that it tries to
+  logon to any "onboot" and firmware targets, in case a target
+  was offline when booted but back up when the service is started.
+  (bsc#1153806)
+
+-------------------------------------------------------------------
 Wed Apr 28 15:34:43 UTC 2021 - Lee Duncan <lduncan@suse.com>
 
 - Merged with latest from upstream, which contains these fixes:
