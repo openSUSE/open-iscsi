@@ -141,7 +141,7 @@ fi
 %{?regenerate_initrd_posttrans}
 
 %postun
-%{service_del_postun iscsid.socket iscsid.service iscsi.service}
+%{service_del_postun -n iscsid.socket iscsid.service iscsi.service}
 
 %pre
 %{service_add_pre iscsid.socket iscsid.service iscsi.service}
@@ -156,7 +156,7 @@ fi
 %{service_add_post iscsiuio.socket iscsiuio.service}
 
 %postun -n iscsiuio
-%{service_del_postun iscsiuio.socket iscsiuio.service}
+%{service_del_postun -n iscsiuio.socket iscsiuio.service}
 
 %pre -n iscsiuio
 %{service_add_pre iscsiuio.socket iscsiuio.service}
