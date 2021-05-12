@@ -1,7 +1,7 @@
 -------------------------------------------------------------------
 Wed May 12 16:20:38 UTC 2021 - Lee Duncan <lduncan@suse.com>
 
-- Merge latest upstream, which added fix:
+- Merge latest upstream, which added fix (bsc#1185930):
   * Set default 'startup' to 'onboot' for FW nodes
 
 -------------------------------------------------------------------
