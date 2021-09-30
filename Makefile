@@ -121,6 +121,10 @@ install_systemd:
 	$(INSTALL) -d $(DESTDIR)$(systemddir)/system-generators
 	$(INSTALL) -m 755 utils/ibft-rule-generator \
 		$(DESTDIR)$(systemddir)/system-generators
+	for f in $(SYSTEMDFILES); do \
+		p=$(DESTDIR)/$(systemddir)/system/$${f##*/}; \
+		sed -i -e 's:@SBINDIR@:$(sbindir):' $$p; \
+	done
 
 install_programs:  $(PROGRAMS) $(SCRIPTS)
 	$(INSTALL) -d $(DESTDIR)$(sbindir)

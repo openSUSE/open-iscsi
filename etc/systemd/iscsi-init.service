@@ -1,6 +1,7 @@
 [Unit]
 Description=One time configuration for iscsid.service
 ConditionPathExists=!/etc/iscsi/initiatorname.iscsi
+DefaultDependencies=no
 
 [Service]
 Type=oneshot
