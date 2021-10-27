@@ -11,6 +11,8 @@ endif
 DESTDIR ?=
 prefix ?= /usr
 INSTALL ?= install
+exec_prefix = /
+sbindir = $(exec_prefix)/sbin
 
 ifndef LIB_DIR
 	ifeq ($(shell test -d /lib64 && echo 1),1)
@@ -25,6 +27,7 @@ PKGCONF_DIR ?= $(LIB_DIR)/pkgconfig
 MAN_DIR ?= $(prefix)/share/man
 
 PKG_CONFIG = /usr/bin/pkg-config
+SED = /usr/bin/sed
 
 LIBISCSI_USR_DIR=$(TOPDIR)/libopeniscsiusr
 
@@ -48,6 +51,7 @@ OBJS = context.o misc.o session.o sysfs.o iface.o idbm.o node.o default.o
 CFLAGS ?= -O2 -g
 CFLAGS += -Wall -Werror -Wextra -fvisibility=hidden -fPIC
 CFLAGS += $(shell $(PKG_CONFIG) --cflags libkmod)
+CFLAGS += -DSBINDIR=\"$(sbindir)\"
 
 LDFLAGS += $(shell $(PKG_CONFIG) --libs libkmod)
 
