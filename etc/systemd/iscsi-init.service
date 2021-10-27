@@ -6,4 +6,4 @@ DefaultDependencies=no
 [Service]
 Type=oneshot
 RemainAfterExit=no
-ExecStart=/sbin/iscsi-gen-initiatorname
+ExecStart=@SBINDIR@/iscsi-gen-initiatorname
