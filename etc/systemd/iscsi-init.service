@@ -2,6 +2,7 @@
 Description=One time configuration for iscsid.service
 ConditionPathExists=!/etc/iscsi/initiatorname.iscsi
 DefaultDependencies=no
+After=root.mount
 
 [Service]
 Type=oneshot
