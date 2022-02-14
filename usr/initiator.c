@@ -137,7 +137,8 @@ iscsi_ev_context_get(iscsi_conn_t *conn, int ev_size)
 
 static void iscsi_ev_context_put(struct iscsi_ev_context *ev_context)
 {
-	log_debug(7, "put ev context %p", &ev_context->actor);
+	log_debug(7, "put ev context %p:%s", &ev_context->actor,
+		  (&ev_context->actor)->name);
 	ev_context->allocated = 0;
 }
 
@@ -2011,6 +2012,10 @@ iscsi_sync_session(node_rec_t *rec, queue_task_t *qtask, uint32_t sid)
 	iscsi_session_t *session;
 	struct iscsi_transport *t;
 	int err;
+
+	session = session_find_by_sid(sid);
+	if (session != NULL)
+		return ISCSI_ERR_SESS_EXISTS;
 
 	t = iscsi_sysfs_get_transport_by_name(rec->iface.transport_name);
 	if (!t)
