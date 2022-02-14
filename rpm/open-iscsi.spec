@@ -204,6 +204,7 @@ mv %{buildroot}%{_sysconfdir}/logrotate.d/iscsiuiolog %{buildroot}%{_sysconfdir}
 %{_mandir}/man8/iscsistart.8%{ext_man}
 %{_mandir}/man8/iscsi-iname.8%{ext_man}
 %{_mandir}/man8/iscsi_fw_login.8%{ext_man}
+%{_mandir}/man8/iscsi-gen-initiatorname.8%{ext_man}
 %{_udevrulesdir}/50-iscsi-firmware-login.rules
 
 %files -n libopeniscsiusr0_2_0
