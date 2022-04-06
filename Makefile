@@ -6,36 +6,20 @@
 # that you want everything installed into.
 DESTDIR ?=
 
-SED = /usr/bin/sed
-
 prefix = /usr
-exec_prefix = /
-sbindir = $(exec_prefix)/sbin
-bindir = $(exec_prefix)/bin
+exec_prefix =
 mandir = $(prefix)/share/man
 etcdir = /etc
-initddir = $(etcdir)/init.d
-libdir = $(prefix)/lib
-rulesdir = $(libdir)/udev/rules.d
-systemddir = $(prefix)/lib/systemd
 
-MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8 \
-		iscsiuio/docs/iscsiuio.8 doc/iscsi_fw_login.8 doc/iscsi-iname.8 \
-		doc/iscsistart.8 doc/iscsi-gen-initiatorname.8
-PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi-iname iscsiuio/src/unix/iscsiuio \
-		   usr/iscsistart
-SCRIPTS = utils/iscsi_discovery utils/iscsi_fw_login utils/iscsi_offload \
-		  utils/iscsi-gen-initiatorname
-INSTALL = install
-ETCFILES = etc/iscsid.conf
-IFACEFILES = etc/iface.example
-RULESFILES = utils/50-iscsi-firmware-login.rules
-SYSTEMDFILES = etc/systemd/iscsi.service \
-			   etc/systemd/iscsi-init.service \
-			   etc/systemd/iscsid.service etc/systemd/iscsid.socket \
-			   etc/systemd/iscsiuio.service etc/systemd/iscsiuio.socket
+SBINDIR = $(exec_prefix)/sbin
+HOMEDIR = $(etcdir)/iscsi
+DBROOT = $(etcdir)/iscsi
+RULESDIR = $(etcdir)/udev/rules.d
 
-export DESTDIR prefix INSTALL
+INSTALL = /usr/bin/install
+
+# pass these on to sub-Makefiles
+export DESTDIR prefix INSTALL SBINDIR HOMEDIR DBROOT RULESDIR
 
 # Compatibility: parse old OPTFLAGS argument
 ifdef OPTFLAGS
@@ -62,13 +46,17 @@ endif
 
 all: user
 
+make_utils:
+	$(MAKE) $(MFLAGS) -C utils
+
 user: iscsiuio/Makefile
-	$(MAKE) -C libopeniscsiusr SBINDIR=$(sbindir)
-	$(MAKE) -C utils/sysdeps
-	$(MAKE) -C utils/fwparam_ibft
-	$(MAKE) -C usr
-	$(MAKE) -C utils
-	$(MAKE) -C iscsiuio
+	$(MAKE) $(MFLAGS) -C libopeniscsiusr
+	$(MAKE) $(MFLAGS) -C utils/sysdeps
+	$(MAKE) $(MFLAGS) -C usr
+	$(MAKE) $(MFLAGS) -C utils
+	$(MAKE) $(MFLAGS) -C etc
+	$(MAKE) $(MFLAGS) -C iscsiuio
+	$(MAKE) $(MFLAGS) -C doc
 	@echo
 	@echo "Compilation complete                 Output file"
 	@echo "-----------------------------------  ----------------"
@@ -81,124 +69,62 @@ user: iscsiuio/Makefile
 	@echo "Read README file for detailed information."
 
 iscsiuio/Makefile: iscsiuio/configure iscsiuio/Makefile.in
-	cd iscsiuio; ./configure $(WITHOUT_ARG)
+	cd iscsiuio; ./configure $(WITHOUT_ARG) --sbindir=$(SBINDIR)
 
-iscsiuio/configure iscsiuio/Makefile.in: iscsiuio/configure.ac iscsiuio/Makefile.am
+iscsiuio/configure: iscsiuio/configure.ac iscsiuio/Makefile.am
 	cd iscsiuio; autoreconf --install
 
 force: ;
 
 clean:
-	$(MAKE) -C utils/sysdeps clean
-	$(MAKE) -C utils/fwparam_ibft clean
-	$(MAKE) -C utils clean
-	$(MAKE) -C usr clean
-	$(MAKE) -C libopeniscsiusr clean
-	[ ! -f iscsiuio/Makefile ] || $(MAKE) -C iscsiuio distclean
-	[ ! -f iscsiuio/Makefile ] || $(MAKE) -C iscsiuio clean
+	$(MAKE) $(MFLAGS) -C utils/sysdeps clean
+	$(MAKE) $(MFLAGS) -C utils clean
+	$(MAKE) $(MFLAGS) -C usr clean
+	$(MAKE) $(MFLAGS) -C etc clean
+	$(MAKE) $(MFLAGS) -C libopeniscsiusr clean
+	[ ! -f iscsiuio/Makefile ] || $(MAKE) $(MFLAGS) -C iscsiuio clean
+	[ ! -f iscsiuio/Makefile ] || $(MAKE) $(MFLAGS) -C iscsiuio distclean
 
 # this is for safety
 # now -jXXX will still be safe
 # note that make may still execute the blocks in parallel
 .NOTPARALLEL: install_user install_programs install_initd \
-	install_initd_suse install_initd_redhat install_initd_debian \
-	install_etc install_iface install_doc install_iname \
-	install_udev_rules
+	install_initd_redhat install_initd_debian \
+	install_doc install_iname install_etc install_etc_all
 
-install: install_programs install_doc install_etc \
-	install_initd install_iname install_iface install_libopeniscsiusr \
-	install_udev_rules
+install: install_programs install_doc \
+	install_systemd install_iname install_libopeniscsiusr \
+	install_iscsiuio install_etc_all
 
-install_user: install_programs install_doc install_etc \
-	install_initd install_iface install_udev_rules \
-	install_libopeniscsiusr
+install_iscsiuio:
+	$(MAKE) $(MFLAGS) -C iscsiuio install
+
+install_user: install_programs install_doc install_systemd install_iname
 
 install_udev_rules:
-	$(INSTALL) -d $(DESTDIR)$(rulesdir)
-	$(INSTALL) -m 644 $(RULESFILES) $(DESTDIR)/$(rulesdir)
-	for f in $(RULESFILES); do \
-		p=$(DESTDIR)/$(rulesdir)/$${f##*/}; \
-		$(SED) -i -e 's:@SBINDIR@:$(sbindir):' $$p; \
-	done
+	$(MAKE) $(MFLAGS) -C utils $@
 
-install_systemd:
-	$(INSTALL) -d $(DESTDIR)$(systemddir)/system
-	$(INSTALL) -m 644 $(SYSTEMDFILES) $(DESTDIR)/$(systemddir)/system
-	$(INSTALL) -d $(DESTDIR)$(systemddir)/system-generators
-	$(INSTALL) -m 755 utils/ibft-rule-generator \
-		$(DESTDIR)$(systemddir)/system-generators
-	for f in $(SYSTEMDFILES); do \
-		p=$(DESTDIR)/$(systemddir)/system/$${f##*/}; \
-		$(SED) -i -e 's:@SBINDIR@:$(sbindir):' $$p; \
-	done
+install_programs:
+	$(MAKE) $(MFLAGS) -C utils install
+	$(MAKE) $(MFLAGS) -C usr install
 
-install_programs: $(PROGRAMS) $(SCRIPTS)
-	$(INSTALL) -d $(DESTDIR)$(sbindir)
-	$(INSTALL) -m 755 $^ $(DESTDIR)$(sbindir)
-	for f in $(SCRIPTS); do \
-		p=$(DESTDIR)/$(sbindir)/$${f##*/}; \
-		$(SED) -i -e 's:@SBINDIR@:$(sbindir):' $$p; \
-	done
+install_initd install_initd_redhat install_initd_debian install_iface install_systemd install_etc install_iname:
+	$(MAKE) $(MFLAGS) -C etc $@
 
-# ugh, auto-detection is evil
-# Gentoo maintains their own init.d stuff
-install_initd:
-	if [ -f /etc/debian_version ]; then \
-		$(MAKE) install_initd_debian ; \
-	elif [ -f /etc/redhat-release ]; then \
-		$(MAKE) install_initd_redhat ; \
-	elif [ -f /etc/SuSE-release ]; then \
-		$(MAKE) install_initd_suse ; \
-	fi
+install_etc_all:
+	$(MAKE) $(MFLAGS) -C etc install
 
-# these are external targets to allow bypassing distribution detection
-install_initd_suse:
-	$(INSTALL) -d $(DESTDIR)$(initddir)
-	$(INSTALL) -m 755 etc/initd/initd.suse \
-		$(DESTDIR)$(initddir)/open-iscsi
-	$(INSTALL) -m 755 etc/initd/boot.suse \
-		$(DESTDIR)$(initddir)/boot.open-iscsi
-
-install_initd_redhat:
-	$(INSTALL) -d $(DESTDIR)$(initddir)
-	$(INSTALL) -m 755 etc/initd/initd.redhat \
-		$(DESTDIR)$(initddir)/open-iscsi
-
-install_initd_debian:
-	$(INSTALL) -d $(DESTDIR)$(initddir)
-	$(INSTALL) -m 755 etc/initd/initd.debian \
-		$(DESTDIR)$(initddir)/open-iscsi
-
-install_iface: $(IFACEFILES)
-	$(INSTALL) -d $(DESTDIR)$(etcdir)/iscsi/ifaces
-	$(INSTALL) -m 644 $^ $(DESTDIR)$(etcdir)/iscsi/ifaces
-
-install_etc: $(ETCFILES)
-	if [ ! -f $(DESTDIR)/etc/iscsi/iscsid.conf ]; then \
-		$(INSTALL) -d $(DESTDIR)$(etcdir)/iscsi ; \
-		$(INSTALL) -m 644 $^ $(DESTDIR)$(etcdir)/iscsi ; \
-	fi
-
-install_doc: $(MANPAGES)
-	$(INSTALL) -d $(DESTDIR)$(mandir)/man8
-	$(INSTALL) -m 644 $^ $(DESTDIR)$(mandir)/man8
-
-install_iname:
-	if [ ! -f $(DESTDIR)/etc/iscsi/initiatorname.iscsi ]; then \
-		echo "InitiatorName=`$(DESTDIR)$(sbindir)/iscsi-iname`" > $(DESTDIR)/etc/iscsi/initiatorname.iscsi ; \
-		echo "***************************************************" ; \
-		echo "Setting InitiatorName to `cat $(DESTDIR)/etc/iscsi/initiatorname.iscsi`" ; \
-		echo "To override edit $(DESTDIR)/etc/iscsi/initiatorname.iscsi" ; \
-		echo "***************************************************" ; \
-	fi
+install_doc:
+	$(MAKE) $(MFLAGS) -C doc $@
 
 install_libopeniscsiusr:
-	$(MAKE) -C libopeniscsiusr install
-	$(MAKE) -C libopeniscsiusr install_docs
+	$(MAKE) $(MFLAGS) -C libopeniscsiusr install
 
 depend:
-	for dir in usr utils utils/fwparam_ibft; do \
-		$(MAKE) -C $$dir $@; \
+	for dir in usr utils utils/fwparam_ibft utils/sysdeps; do \
+		$(MAKE) $(MFLAGS) -C $$dir $@; \
 	done
 
-# vim: ft=make tw=72 sw=4 ts=4:
+.PHONY: all user install force clean install_user install_udev_rules install_systemd \
+	install_programs install_initrd install_initrd_redhat install_initrd_debian \
+	install_doc install_iname install_libopeniscsiusr install_etc install_ec_all

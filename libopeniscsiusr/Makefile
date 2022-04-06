@@ -11,8 +11,10 @@ endif
 DESTDIR ?=
 prefix ?= /usr
 INSTALL ?= install
-exec_prefix = /
-sbindir = $(exec_prefix)/sbin
+exec_prefix =
+etcdir = /etc
+SBINDIR ?= $(exec_prefix)/sbin
+DBROOT ?= $(etcdir)/iscsi
 
 ifndef LIB_DIR
 	ifeq ($(shell test -d /lib64 && echo 1),1)
@@ -51,7 +53,8 @@ OBJS = context.o misc.o session.o sysfs.o iface.o idbm.o node.o default.o
 CFLAGS ?= -O2 -g
 CFLAGS += -Wall -Werror -Wextra -fvisibility=hidden -fPIC
 CFLAGS += $(shell $(PKG_CONFIG) --cflags libkmod)
-CFLAGS += -DSBINDIR=\"$(sbindir)\"
+CFLAGS += -DSBINDIR=\"$(SBINDIR)\"
+CFLAGS += -DISCSI_DB_ROOT=\"$(DBROOT)\"
 
 LDFLAGS += $(shell $(PKG_CONFIG) --libs libkmod)
 
@@ -78,21 +81,21 @@ check: $(LIBS) $(TESTS)
 	sudo env LD_LIBRARY_PATH=$(LIBISCSI_USR_DIR) TESTS="$(TESTS)" \
 		tests/runtest.sh || exit 1;
 
-install: $(LIBS) $(LIBS_MAJOR)
+install: install_libs install_docs install_pkg_files
+
+install_libs: $(LIBS) $(LIBS_MAJOR)
 	$(INSTALL) -d $(DESTDIR)$(LIB_DIR)/
 	$(INSTALL) -d $(DESTDIR)$(INCLUDE_DIR)/
-	$(INSTALL) -m 644 $(LIBS) $(DESTDIR)$(LIB_DIR)/
-	$(INSTALL) -m 644 $(DEVLIB) $(DESTDIR)$(LIB_DIR)/
-	$(INSTALL) -m 644 $(LIBS_MAJOR) $(DESTDIR)$(LIB_DIR)/
-	ln -sf $(LIBS) $(DESTDIR)/$(LIB_DIR)/$(DEVLIB)
-	ln -sf $(LIBS) $(DESTDIR)/$(LIB_DIR)/$(LIBS_MAJOR)
+	$(INSTALL) $(LIBS) $(DESTDIR)$(LIB_DIR)/
+	ln -sf $(LIBS) $(DESTDIR)$(LIB_DIR)/$(DEVLIB)
+	ln -sf $(LIBS) $(DESTDIR)$(LIB_DIR)/$(LIBS_MAJOR)
 	$(INSTALL) -m 644 $(HEADERS) $(DESTDIR)$(INCLUDE_DIR)/
 
 install_docs: doc
 	$(INSTALL) -d $(DESTDIR)$(MAN_DIR)/man3
-	$(INSTALL) -m 644 docs/man/*.gz $(DESTDIR)$(MAN_DIR)/man3
+	$(INSTALL) -m 644 docs/man/*.gz $(DESTDIR)$(MAN_DIR)/man3/
 
-install_pkgfiles:
+install_pkg_files:
 	$(INSTALL) -m 644 -D $(PKGFILE).in $(DESTDIR)$(PKGCONF_DIR)/$(PKGFILE)
 	perl -i -pe 's|__VERSION__|$(LIBNVME_VERSION)|g' \
 		$(DESTDIR)$(PKGCONF_DIR)/$(PKGFILE)
