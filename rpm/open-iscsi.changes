@@ -9,6 +9,7 @@ Wed Apr  6 17:02:04 UTC 2022 - Lee Duncan <lduncan@suse.com>
     DESTDIR twice
   * general build cleanup (in prep for removing DB files from
     /etc/iscsi some day soon)
+  Also, now delivering a "package config" file for libopeniscsiusr.
 
 -------------------------------------------------------------------
 Sat Mar  5 17:23:19 UTC 2022 - Lee Duncan <lduncan@suse.com>
