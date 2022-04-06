@@ -26,7 +26,7 @@ endif
 
 INCLUDE_DIR ?= $(prefix)/include
 PKGCONF_DIR ?= $(LIB_DIR)/pkgconfig
-MAN_DIR ?= $(prefix)/share/man
+MAN_DIR = $(prefix)/share/man
 
 PKG_CONFIG = /usr/bin/pkg-config
 SED = /usr/bin/sed
@@ -75,7 +75,7 @@ clean:
 
 $(TESTS): $(LIBS)
 $(TESTS): CFLAGS += -I$(TOPDIR)/libopeniscsiusr -g
-$(TESTS): LDFLAGS += $(LIBADD)
+$(TESTS): LDFLAGS += $(LIBADD) -L$(TOPDIR)/libopeniscsiusr -lopeniscsiusr
 
 check: $(LIBS) $(TESTS)
 	sudo env LD_LIBRARY_PATH=$(LIBISCSI_USR_DIR) TESTS="$(TESTS)" \
