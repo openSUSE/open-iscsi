@@ -208,6 +208,7 @@ mv %{buildroot}%{_sysconfdir}/logrotate.d/iscsiuiolog %{buildroot}%{_sysconfdir}
 
 %files -n libopeniscsiusr0_2_0
 %{_libdir}/libopeniscsiusr.so.*
+%{_libdir}/pkgconfig/*.pc
 
 %files -n iscsiuio
 %{_sbindir}/iscsiuio
