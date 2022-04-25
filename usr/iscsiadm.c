@@ -3629,6 +3629,9 @@ ping_exit:
 	return rc;
 }
 
+/* global debug crap */
+extern struct timespec start_time;	/* in session_mgmt.c */
+
 int
 main(int argc, char **argv)
 {
@@ -3873,6 +3876,13 @@ main(int argc, char **argv)
 	if (idbm_init(get_config_file)) {
 		log_warning("exiting due to idbm configuration error");
 		rc = ISCSI_ERR_IDBM;
+		goto out;
+	}
+
+	/* record starting time */
+	if (clock_gettime(CLOCK_MONOTONIC, &start_time) < 0) {
+		log_error("can't get start time using clock_gettime(): %d", errno);
+		rc = ISCSI_ERR_NOMEM;
 		goto out;
 	}
 

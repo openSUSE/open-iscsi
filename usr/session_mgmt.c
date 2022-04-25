@@ -34,19 +34,58 @@
 #include "iscsid_req.h"
 #include "iscsi_err.h"
 
+#include <time.h>
+struct timespec start_time;
+char time_diff_buf[40];
+
+static void timespec_diff(struct timespec *start, struct timespec *stop,
+		struct timespec *result)
+{
+	if ((stop->tv_nsec - start->tv_nsec) < 0) {
+		result->tv_sec = stop->tv_sec - start->tv_sec - 1L;
+		result->tv_nsec = stop->tv_nsec - start->tv_nsec + 1000000000L;
+	} else {
+		result->tv_sec = stop->tv_sec - start->tv_sec;
+		result->tv_nsec = stop->tv_nsec - start->tv_nsec;
+	}
+}
+
 static void log_login_msg(struct node_rec *rec, int rc)
 {
+	static int	num_good = 0;
+
 	if (rc) {
 		log_error("Could not login to [iface: %s, target: %s, "
 			  "portal: %s,%d].", rec->iface.name,
 			  rec->name, rec->conn[0].address,
 			  rec->conn[0].port);
 		iscsi_err_print_msg(rc);
-	} else
-		log_info("Login to [iface: %s, target: %s, portal: "
-			 "%s,%d] successful.", rec->iface.name,
-			 rec->name, rec->conn[0].address,
-			 rec->conn[0].port);
+	} else {
+		if ((++num_good % 10) == 0) {
+			struct timespec now_time;
+
+			if (clock_gettime(CLOCK_MONOTONIC, &now_time) < 0) {
+				/* it didn't work, so just wing it on the time */
+				strcpy(time_diff_buf, "???");
+			} else {
+				struct timespec tdiff;
+			       
+				timespec_diff(&start_time, &now_time, &tdiff);
+
+				sprintf(time_diff_buf, "%ld.%09ld",
+						tdiff.tv_sec, tdiff.tv_nsec);
+			}
+
+			log_info("Login to [iface: %s, target: %s, portal: "
+				 "%s,%d] successful. (%s)", rec->iface.name,
+				 rec->name, rec->conn[0].address,
+				 rec->conn[0].port, time_diff_buf);
+		} else
+			log_info("Login to [iface: %s, target: %s, portal: "
+				 "%s,%d] successful.", rec->iface.name,
+				 rec->name, rec->conn[0].address,
+				 rec->conn[0].port);
+	}
 }
 
 struct iscsid_async_req {
