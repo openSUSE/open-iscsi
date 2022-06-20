@@ -224,7 +224,7 @@ fi
 %{_mandir}/man8/iscsiuio.8%{ext_man}
 %if 0%{?suse_version} > 1500
 %dir %{_distconfdir}/logrotate.d
-%config %{_distconfdir}/logrotate.d/iscsiuio
+%{_distconfdir}/logrotate.d/iscsiuio
 %else
 %config %{_sysconfdir}/logrotate.d/iscsiuio
 %endif
