@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Thu Aug  4 00:16:30 UTC 2022 - Lee Duncan <lduncan@suse.com>
+
+- Added three upstream commits for iscsiuio (bsc#1179908) for CVEs:
+  * CVE-2020-13987
+  * CVE-2020-13988
+  * CVE-2020-17437
+  Also, updated copyright date in spec file
+
+-------------------------------------------------------------------
 Sun Sep 13 17:47:49 UTC 2020 - Lee Duncan <lduncan@suse.com>
 
 - Added two upstream commits to address sysfs access (bsc#1174838):
