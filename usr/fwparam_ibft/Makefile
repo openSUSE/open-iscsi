@@ -37,9 +37,8 @@ CFLAGS ?= -O2 -g
 WARNFLAGS ?= -Wall -Wstrict-prototypes -Wno-format-truncation
 CFLAGS += -fPIC $(WARNFLAGS) -I$(TOPDIR)/include -I$(TOPDIR)/usr -D_GNU_SOURCE \
 	  -I$(TOPDIR)/libopeniscsiusr
-CFLAGS += -DSBINDIR=\"$(SBINDIR)\"
-
-LDFLAGS += -L$(TOPDIR)/libopeniscsiusr -liscsiusr
+CFLAGS += -DSBINDIR=\"$(SBINDIR)\" \
+	  -DISCSI_VERSION_STR=\"$(ISCSI_VERSION_STR)\"
 
 all: $(OBJS)
 

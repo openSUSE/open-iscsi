@@ -16,16 +16,20 @@
 #
 
 
-# ensure usr-merge does not effect existing SLE
+# ensure usr-merge does not effect existing SLE,
+# and move DB root to /var/lib/iscsi for Factory
 %if ! 0%{?is_opensuse}
 %define _sbindir /sbin
+%define _dbroot %{_sharedstatedir}/iscsi
+%else
+%define _dbroot /etc/iscsi
 %endif
 
 %define iscsi_minor_release 1
-%define iscsi_patch_release 7
+%define iscsi_patch_release 8
 %define iscsi_patch_release_suse %{iscsi_patch_release}-suse
 Name:           open-iscsi
-Version:        2.1.7
+Version:        2.1.8
 Release:        0
 Summary:        Linux iSCSI Software Initiator
 License:        GPL-2.0-or-later
@@ -42,7 +46,7 @@ BuildRequires:  flex
 BuildRequires:  libkmod-devel
 BuildRequires:  libmount-devel
 BuildRequires:  libtool
-BuildRequires:  make
+BuildRequires:  meson >= 0.55.0
 BuildRequires:  open-isns-devel
 BuildRequires:  openssl-devel >= 1.1.1c
 BuildRequires:  pkg-config
@@ -106,6 +110,7 @@ Release:        0
 Summary:        The iSCSI User-level Library Development Library and Include files
 Group:          Development/Libraries/C and C++
 Requires:       %{name} = %{version}
+Requires:       libopeniscsiusr0_2_0 = %{version}
 Conflicts:      libopeniscsiusr0_1_0
 
 %description devel
@@ -119,15 +124,12 @@ the libopeniscsiusr library.
 
 %build
 [ -z "$SOURCE_DATE_EPOCH" ] || export KBUILD_BUILD_TIMESTAMP=@$SOURCE_DATE_EPOCH
-make %{?_smp_mflags} OPTFLAGS="%{optflags} -fno-strict-aliasing -fno-common -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" LIB_DIR=%{_libdir} SBINDIR=%{_sbindir} user
-cd iscsiuio
-touch AUTHORS NEWS
-autoreconf --install
-%configure --sbindir=%{_sbindir}
-make %{?_smp_mflags} CFLAGS="%{optflags}" LIB_DIR=%{_libdir}
+%meson -Dc_flags="%{optflags} -fno-strict-aliasing -fno-common -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" \
+	--libdir %{_libdir} -Discsi_sbindir=%{_sbindir} -Ddbroot=%{_dbroot} -Drulesdir=%{_udevrulesdir} --strip
+%meson_build
 
 %install
-make DESTDIR=%{buildroot} LIB_DIR=%{_libdir} SBINDIR=%{_sbindir} RULESDIR=%{_udevrulesdir} install
+%meson_install
 # create rc symlinks
 [ -d %{buildroot}%{_sbindir} ] || mkdir -p %{buildroot}%{_sbindir}
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsi
@@ -136,7 +138,6 @@ ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsiuio
 (cd %{buildroot}/etc; ln -sf iscsi/iscsid.conf iscsid.conf)
 # create an empty initiatorname file, as a package place holder
 echo > %{buildroot}%{_sysconfdir}/iscsi/initiatorname.iscsi
-%make_install -C iscsiuio
 # rename iscsiuio logrotate file to proper name
 %if 0%{?suse_version} > 1500
 mkdir -p %{buildroot}%{_distconfdir}/logrotate.d
@@ -151,20 +152,20 @@ mv %{buildroot}%{_sysconfdir}/logrotate.d/iscsiuiolog %{buildroot}%{_sysconfdir}
 if [ ! -f %{_sysconfdir}/iscsi/initiatorname.iscsi ] ; then
     %{_sbindir}/iscsi-gen-initiatorname
 fi
-%service_add_post iscsi.service iscsid.service iscsid.socket
+%service_add_post iscsi.service iscsid.service iscsid.socket iscsi-init.service
 
 %posttrans
 %{?regenerate_initrd_posttrans}
 
 %postun
 %service_del_postun_without_restart iscsi.service
-%service_del_postun iscsid.service iscsid.socket
+%service_del_postun iscsi.service iscsid.service iscsid.socket iscsi-init.service
 
 %pre
-%service_add_pre iscsi.service iscsid.service iscsid.socket
+%service_add_pre iscsi.service iscsid.service iscsid.socket iscsi-init.service
 
 %preun
-%service_del_preun iscsi.service iscsid.service iscsid.socket
+%service_del_preun iscsi.service iscsid.service iscsid.socket iscsi-init.service
 
 %post   -n libopeniscsiusr0_2_0 -p %{run_ldconfig}
 %postun -n libopeniscsiusr0_2_0 -p %{run_ldconfig}
@@ -216,7 +217,6 @@ fi
 
 %files -n libopeniscsiusr0_2_0
 %{_libdir}/libopeniscsiusr.so.*
-%{_libdir}/pkgconfig/*.pc
 
 %files -n iscsiuio
 %{_sbindir}/iscsiuio
@@ -236,5 +236,6 @@ fi
 %{_includedir}/libopeniscsiusr*.h
 %{_mandir}/man3/*.3%{ext_man}
 %{_libdir}/libopeniscsiusr.so
+%{_libdir}/pkgconfig/*.pc
 
 %changelog

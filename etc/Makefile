@@ -19,7 +19,7 @@ initddir ?= $(etcdir)/init.d
 
 HOMEDIR ?= $(etcdir)/iscsi
 
-SED = /usr/bin/sed
+SED ?= sed
 INSTALL = install
 
 SYSTEMD_SOURCE_FILES	= iscsid.socket iscsiuio.socket
@@ -81,10 +81,10 @@ install_systemd_service_files: $(DESTDIR)$(systemddir)/system $(SYSTEMD_DEST_SVC
 install_systemd_generator_files: $(DESTDIR)$(systemddir)/system-generators $(SYSTEMD_DEST_GEN_FILES)
 
 $(SYSTEMD_DEST_SVC_FILES): $(DESTDIR)$(systemddir)/system/%: systemd/%
-	$(INSTALL) $? $@
+	$(INSTALL) -m 644 $? $@
 
 $(SYSTEMD_DEST_GEN_FILES): $(DESTDIR)$(systemddir)/system-generators/%: systemd/%
-	$(INSTALL) $? $@
+	$(INSTALL) -m 755 $? $@
 
 install_iname: $(DESTDIR)$(HOMEDIR) $(ISCSI_INAME)
 	if [ ! -f $(INAME_DEST_FILE) ]; then \

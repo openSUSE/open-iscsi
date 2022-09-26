@@ -23,5 +23,5 @@ libtool
 ltmain.sh
 missing
 
-# generated man page
+# man page
 iscsiuio.8.gz
