@@ -1,5 +1,5 @@
 [Unit]
-Description=One time configuration for iscsid.service
+Description=One time configuration for iscsi.service
 ConditionPathExists=!/etc/iscsi/initiatorname.iscsi
 DefaultDependencies=no
 RequiresMountsFor=/etc/iscsi
@@ -16,4 +16,4 @@ WantedBy=systemd-remount-fs.service
 [Service]
 Type=oneshot
 RemainAfterExit=no
-ExecStart=/sbin/iscsi-gen-initiatorname
+ExecStart=@SBINDIR@/iscsi-gen-initiatorname
