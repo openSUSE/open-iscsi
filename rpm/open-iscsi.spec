@@ -19,10 +19,15 @@
 # ensure usr-merge does not effect existing SLE,
 # and move DB root to /var/lib/iscsi for Factory
 %if ! 0%{?is_opensuse}
+# sle
 %define _sbindir /sbin
-%define _dbroot %{_sharedstatedir}/iscsi
+%define _dbroot %{_sysconfdir}/iscsi
+%define _lockdir %{_sysconfdir}/iscsi
 %else
-%define _dbroot /etc/iscsi
+# opensuse
+%define _sbindir /usr/sbin
+%define _dbroot %{_sharedstatedir}/iscsi
+%define _lockdir %{_rundir}/lock/iscsi
 %endif
 
 %define iscsi_minor_release 1
@@ -37,8 +42,6 @@ Group:          Productivity/Networking/Other
 URL:            https://www.open-iscsi.com
 Source:         %{name}-2.%{iscsi_minor_release}.%{iscsi_patch_release_suse}.tar.bz2
 Patch1:         %{name}-SUSE-latest.diff.bz2
-BuildRequires:  autoconf
-BuildRequires:  automake
 BuildRequires:  bison
 BuildRequires:  db-devel < 5
 BuildRequires:  fdupes
@@ -46,9 +49,10 @@ BuildRequires:  flex
 BuildRequires:  libkmod-devel
 BuildRequires:  libmount-devel
 BuildRequires:  libtool
-BuildRequires:  meson >= 0.55.0
+BuildRequires:  meson >= 0.54.0
 BuildRequires:  open-isns-devel
 BuildRequires:  openssl-devel >= 1.1.1c
+BuildRequires:  perl
 BuildRequires:  pkg-config
 BuildRequires:  suse-module-tools
 BuildRequires:  pkgconfig(libsystemd)
@@ -124,14 +128,19 @@ the libopeniscsiusr library.
 
 %build
 [ -z "$SOURCE_DATE_EPOCH" ] || export KBUILD_BUILD_TIMESTAMP=@$SOURCE_DATE_EPOCH
-%meson -Dc_flags="%{optflags} -fno-strict-aliasing -fno-common -DOFFLOAD_BOOT_SUPPORTED -DLOCK_DIR=\\\"%{_sysconfdir}/iscsi\\\"" \
-	--libdir %{_libdir} -Discsi_sbindir=%{_sbindir} -Ddbroot=%{_dbroot} -Drulesdir=%{_udevrulesdir} --strip
+%meson -Dc_flags="%{optflags} -fno-strict-aliasing -fno-common -DOFFLOAD_BOOT_SUPPORTED" \
+	--libdir=%{_libdir} \
+	-Discsi_sbindir=%{_sbindir} -Ddbroot=%{_dbroot} -Drulesdir=%{_udevrulesdir} -Dlockdir=%{_lockdir} \
+	--strip
 %meson_build
 
 %install
 %meson_install
-# create rc symlinks
 [ -d %{buildroot}%{_sbindir} ] || mkdir -p %{buildroot}%{_sbindir}
+# create brcm_iscsiuio symlink if needed
+[ -e %{buildroot}%{_sbindir}/brcm_iscsiuio ] || \
+    ln -s %{_sbindir}/iscsiuio %{buildroot}%{_sbindir}/brcm_iscsiuio
+# create rc symlinks
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsi
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsid
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rciscsiuio
@@ -184,11 +193,12 @@ fi
 
 %files
 %dir %{_sysconfdir}/iscsi
+%{_sysconfdir}/iscsid.conf
 %attr(0600,root,root) %config(noreplace) %{_sysconfdir}/iscsi/iscsid.conf
 %ghost %{_sysconfdir}/iscsi/initiatorname.iscsi
-%dir %{_sysconfdir}/iscsi/ifaces
-%config %{_sysconfdir}/iscsi/ifaces/iface.example
-%{_sysconfdir}/iscsid.conf
+%dir %{_dbroot}
+%dir %{_dbroot}/ifaces
+%{_dbroot}/ifaces/iface.example
 %attr(0644,root,root) %{_unitdir}/iscsid.service
 %attr(0644,root,root) %{_unitdir}/iscsid.socket
 %attr(0644,root,root) %{_unitdir}/iscsi-init.service
