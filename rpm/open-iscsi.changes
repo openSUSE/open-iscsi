@@ -5,6 +5,11 @@ Mon Sep 26 21:15:57 UTC 2022 - Lee Duncan <lduncan@suse.com>
   and adds the ability to build using meson. The SPEC file was
   updated to use meson.
 
+  Also, some files have moved:
+  * the "lock" file has moved from /etc/iscsi to /var/lock/iscsi
+  * the "database files" have moved from /etc/iscsi to
+    /var/lib/iscsi
+
 -------------------------------------------------------------------
 Wed Jul  6 20:13:21 UTC 2022 - Lee Duncan <lduncan@suse.com>
 
