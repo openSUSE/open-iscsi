@@ -1,0 +1,12 @@
+#
+# README file for open-iscsi Home Directory
+#
+
+Note: the database (DB) files that used to be located here have moved.
+They have moved from this directory to:
+
+	@DBROOT@
+
+If you use the normal open-iscsi tools for manipulating these DB files,
+they will work fine. But if you wish to manually edit them, please note
+the new location.

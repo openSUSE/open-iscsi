@@ -277,6 +277,16 @@ if not meson.is_cross_build()
     install_mode: 'rw-r--r--')
 endif
 
+# handle any etc templated files (e.g. README*)
+foreach k,v: iscsi_etc_files_arr
+  configure_file(
+    input: v,
+    output: k,
+    configuration: conf,
+    install: true,
+    install_dir: home_dir)
+endforeach
+
 #
 # handle documentation from 'doc'
 #
