@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Wed Dec  7 18:47:08 UTC 2022 - Lee Duncan <lduncan@suse.com>
+
+- Moving DB files from /etc/iscsi/* to /var/lib/iscsi/* for
+  SLE-15-SP5 and forward, as is done in Tumbleweed.  Also,
+  added /etc/iscsi/README.DB-files-moved, and added SPEC file
+  changes to support this, including a post-install script to
+  move the DB files.
+
+-------------------------------------------------------------------
 Wed Nov 16 17:14:36 UTC 2022 - Lee Duncan <lduncan@suse.com>
 
 - Updated to latest upstream. Changes:
