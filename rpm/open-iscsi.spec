@@ -15,6 +15,7 @@
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
+%define _home_dir %{_sysconfdir}/iscsi
 
 # Ensure usr-merge does not effect existing SLE. Cannot use _sbindir
 # directly since meson macros pass that on, and meson does not like
@@ -23,8 +24,8 @@
 %if ! 0%{?is_opensuse}
 # sle
 %define _iscsi_sbindir /sbin
-%define _dbroot %{_sysconfdir}/iscsi
-%define _lockdir %{_sysconfdir}/iscsi
+%define _dbroot %{_home_dir}
+%define _lockdir %{_home_dir}
 %else
 # opensuse
 %define _iscsi_sbindir /usr/sbin
@@ -149,7 +150,7 @@ ln -s %{_iscsi_sbindir}/service %{buildroot}%{_iscsi_sbindir}/rciscsiuio
 ln -s %{_iscsi_sbindir}/service %{buildroot}%{_iscsi_sbindir}/rciscsi-init
 (cd %{buildroot}/etc; ln -sf iscsi/iscsid.conf iscsid.conf)
 # create an empty initiatorname file, as a package place holder
-echo > %{buildroot}%{_sysconfdir}/iscsi/initiatorname.iscsi
+echo > %{buildroot}%{_home_dir}/initiatorname.iscsi
 # rename iscsiuio logrotate file to proper name
 %if 0%{?suse_version} > 1500
 mkdir -p %{buildroot}%{_distconfdir}/logrotate.d
@@ -161,7 +162,7 @@ mv %{buildroot}%{_sysconfdir}/logrotate.d/iscsiuiolog %{buildroot}%{_sysconfdir}
 
 %post
 %{?regenerate_initrd_post}
-if [ ! -f %{_sysconfdir}/iscsi/initiatorname.iscsi ] ; then
+if [ ! -f %{_home_dir}/initiatorname.iscsi ] ; then
     %{_iscsi_sbindir}/iscsi-gen-initiatorname
 fi
 %service_add_post iscsi.service iscsid.service iscsid.socket iscsi-init.service
@@ -195,10 +196,10 @@ fi
 %service_del_preun iscsiuio.service iscsiuio.socket
 
 %files
-%dir %{_sysconfdir}/iscsi
+%dir %{_home_dir}
 %{_sysconfdir}/iscsid.conf
-%attr(0600,root,root) %config(noreplace) %{_sysconfdir}/iscsi/iscsid.conf
-%ghost %{_sysconfdir}/iscsi/initiatorname.iscsi
+%attr(0600,root,root) %config(noreplace) %{_home_dir}/iscsid.conf
+%ghost %{_home_dir}/initiatorname.iscsi
 %dir %{_dbroot}
 %dir %{_dbroot}/ifaces
 %{_dbroot}/ifaces/iface.example
