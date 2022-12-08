@@ -16,3 +16,5 @@ option('rulesdir', type: 'string', value: 'udev/rules.d',
 # older version of meson do not allow overriding sbindir
 option('iscsi_sbindir', type: 'string', value: '/usr/sbin',
   description: 'Set the directory where our binaries go [/usr/sbin]')
+option('install_dbdir_move_readme', type: 'boolean', value: false,
+  description: 'Install README in home directory saying DB files have moved')

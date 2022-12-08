@@ -41,6 +41,7 @@ endif
 c_args = get_option('c_args')
 man_dir = get_option('mandir')
 iscsi_sbindir = get_option('iscsi_sbindir')
+install_dbdir_move_readme = get_option('install_dbdir_move_readme')
 
 #
 # get list of sources from subdirs (iscsiuio included at bottom)
