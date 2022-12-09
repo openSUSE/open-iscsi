@@ -15,6 +15,7 @@
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
+
 %define _home_dir %{_sysconfdir}/iscsi
 
 # Ensure usr-merge does not effect existing SLE. Cannot use _sbindir
@@ -24,13 +25,24 @@
 %if ! 0%{?is_opensuse}
 # sle
 %define _iscsi_sbindir /sbin
-%define _dbroot %{_home_dir}
 %define _lockdir %{_home_dir}
+%if 0%{?suse_version} <= 1540
+%define _dbroot %{_home_dir}
+%else
+%define _dbroot %{_sharedstatedir}/iscsi
+%define _dbroot_new 1
+%endif
 %else
 # opensuse
 %define _iscsi_sbindir /usr/sbin
-%define _dbroot %{_sharedstatedir}/iscsi
 %define _lockdir %{_rundir}/lock/iscsi
+%define _dbroot %{_sharedstatedir}/iscsi
+%define _dbroot_new 1
+%endif
+%if 0%{?_dbroot_new}
+%define _install_dbdir_move_readme_value true
+%else
+%define _install_dbdir_move_readme_value false
 %endif
 
 %define iscsi_minor_release 1
@@ -134,6 +146,7 @@ the libopeniscsiusr library.
 %meson --libdir=%{_libdir} \
 	-Dc_flags="%{optflags} -fno-strict-aliasing -fno-common -DOFFLOAD_BOOT_SUPPORTED" \
 	-Discsi_sbindir=%{_iscsi_sbindir} -Ddbroot=%{_dbroot} -Drulesdir=%{_udevrulesdir} -Dlockdir=%{_lockdir} \
+	-Dinstall_dbdir_move_readme=%{_install_dbdir_move_readme_value} \
 	--strip
 %meson_build
 
@@ -160,25 +173,37 @@ mv %{buildroot}%{_sysconfdir}/logrotate.d/iscsiuiolog %{buildroot}%{_sysconfdir}
 %endif
 %fdupes %{buildroot}/%{_prefix}
 
+%pre
+%service_add_pre iscsi.service iscsid.service iscsid.socket iscsi-init.service
+
 %post
 %{?regenerate_initrd_post}
 if [ ! -f %{_home_dir}/initiatorname.iscsi ] ; then
     %{_iscsi_sbindir}/iscsi-gen-initiatorname
 fi
+%if 0%{?_dbroot_new}
+# move DB files if and only if not present in new location
+for d in ifaces send_targets fw nodes static isns slp; do
+    if [ -d %{_home_dir}/$d ]; then
+	if [ -d %{_dbroot}/$d ]; then
+	    echo "Warning: cannot copy DB directory %{_home_dir}/$d to %{_dbroot}/$d: already present" 1>&2
+	else
+	    cp -a %{_home_dir}/$d %{_dbroot}
+	fi
+    fi
+done
+%endif
 %service_add_post iscsi.service iscsid.service iscsid.socket iscsi-init.service
 
 %posttrans
 %{?regenerate_initrd_posttrans}
 
+%preun
+%service_del_preun iscsi.service iscsid.service iscsid.socket iscsi-init.service
+
 %postun
 %service_del_postun_without_restart iscsi.service
 %service_del_postun iscsi.service iscsid.service iscsid.socket iscsi-init.service
-
-%pre
-%service_add_pre iscsi.service iscsid.service iscsid.socket iscsi-init.service
-
-%preun
-%service_del_preun iscsi.service iscsid.service iscsid.socket iscsi-init.service
 
 %post   -n libopeniscsiusr0_2_0 -p %{run_ldconfig}
 %postun -n libopeniscsiusr0_2_0 -p %{run_ldconfig}
@@ -200,6 +225,9 @@ fi
 %{_sysconfdir}/iscsid.conf
 %attr(0600,root,root) %config(noreplace) %{_home_dir}/iscsid.conf
 %ghost %{_home_dir}/initiatorname.iscsi
+%if 0%{?_dbroot_new}
+%config %{_home_dir}/README.DB-files-moved
+%endif
 %dir %{_dbroot}
 %dir %{_dbroot}/ifaces
 %{_dbroot}/ifaces/iface.example
