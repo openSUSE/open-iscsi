@@ -48,6 +48,8 @@
 %define iscsi_minor_release 1
 %define iscsi_patch_release 8
 %define iscsi_patch_release_suse %{iscsi_patch_release}-suse
+%define libname libopeniscsiusr0
+%define libversion 0.2.0
 Name:           open-iscsi
 Version:        2.1.8
 Release:        0
@@ -73,7 +75,7 @@ BuildRequires:  suse-module-tools
 BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(systemd)
 Requires(post): coreutils
-Requires:       libopeniscsiusr0_2_0 = %{version}
+Requires:       %{libname} = %{libversion}
 %{?systemd_requires}
 
 %description
@@ -91,14 +93,16 @@ connection-level error processing, Nop-In and Nop-Out handling. It
 comes with a daemon process called iscsid, and a management utility,
 iscsiadm.
 
-%package -n libopeniscsiusr0_2_0
-Version:        2.%{iscsi_minor_release}.%{iscsi_patch_release}
+%package -n %{libname}
+Version:        0.2.0
 Release:        0
 Summary:        The iSCSI User-level Library
 Group:          System/Libraries
-Obsoletes:      libopeniscsiusr0_1_0 < %{version}
+Obsoletes:      libopeniscsiusr0_1_0
+Obsoletes:      libopeniscsiusr0_2_0
+Conflicts:      libopeniscsiusr0_2_0
 
-%description -n libopeniscsiusr0_2_0
+%description -n %{libname}
 The iSCSI user-space API from the open-iscsi project.
 
 %package -n iscsiuio
@@ -128,8 +132,8 @@ Version:        2.%{iscsi_minor_release}.%{iscsi_patch_release}
 Release:        0
 Summary:        The iSCSI User-level Library Development Library and Include files
 Group:          Development/Libraries/C and C++
+Requires:       %{libname} = %{libversion}
 Requires:       %{name} = %{version}
-Requires:       libopeniscsiusr0_2_0 = %{version}
 Conflicts:      libopeniscsiusr0_1_0
 
 %description devel
@@ -205,8 +209,8 @@ done
 %service_del_postun_without_restart iscsi.service
 %service_del_postun iscsi.service iscsid.service iscsid.socket iscsi-init.service
 
-%post   -n libopeniscsiusr0_2_0 -p %{run_ldconfig}
-%postun -n libopeniscsiusr0_2_0 -p %{run_ldconfig}
+%post   -n %{libname} -p %{run_ldconfig}
+%postun -n %{libname} -p %{run_ldconfig}
 
 %post -n iscsiuio
 %service_add_post iscsiuio.service iscsiuio.socket
@@ -258,7 +262,7 @@ done
 %{_mandir}/man8/iscsi-gen-initiatorname.8%{ext_man}
 %{_udevrulesdir}/50-iscsi-firmware-login.rules
 
-%files -n libopeniscsiusr0_2_0
+%files -n %{libname}
 %{_libdir}/libopeniscsiusr.so.*
 
 %files -n iscsiuio
