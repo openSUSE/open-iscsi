@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Mon Jan 30 20:44:02 UTC 2023 - Lee Duncan <lduncan@suse.com>
+
+- Branched SLE-15-SP3 from Factory. No longer in synce with
+  Tumbleweed.
+- Backported upstream commit, which sets 'safe_logout' and
+  'startup' in iscsid.conf, to address bsc#1207157
+- Updated year in SPEC file
+
+-------------------------------------------------------------------
 Wed Jul  6 20:13:21 UTC 2022 - Lee Duncan <lduncan@suse.com>
 
 - Modify SPEC file so systemd unit files are mode 644 (not 755)
