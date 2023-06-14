@@ -2,16 +2,16 @@
  * Copyright (C) 2017-2018 Red Hat, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Gris Ge <fge@redhat.com>
@@ -27,7 +27,7 @@
  * maintained by open-iscsi@@googlegroups.com
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
+ * it under the terms of the GNU Lesser General Public License as published
  * by the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
@@ -776,8 +776,6 @@ updated:
 	check_password_param(node.session.auth.password_in);
 	check_password_param(discovery.sendtargets.auth.password);
 	check_password_param(discovery.sendtargets.auth.password_in);
-	check_password_param(discovery.slp.auth.password);
-	check_password_param(discovery.slp.auth.password_in);
 	check_password_param(host.auth.password);
 	check_password_param(host.auth.password_in);
 
@@ -977,7 +975,9 @@ static struct int_list_tbl chap_algs[] = {
 	{ "MD5", ISCSI_AUTH_CHAP_ALG_MD5 },
 	{ "SHA1", ISCSI_AUTH_CHAP_ALG_SHA1 },
 	{ "SHA256", ISCSI_AUTH_CHAP_ALG_SHA256 },
+#ifdef SHA3_256_SUPPORTED
 	{ "SHA3-256", ISCSI_AUTH_CHAP_ALG_SHA3_256 },
+#endif
 };
 
 static void _idbm_node_rec_link(struct iscsi_node *node, struct idbm_rec *recs, const char *iface_name)
@@ -1014,8 +1014,8 @@ static void _idbm_node_rec_link(struct iscsi_node *node, struct idbm_rec *recs, 
 		 _CANNOT_MODIFY);
 	_rec_int32(NODE_DISC_PORT, recs, node, disc_port, IDBM_SHOW, num,
 		   _CANNOT_MODIFY);
-	_rec_int_o6(NODE_DISC_TYPE, recs, node, disc_type, IDBM_SHOW,
-		    "send_targets", "isns", "offload_send_targets", "slp",
+	_rec_int_o5(NODE_DISC_TYPE, recs, node, disc_type, IDBM_SHOW,
+		    "send_targets", "isns", "offload_send_targets",
 		    "static", "fw", num, _CANNOT_MODIFY);
 
 	_rec_uint32(SESSION_INIT_CMDSN, recs, node, session.initial_cmdsn,

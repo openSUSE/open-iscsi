@@ -48,6 +48,13 @@ You can also raise an issue on the github page.
 - multiple sessions
 
 
+1.2  Licensing
+==============
+
+The daemon and other top-level commands are licensed as GPLv3, while the
+libopeniscsiusr library used by some of those commmands is licensed as LGPLv3.
+
+
 2. Introduction
 ===============
 
@@ -81,7 +88,8 @@ As of today, the Open-iSCSI Initiator requires a host running the
 Linux operating system with kernel.
 
 The userspace components iscsid, iscsiadm and iscsistart require the
-open-isns library.
+open-isns library, unless open-isns use is diabled when building (see
+below).
 
 If this package is not available for your distribution, you can download
 and install it yourself.  To install the open-isns headers and library
@@ -135,24 +143,29 @@ MESON-OPTIONS:
 --------------
 One can override several default values when building with meson:
 
-- Library files are installed in /lib64 by default, but this
-  can be overridden by passing '--libdir=<LIBDIR>' to meson.
 
-- Extra flags can be passed to the C compiler using '-Dc_flags="<C-FLAGS>"'.
+Option			Description
+=====================	=====================================================
 
-- In newer version of meson (>=0.63) you can override location where binaries
-  are installed, which by default is "/usr/sbin", using the '--sbindir=<DIR>'
-  option to meson.
+--libdir=<LIBDIR>	Where library files go [/lib64]
+--sbindir=<DIR>		Meson 0.63 or newer: Where binaries go [/usr/sbin]
+-Dc_flags="<C-FLAGS>"	Add in addition flags to the C compiler
+-Dno_systemd=<BOOL>	Enables systemd usage [false]
+			(set to "true" to disable systemd)
+-Dsystemddir=<DIR>	Set systemd unit directory [/usr/lib/systemd]
+-Dhomedir=<DIR>		Set config file directory [/etc/iscsi]
+-Ddbroot=<DIR>		Set Database directory [/etciscsi]
+-Dlockdir=<DIR>		Set Lock directory [/run/lock/iscsi]
+-Drulesdir=<DIR>	Set udev rules directory [/usr/lib/udev/rules.d]
+-Discsi_sbindir=<DIR>	Where binaries go [/usr/sbin]
+			(for use when sbindir can't be set, in older versions
+			 of meson)
+-Disns_supported=<BOOL>	Enable/disable iSNS support [true]
+			(set to "false" to disable use of open-isns)
 
-- The default "home" directory is "/etc/iscsi", but this can be overridden
-  using '-Dhomedir=<SOMEDIR>'. This is where the configuration files are kept
 
-- The default "database" directory is also "/etc/iscsi", but can be
-  overridden using '-Ddbroot=<SOMEDIR>'
-
-
-Building open-iscsi/iscsiuio using make/autoconf
-------------------------------------------------
+Building open-iscsi/iscsiuio using make/autoconf (Deprecated)
+-------------------------------------------------------------
 If you wish to build using the older deprecated system, you can
 simply run:
 
@@ -205,7 +218,6 @@ options discussed earlier).
 Configuration is contained in directories for:
 
 	- nodes
-	- slp
 	- isns
 	- static
 	- fw
@@ -542,7 +554,7 @@ Mode "host"
   -m host --host=hostno|MAC -C flashnode --index=[flashnode_index] \
 			--op=[UPDATE] --name=[name] --value=[value]
 
-			  Update the params of the speficied flash node.
+			  Update the params of the specified flash node.
 			  The [name] and [value] pairs must be provided for the
 			  params that need to be updated. Multiple params can
 			  be updated using a single command.
@@ -1818,7 +1830,7 @@ iSCSI timers should be set so that iSCSI layer has several chances to try to
 re-establish a session and so that commands are not quickly requeued to
 the SCSI layer. Basically you want the opposite of when using dm-multipath.
 
-For this setup, you can turn off iSCSI pings by setting:
+For this setup, you can turn off iSCSI pings (NOPs) by setting:
 
 	node.conn[0].timeo.noop_out_interval = 0
 	node.conn[0].timeo.noop_out_timeout = 0
@@ -1826,6 +1838,15 @@ For this setup, you can turn off iSCSI pings by setting:
 And you can turn the replacement_timer to a very long value:
 
 	node.session.timeo.replacement_timeout = 86400
+
+
+8.3 iSCSI settings for iSCSI tape
+=================================
+
+It is possible to use open-iscsi to connect to a remote tape drive,
+making available locally. In such a case, you need to disable NOPs out,
+since tape drives don't handle those well at all. See above (section 8.2)
+for how to disable these NOPs.
 
 
 9. iSCSI System Info

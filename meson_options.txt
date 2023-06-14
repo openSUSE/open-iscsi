@@ -1,13 +1,22 @@
 # options for meson build system
+
+# various subsystems that can be supported or not
+option('no_systemd', type: 'boolean', value: false,
+  description: 'Do not use systemd [false]')
+
+# where systemd units go (if supporting systemd)
 option('systemddir', type: 'string', value: '/usr/lib/systemd',
   description: 'Systemd directory [/usr/lib/systemd], if systemd used')
-option('no_systemd', type: 'boolean', value: false,
-  description: 'Do not use systemd')
+
+# is open-isns supporte?
+option('isns', type: 'feature', value: 'enabled',
+  description: 'Use open-isns to allow target discovery via iSNS')
+
 # these are in the 'sysconfigdir' (/etc by default) unless overridden
 option('homedir', type: 'string', value: 'iscsi',
   description: 'Set the HOME directory [/etc/iscsi]')
-option('dbroot', type: 'string', value: 'iscsi',
-  description: 'Set the DATABASE root directory [/etc/iscsi]')
+option('dbroot', type: 'string', value: '/var/lib/iscsi',
+  description: 'Set the DATABASE root directory [/var/lib/iscsi]')
 option('lockdir', type: 'string', value: '/run/lock/iscsi',
   description: 'Set the LOCK_DIR directory [/run/lock/iscsi]')
 option('rulesdir', type: 'string', value: 'udev/rules.d',
@@ -16,3 +25,7 @@ option('rulesdir', type: 'string', value: 'udev/rules.d',
 # older version of meson do not allow overriding sbindir
 option('iscsi_sbindir', type: 'string', value: '/usr/sbin',
   description: 'Set the directory where our binaries go [/usr/sbin]')
+
+# default iqn prefix use for iscsi-iname
+option('iqn_prefix', type: 'string', value: 'iqn.2016-04.com.open-iscsi',
+  description: 'Set the prefix used by iscsi-iname to generate iSCSI names')
