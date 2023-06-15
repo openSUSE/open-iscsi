@@ -46,7 +46,7 @@
 %endif
 
 %define iscsi_minor_release 1
-%define iscsi_patch_release 8
+%define iscsi_patch_release 9
 %define iscsi_patch_release_suse %{iscsi_patch_release}-suse
 %define libname libopeniscsiusr0
 %define libversion 0.2.0
