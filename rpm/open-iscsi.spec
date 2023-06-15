@@ -51,7 +51,7 @@
 %define libname libopeniscsiusr0
 %define libversion 0.2.0
 Name:           open-iscsi
-Version:        2.1.8
+Version:        2.1.9
 Release:        0
 Summary:        Linux iSCSI Software Initiator
 License:        GPL-2.0-or-later
