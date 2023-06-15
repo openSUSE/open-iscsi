@@ -4,7 +4,7 @@
 
 project('open-iscsi', 'c',
   meson_version: '>= 0.54.0',
-  version: '2.1.8',
+  version: '2.1.9',
   license: 'LGPL-2.1-or-later',
   default_options: [
     'c_std=gnu99',
@@ -41,6 +41,8 @@ endif
 c_args = get_option('c_args')
 man_dir = get_option('mandir')
 iscsi_sbindir = get_option('iscsi_sbindir')
+iqn_prefix = get_option('iqn_prefix')
+# this next one seems not to be used ???
 install_dbdir_move_readme = get_option('install_dbdir_move_readme')
 
 #
@@ -57,16 +59,17 @@ conf = configuration_data()
 conf.set('SBINDIR', iscsi_sbindir)
 conf.set('HOMEDIR', home_dir)
 conf.set('DBROOT', db_root)
+conf.set('IQN_PREFIX', iqn_prefix)
 
 
 # set up general C args
 genl_cargs = [
   '-D_GNU_SOURCE',
-  '-DOFFLOAD_BOOT_SUPPORTED',
   '-DISCSI_CONFIG_ROOT="@0@"'.format(home_dir),
   '-DISCSI_DB_ROOT="@0@"'.format(db_root),
   '-DLOCK_DIR="@0@"'.format(lock_dir),
-  '-DISCSI_VERSION_STR="@0@"'.format(meson.project_version())]
+  '-DISCSI_VERSION_STR="@0@"'.format(meson.project_version()),
+  '-DISCSI_NAME_PREFIX="@0@"'.format(iqn_prefix)]
 
 # set up no-system flag, if needed
 if no_systemd
@@ -87,6 +90,12 @@ crypto_dep = dependency('libcrypto')
 mount_dep = dependency('mount')
 if not no_systemd
   systemd_dep = dependency('libsystemd')
+endif
+
+# libressl doesn't support SHA3
+cc = meson.get_compiler('c')
+if cc.has_function('EVP_sha3_256', dependencies: crypto_dep)
+  genl_cargs += '-DSHA3_256_SUPPORTED'
 endif
 
 #
@@ -178,11 +187,14 @@ usr_deps = [kmod_dep, crypto_dep, mount_dep, sysdeps_dep, fwparam_dep, libiscsi_
 if not no_systemd
   usr_deps += systemd_dep
 endif
-
 # handle two libs that won't be found with "dependency()"
-cc = meson.get_compiler('c')
 usr_deps += cc.find_library('rt')
-usr_deps += cc.find_library('isns')
+usr_deps += cc.find_library('isns', required: get_option('isns'))
+
+# is the isns library present?
+if cc.find_library('isns', required: get_option('isns')).found()
+  genl_cargs += '-DISNS_SUPPORTED'
+endif
 
 # build iscsid, iscsiadm, and iscsistart
 foreach k,v: iscsi_usr_arr

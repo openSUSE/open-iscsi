@@ -28,6 +28,7 @@
 #include <dirent.h>
 #include <limits.h>
 #include <fcntl.h>
+#include <glob.h>
 #include <sys/stat.h>
 #include <sys/file.h>
 #include <inttypes.h>
@@ -200,8 +201,12 @@ static struct int_list_tbl {
 	{ "MD5", AUTH_CHAP_ALG_MD5 },
 	{ "SHA1", AUTH_CHAP_ALG_SHA1 },
 	{ "SHA256", AUTH_CHAP_ALG_SHA256 },
+#ifdef SHA3_256_SUPPORTED
 	{ "SHA3-256", AUTH_CHAP_ALG_SHA3_256 },
+#endif
 };
+
+static int idbm_remove_disc_to_node_link(node_rec_t *rec, char *portal);
 
 static void
 idbm_recinfo_discovery(discovery_rec_t *r, recinfo_t *ri)
@@ -210,8 +215,8 @@ idbm_recinfo_discovery(discovery_rec_t *r, recinfo_t *ri)
 
 	__recinfo_int_o2(DISC_STARTUP, ri, r, startup, IDBM_SHOW,
 			"manual", "automatic", num, 1);
-	__recinfo_int_o6(DISC_TYPE, ri, r, type, IDBM_SHOW,
-			"sendtargets", "isns", "offload_send_targets", "slp",
+	__recinfo_int_o5(DISC_TYPE, ri, r, type, IDBM_SHOW,
+			"sendtargets", "isns", "offload_send_targets",
 			"static", "fw", num, 0);
 	switch (r->type) {
 	case DISCOVERY_TYPE_SENDTARGETS:
@@ -442,8 +447,8 @@ idbm_recinfo_node(node_rec_t *r, recinfo_t *ri)
 		      num, 0);
 	__recinfo_int(NODE_DISC_PORT, ri, r, disc_port, IDBM_SHOW,
 		      num, 0);
-	__recinfo_int_o6(NODE_DISC_TYPE, ri, r, disc_type, IDBM_SHOW,
-			 "send_targets", "isns", "offload_send_targets", "slp",
+	__recinfo_int_o5(NODE_DISC_TYPE, ri, r, disc_type, IDBM_SHOW,
+			 "send_targets", "isns", "offload_send_targets",
 			 "static", "fw", num, 0);
 	__recinfo_int(SESSION_INIT_CMDSN, ri, r,
 		      session.initial_cmdsn, IDBM_SHOW, num, 1);
@@ -990,15 +995,6 @@ idbm_discovery_setup_defaults(discovery_rec_t *rec, discovery_type_e type)
 		rec->u.sendtargets.conn_conf.MaxRecvDataSegmentLength =
 						DEF_INI_DISC_MAX_RECV_SEG_LEN;
 		break;
-	case DISCOVERY_TYPE_SLP:
-		rec->u.slp.interfaces = NULL;
-		rec->u.slp.scopes = NULL;
-		rec->u.slp.poll_interval = 5 * 60;	/* 5 minutes */
-		rec->u.slp.auth.authmethod = 0;
-		rec->u.slp.auth.password_length = 0;
-		rec->u.slp.auth.password_in_length = 0;
-		rec->u.slp.auth.password_in_length = 0;
-		break;
 	case DISCOVERY_TYPE_ISNS:
 		rec->u.isns.use_discoveryd = 0;
 		rec->u.isns.discoveryd_poll_inval = -1;
@@ -1173,8 +1169,6 @@ updated:
 	check_password_param(node.session.auth.password_in);
 	check_password_param(discovery.sendtargets.auth.password);
 	check_password_param(discovery.sendtargets.auth.password_in);
-	check_password_param(discovery.slp.auth.password);
-	check_password_param(discovery.slp.auth.password_in);
 	check_password_param(host.auth.password);
 	check_password_param(host.auth.password_in);
 
@@ -1286,11 +1280,9 @@ static void idbm_sync_config(void)
 	 * from hard-coded default values */
 	idbm_node_setup_defaults(&db->nrec);
 	idbm_discovery_setup_defaults(&db->drec_st, DISCOVERY_TYPE_SENDTARGETS);
-	idbm_discovery_setup_defaults(&db->drec_slp, DISCOVERY_TYPE_SLP);
 	idbm_discovery_setup_defaults(&db->drec_isns, DISCOVERY_TYPE_ISNS);
 
 	idbm_recinfo_discovery(&db->drec_st, db->dinfo_st);
-	idbm_recinfo_discovery(&db->drec_slp, db->dinfo_slp);
 	idbm_recinfo_discovery(&db->drec_isns, db->dinfo_isns);
 	idbm_recinfo_node(&db->nrec, db->ninfo);
 
@@ -1315,7 +1307,6 @@ static void idbm_sync_config(void)
 	log_debug(5, "updating defaults from '%s'", config_file);
 
 	idbm_recinfo_config(db->dinfo_st, f);
-	idbm_recinfo_config(db->dinfo_slp, f);
 	idbm_recinfo_config(db->dinfo_isns, f);
 	idbm_recinfo_config(db->ninfo, f);
 	fclose(f);
@@ -1327,12 +1318,6 @@ static void idbm_sync_config(void)
 	if (*db->drec_st.u.sendtargets.auth.password_in)
 		db->drec_st.u.sendtargets.auth.password_in_length =
 		     strlen((char*)db->drec_st.u.sendtargets.auth.password_in);
-	if (*db->drec_slp.u.slp.auth.password)
-		db->drec_slp.u.slp.auth.password_length =
-			strlen((char*)db->drec_slp.u.slp.auth.password);
-	if (*db->drec_slp.u.slp.auth.password_in)
-		db->drec_slp.u.slp.auth.password_in_length =
-			strlen((char*)db->drec_slp.u.slp.auth.password_in);
 	if (*db->nrec.session.auth.password)
 		db->nrec.session.auth.password_length =
 			strlen((char*)db->nrec.session.auth.password);
@@ -1522,7 +1507,7 @@ static FILE *idbm_open_rec_r(char *portal, char *config)
 
 /*
  * When the disable_lock param is true, the idbm_lock/idbm_unlock needs
- * to be holt by the caller, this will avoid overwriting each other in
+ * to be held by the caller, this will avoid overwriting each other in
  * case of updating(read-modify-write) the recs in parallel.
  */
 static int __idbm_rec_read(node_rec_t *out_rec, char *conf, bool disable_lock)
@@ -1565,7 +1550,7 @@ free_info:
 
 /*
  * When the disable_lock param is true, the idbm_lock/idbm_unlock needs
- * to be holt by the caller, this will avoid overwriting each other in
+ * to be held by the caller, this will avoid overwriting each other in
  * case of updating(read-modify-write) the recs in parallel.
  */
 int
@@ -2152,15 +2137,149 @@ mkdir_portal:
 	return f;
 }
 
+static int idbm_rec_write_new(node_rec_t *rec)
+{
+	struct stat statb;
+	FILE *f;
+	char *portal;
+	int rc = 0;
+
+	portal = malloc(PATH_MAX);
+	if (!portal) {
+		log_error("Could not alloc portal");
+		return ISCSI_ERR_NOMEM;
+	}
+
+	snprintf(portal, PATH_MAX, "%s/%s/%s,%d", NODE_CONFIG_DIR,
+		 rec->name, rec->conn[0].address, rec->conn[0].port);
+
+	rc = stat(portal, &statb);
+	if (rc) {
+		rc = 0;
+		/*
+		 * older iscsiadm versions had you create the config then set
+		 * set the tgpt. In new versions you must pass all the info in
+		 * from the start
+		 */
+		goto mkdir_portal;
+	}
+
+	if (!S_ISDIR(statb.st_mode)) {
+		/*
+		 * Old style portal as a file, but with tpgt. Let's update it.
+		 */
+		if (unlink(portal)) {
+			log_error("Could not convert %s: %s", portal,
+				  strerror(errno));
+			rc = ISCSI_ERR_IDBM;
+			goto free_portal;
+		}
+	} else {
+		rc = ISCSI_ERR_INVAL;
+		goto free_portal;
+	}
+
+mkdir_portal:
+	snprintf(portal, PATH_MAX, "%s/%s/%s,%d,%d", NODE_CONFIG_DIR,
+		 rec->name, rec->conn[0].address, rec->conn[0].port, rec->tpgt);
+	if (stat(portal, &statb)) {
+		if (mkdir(portal, 0770) != 0) {
+			log_error("Could not make dir %s: %s",
+				  portal, strerror(errno));
+			rc = ISCSI_ERR_IDBM;
+			goto free_portal;
+		}
+	}
+
+	snprintf(portal, PATH_MAX, "%s/%s/%s,%d,%d/%s", NODE_CONFIG_DIR,
+		 rec->name, rec->conn[0].address, rec->conn[0].port, rec->tpgt,
+		 rec->iface.name);
+
+	f = fopen(portal, "w");
+	if (!f) {
+		log_error("Could not open %s: %s", portal, strerror(errno));
+		rc = ISCSI_ERR_IDBM;
+		goto free_portal;
+	}
+
+	idbm_print(IDBM_PRINT_TYPE_NODE, rec, 1, f);
+	fclose(f);
+free_portal:
+	free(portal);
+	return rc;
+}
+
+static int idbm_rec_write_old(node_rec_t *rec)
+{
+	FILE *f;
+	char *portal;
+	int rc = 0;
+	glob_t globbuf;
+	size_t i;
+	int tpgt = PORTAL_GROUP_TAG_UNKNOWN;
+
+	portal = malloc(PATH_MAX);
+	if (!portal) {
+		log_error("Could not alloc portal");
+		return ISCSI_ERR_NOMEM;
+	}
+
+	/* check for newer portal dir with tpgt */
+	snprintf(portal, PATH_MAX, "%s/%s/%s,%d,*", NODE_CONFIG_DIR,
+		 rec->name, rec->conn[0].address, rec->conn[0].port);
+	rc = glob(portal, GLOB_ONLYDIR, NULL, &globbuf);
+	if (!rc) {
+		if (globbuf.gl_pathc > 1)
+			log_warning("multiple tpg records for portal "
+				    "%s/%s:%d found", rec->name,
+				    rec->conn[0].address, rec->conn[0].port);
+		/* set pattern for sscanf matching of tpgt */
+		snprintf(portal, PATH_MAX, "%s/%s/%s,%d,%%u", NODE_CONFIG_DIR,
+			 rec->name, rec->conn[0].address, rec->conn[0].port);
+		for (i = 0; i < globbuf.gl_pathc; i++) {
+			rc = sscanf(globbuf.gl_pathv[i], portal, &tpgt);
+			if (rc == 1)
+				break;
+		}
+		if (tpgt == PORTAL_GROUP_TAG_UNKNOWN)
+			log_warning("glob match on existing records, "
+				    "but no valid tpgt found");
+	}
+	globfree(&globbuf);
+	rc = 0;
+
+	/* if a tpgt was selected from an old record, write entry in new format */
+	if (tpgt != PORTAL_GROUP_TAG_UNKNOWN) {
+		log_warning("using tpgt %u from existing record", tpgt);
+		rec->tpgt = tpgt;
+		rc = idbm_remove_disc_to_node_link(rec, portal);
+		free(portal);
+		return idbm_rec_write_new(rec);
+	}
+
+	snprintf(portal, PATH_MAX, "%s/%s/%s,%d", NODE_CONFIG_DIR,
+		 rec->name, rec->conn[0].address, rec->conn[0].port);
+
+	f = fopen(portal, "w");
+	if (!f) {
+		log_error("Could not open %s: %sd", portal, strerror(errno));
+		rc = ISCSI_ERR_IDBM;
+		goto free_portal;
+	}
+	idbm_print(IDBM_PRINT_TYPE_NODE, rec, 1, f);
+	fclose(f);
+free_portal:
+	free(portal);
+	return rc;
+}
+
 /*
  * When the disable_lock param is true, the idbm_lock/idbm_unlock needs
- * to be holt by the caller, this will avoid overwriting each other in
+ * to be held by the caller, this will avoid overwriting each other in
  * case of updating(read-modify-write) the recs in parallel.
  */
 static int idbm_rec_write(node_rec_t *rec, bool disable_lock)
 {
-	struct stat statb;
-	FILE *f;
 	char *portal;
 	int rc = 0;
 
@@ -2190,80 +2309,18 @@ static int idbm_rec_write(node_rec_t *rec, bool disable_lock)
 		}
 	}
 
-	snprintf(portal, PATH_MAX, "%s/%s/%s,%d", NODE_CONFIG_DIR,
-		 rec->name, rec->conn[0].address, rec->conn[0].port);
-	log_debug(5, "Looking for config file %s", portal);
-
 	if (!disable_lock) {
 		rc = idbm_lock();
 		if (rc)
 			goto free_portal;
 	}
 
-	rc = stat(portal, &statb);
-	if (rc) {
-		rc = 0;
-		/*
-		 * older iscsiadm versions had you create the config then set
-		 * set the tgpt. In new versions you must pass all the info in
-		 * from the start
-		 */
-		if (rec->tpgt == PORTAL_GROUP_TAG_UNKNOWN)
-			/* drop down to old style portal as config */
-			goto open_conf;
-		else
-			goto mkdir_portal;
-	}
+	if (rec->tpgt == PORTAL_GROUP_TAG_UNKNOWN)
+		/* old style portal as config */
+		rc = idbm_rec_write_old(rec);
+	else
+		rc = idbm_rec_write_new(rec);
 
-	if (!S_ISDIR(statb.st_mode)) {
-		/*
-		 * older iscsiadm versions had you create the config then set
-		 * set the tgpt. In new versions you must pass all the info in
-		 * from the start
-		 */
-		if (rec->tpgt == PORTAL_GROUP_TAG_UNKNOWN)
-			/* drop down to old style portal as config */
-			goto open_conf;
-		/*
-		 * Old style portal as a file, but with tpgt. Let's update it.
-		 */
-		if (unlink(portal)) {
-			log_error("Could not convert %s: %s", portal,
-				  strerror(errno));
-			rc = ISCSI_ERR_IDBM;
-			goto unlock;
-		}
-	} else {
-		rc = ISCSI_ERR_INVAL;
-		goto unlock;
-	}
-
-mkdir_portal:
-	snprintf(portal, PATH_MAX, "%s/%s/%s,%d,%d", NODE_CONFIG_DIR,
-		 rec->name, rec->conn[0].address, rec->conn[0].port, rec->tpgt);
-	if (stat(portal, &statb)) {
-		if (mkdir(portal, 0770) != 0) {
-			log_error("Could not make dir %s: %s",
-				  portal, strerror(errno));
-			rc = ISCSI_ERR_IDBM;
-			goto unlock;
-		}
-	}
-
-	snprintf(portal, PATH_MAX, "%s/%s/%s,%d,%d/%s", NODE_CONFIG_DIR,
-		 rec->name, rec->conn[0].address, rec->conn[0].port, rec->tpgt,
-		 rec->iface.name);
-open_conf:
-	f = fopen(portal, "w");
-	if (!f) {
-		log_error("Could not open %s: %s", portal, strerror(errno));
-		rc = ISCSI_ERR_IDBM;
-		goto unlock;
-	}
-
-	idbm_print(IDBM_PRINT_TYPE_NODE, rec, 1, f);
-	fclose(f);
-unlock:
 	if (!disable_lock)
 		idbm_unlock();
 free_portal:
@@ -2429,7 +2486,6 @@ static int setup_disc_to_node_link(char *disc_portal, node_rec_t *rec)
 			 ISNS_CONFIG_DIR, rec->name, rec->conn[0].address,
 			 rec->conn[0].port, rec->tpgt, rec->iface.name);
 		break;
-	case DISCOVERY_TYPE_SLP:
 	default:
 		rc = ISCSI_ERR_INVAL;
 	}
@@ -2730,7 +2786,7 @@ free_portal:
 }
 
 /*
- * Backwards Compat or SLP:
+ * Backwards Compat:
  * if there is no link then this is pre svn 780 version where
  * we did not link the disc source and node
  */
@@ -2887,13 +2943,6 @@ idbm_isns_defaults(struct iscsi_isns_config *cfg)
 	idbm_sync_config();
 	memcpy(cfg, &db->drec_isns.u.isns,
 	       sizeof(struct iscsi_isns_config));
-}
-
-void
-idbm_slp_defaults(struct iscsi_slp_config *cfg)
-{
-	memcpy(cfg, &db->drec_slp.u.slp,
-	       sizeof(struct iscsi_slp_config));
 }
 
 int
