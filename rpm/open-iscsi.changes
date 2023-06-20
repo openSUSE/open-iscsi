@@ -2,7 +2,8 @@
 Tue Jun 20 15:23:17 UTC 2023 - Lee Duncan <lduncan@suse.com>
 
 - Fix iscsiuio build version by updating iscsiuio/meson.build
-  (bsc#1210514), updating open-iscsi-SUSE-latest.diff.bz2
+  and RPM SPEC file (bsc#1210514), updating
+  open-iscsi-SUSE-latest.diff.bz2
 
 -------------------------------------------------------------------
 Thu Jun 15 17:39:33 UTC 2023 - Lee Duncan <lduncan@suse.com>
