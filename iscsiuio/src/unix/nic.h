@@ -70,6 +70,8 @@ extern pthread_mutex_t nic_list_mutex;
 extern struct nic *nic_list;
 
 extern void *nl_process_handle_thread(void *arg);
+extern void event_loop_observer_add(void);
+extern void event_loop_observer_remove(void);
 
 /*******************************************************************************
  *  Constants
@@ -169,11 +171,11 @@ struct nic_lib_ops {
 	void (*get_build_date) (char **build_date_string,
 				size_t *build_date_string_size);
 
-	/*  Used to get the transport name assoicated with this library */
+	/*  Used to get the transport name assocaited with this library */
 	void (*get_transport_name) (char **transport_name,
 				    size_t *transport_name_size);
 
-	/*  Used to get the uio name assoicated with this library */
+	/*  Used to get the uio name assocaited with this library */
 	void (*get_uio_name) (char **uio_name, size_t *uio_name_size);
 
 };
@@ -241,7 +243,7 @@ typedef struct nic {
 
 	uint32_t host_no;	/* Holds the associated host number */
 
-	char *library_name;	/* Name of the library to assoicate with */
+	char *library_name;	/* Name of the library to associate with */
 	char *log_name;		/* Human friendly name used in the log
 				   file                                 */
 	char *config_device_name;	/* Name read from the XML configuration

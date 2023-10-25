@@ -75,6 +75,8 @@
 #include "iscsid_ipc.h"
 #include "brcm_iscsi.h"
 
+static bool foreground = false;	/* daemon running in foreground or background? */
+
 /*******************************************************************************
  *  Constants
  ******************************************************************************/
@@ -99,11 +101,42 @@ struct options opt = {
 };
 
 int event_loop_stop;
+/*
+ * The number of threads currently using event_loop_stop for synchronization purposes
+ * Each should lock/increment/unlock before starting is processing loop
+ * As each observes the stop flag being set it should lock/decrement/unlock
+ * This will allow the cleanup routine to not issue cancels to active threads
+ */
+static int event_loop_observers;
+static pthread_mutex_t event_loop_observers_mutex;
+
 extern nic_t *nic_list;
 
 struct utsname cur_utsname;
 
-/**
+/*
+ * event_loop_observer_add() - Increment the number of areas of code currently 
+ * observing event_loop_stop as an exit/shutdown mechanism
+ */
+void event_loop_observer_add(void)
+{
+	pthread_mutex_lock(&event_loop_observers_mutex);
+	event_loop_observers++;
+	pthread_mutex_unlock(&event_loop_observers_mutex);
+}
+
+/*
+ * event_loop_observer_add() - decrement the number of areas of code currently 
+ * observing event_loop_stop as an exit/shutdown mechanism
+ */
+void event_loop_observer_remove(void)
+{
+	pthread_mutex_lock(&event_loop_observers_mutex);
+	event_loop_observers--;
+	pthread_mutex_unlock(&event_loop_observers_mutex);
+}
+
+/*
  *  cleanup() - This function is called when this program is to be closed
  *              This function will clean up all the cnic uio interfaces and
  *              flush/close the logger
@@ -116,12 +149,12 @@ static void cleanup()
 
 	unload_all_nic_libraries();
 
-	LOG_INFO("Done waiting for cnic's/stacks to gracefully close");
+	ILOG_INFO("Done waiting for cnic's/stacks to gracefully close");
 
-	fini_logger(SHUTDOWN_LOGGER);
+	fini_logger();
 }
 
-/**
+/*
  *  signal_handle_thread() - This is the signal handling thread of this program
  *                           This is the only thread which will handle signals.
  *                           All signals are routed here and handled here to
@@ -131,35 +164,53 @@ static pthread_t signal_thread;
 static void *signal_handle_thread(void *arg)
 {
 	sigset_t set;
-	int rc;
+#define	WAITCOUNT_MAX 10
+	int rc, waitcount;
 	int signal;
 
 	sigfillset(&set);
 
-	LOG_INFO("signal handling thread ready");
+	ILOG_INFO("signal handling thread ready");
 
 signal_wait:
 	rc = sigwait(&set, &signal);
+	if (rc) {
+		ILOG_ERR("Cannot wait for signals: %d", rc);
+		exit(EXIT_FAILURE);
+	}
 
 	switch (signal) {
-	case SIGINT:
-		LOG_INFO("Caught SIGINT signal");
-		break;
 	case SIGUSR1:
-		LOG_INFO("Caught SIGUSR1 signal, rotate log");
-		fini_logger(SHUTDOWN_LOGGER);
-		rc = init_logger(main_log.log_file);
-		if (rc != 0)
-			fprintf(stderr, "WARN: Could not initialize the logger in "
-			       "signal!\n");
+		ILOG_INFO("Caught SIGUSR1 signal, rotate log");
+		fini_logger();
+		init_logger(foreground);
 		goto signal_wait;
 	default:
+		ILOG_INFO("Caught %s signal", strsignal(signal));
 		break;
 	}
 	event_loop_stop = 1;
 
-	LOG_INFO("terminating...");
+	ILOG_INFO("terminating...");
 
+	/*
+	 * for debugging shutdown issues, let's wait 10 seconds, max,
+	 * to ensure all of our threads shutdown, since we have seen
+	 * issues where they may not do so.
+	 */
+	waitcount = WAITCOUNT_MAX;
+	while ((event_loop_observers > 0) && waitcount--) {
+		sleep(1);
+		if (event_loop_observers <= 0)
+			break;	/* they finished while we were sleeping */
+		ILOG_INFO("%d threads still polling event_loop_stop flag after %d seconds",
+			  event_loop_observers, WAITCOUNT_MAX - waitcount);
+	}
+	if (event_loop_observers < 0)
+		ILOG_DEBUG("Invalid observer count: %d", event_loop_observers);
+	else if (event_loop_observers > 0)
+		ILOG_ERR("%d unresponsive observers will be cancelled: %d",
+			 event_loop_observers);
 	cleanup();
 	exit(EXIT_SUCCESS);
 }
@@ -215,7 +266,7 @@ int oom_adjust(void)
 
 	errno = 0;
 	if (nice(-10) == -1 && errno != 0)
-		LOG_DEBUG("Could not increase process priority: %s",
+		ILOG_DEBUG("Could not increase process priority: %s",
 			  strerror(errno));
 
 	/*
@@ -224,11 +275,11 @@ int oom_adjust(void)
 	 */
 	if ((fd = open("/proc/self/oom_score_adj", O_WRONLY)) >= 0) {
 		if ((res = write(fd, "-1000", 5)) < 0)
-			LOG_DEBUG("Could not set /proc/self/oom_score_adj to -1000: %s",
+			ILOG_DEBUG("Could not set /proc/self/oom_score_adj to -1000: %s",
 				strerror(errno));
 	} else if ((fd = open("/proc/self/oom_adj", O_WRONLY)) >= 0) {
 		if ((res = write(fd, "-17", 3)) < 0)
-			LOG_DEBUG("Could not set /proc/self/oom_adj to -16: %s",
+			ILOG_DEBUG("Could not set /proc/self/oom_adj to -16: %s",
 				strerror(errno));
 	} else
 		return -1;
@@ -250,7 +301,7 @@ int main(int argc, char *argv[])
 	sigset_t set;
 	const char *pid_file = default_pid_filepath;
 	int fd;
-	int foreground = 0;
+	bool foreground = false;
 	pid_t pid;
 	pthread_attr_t attr;
 	int pipefds[2];
@@ -271,7 +322,7 @@ int main(int argc, char *argv[])
 		switch (c) {
 
 		case 'f':
-			foreground = 1;
+			foreground = true;
 			break;
 
 			/* Enable debugging mode */
@@ -292,20 +343,22 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (main_log.enabled == LOGGER_ENABLED) {
-		/*  initialize the logger */
-		rc = init_logger(main_log.log_file);
-		if (rc != 0 && opt.debug == DEBUG_ON)
-			fprintf(stderr, "WARN: Could not initialize the logger\n");
-	}
+	init_logger(foreground);
 
-	LOG_INFO("Started iSCSI uio stack: Ver " PACKAGE_VERSION);
-	LOG_INFO("Build date: %s", build_date);
+	ILOG_INFO("Started iSCSI uio stack: Ver " PACKAGE_VERSION);
+	ILOG_INFO("Build date: %s", build_date);
 
 	if (opt.debug == DEBUG_ON)
-		LOG_INFO("Debug mode enabled");
+		ILOG_INFO("Debug mode enabled");
 
 	event_loop_stop = 0;
+	event_loop_observers = 0;
+	rc = pthread_mutex_init(&event_loop_observers_mutex, NULL);
+	if (rc) {
+		ILOG_ERR("Failed to create observer mutex: %d", rc);
+		goto error;
+	}
+
 	nic_list = NULL;
 
 	/*  Determine the current kernel version */
@@ -313,12 +366,11 @@ int main(int argc, char *argv[])
 
 	rc = uname(&cur_utsname);
 	if (rc == 0) {
-		LOG_INFO("Running on sysname: '%s', release: '%s', "
-			 "version '%s' machine: '%s'",
+		ILOG_INFO("Running on sysname: '%s', release: '%s', version '%s' machine: '%s'",
 			 cur_utsname.sysname, cur_utsname.release,
 			 cur_utsname.version, cur_utsname.machine);
 	} else
-		LOG_WARN("Could not determine kernel version");
+		ILOG_WARN("Could not determine kernel version");
 
 	/*  Initialze the iscsid listener */
 	rc = iscsid_init();
@@ -405,18 +457,18 @@ int main(int argc, char *argv[])
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 	rc = pthread_create(&signal_thread, &attr, signal_handle_thread, NULL);
 	if (rc != 0)
-		LOG_ERR("Could not create signal handling thread");
+		ILOG_ERR("Could not create signal handling thread");
 
 	/* Using sysfs to discover iSCSI hosts */
 	nic_discover_iscsi_hosts();
 
 	/* oom-killer will not kill us at the night... */
 	if (oom_adjust())
-		LOG_DEBUG("Can not adjust oom-killer's pardon");
+		ILOG_DEBUG("Can not adjust oom-killer's pardon");
 
 	/* we don't want our active sessions to be paged out... */
 	if (mlockall(MCL_CURRENT | MCL_FUTURE)) {
-		LOG_ERR("failed to mlockall, exiting...");
+		ILOG_ERR("failed to mlockall, exiting...");
 		goto error;
 	}
 
@@ -443,6 +495,7 @@ int main(int argc, char *argv[])
 	/*  NetLink connection to listen to NETLINK_ISCSI private messages */
 	if (nic_nl_open() != 0)
 		goto error;
+	exit(0);
 
 error:
 	cleanup();
