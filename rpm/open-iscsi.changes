@@ -187,6 +187,7 @@ Thu Sep 30 20:59:42 UTC 2021 - Lee Duncan <lduncan@suse.com>
   * Moving the executables from /sbin to /usr/sbin (bsc#1191054)
   * Remove default dependencies from iscsi-init.service
    (bsc#1187190)
+  This updates iscsiuio version to 0.7.8.8.
 
 -------------------------------------------------------------------
 Wed Sep  8 22:11:35 UTC 2021 - Lee Duncan <lduncan@suse.com>
