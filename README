@@ -1603,12 +1603,14 @@ To control how often a NOP-Out is sent, the following value can be set:
 
 	node.conn[0].timeo.noop_out_interval = X
 
-Where X is in seconds and the default is 10 seconds. To control the
-timeout for the NOP-Out the noop_out_timeout value can be used:
+Where X is in seconds and the default is 0 seconds, which that NOP-outs
+should be disabled. Upstream default is 5 seconds.
+
+o control the timeout for the NOP-Out the noop_out_timeout value can be used:
 
 	node.conn[0].timeo.noop_out_timeout = X
 
-Again X is in seconds and the default is 15 seconds.
+Again X is in seconds and the default is 5 seconds.
 
 Normally for these values you can use:
 
