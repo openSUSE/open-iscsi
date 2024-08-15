@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu Aug 15 22:13:03 UTC 2024 - Lee Duncan <lduncan@suse.com>
+
+- Fix issue with yast restarting the iscsid service without
+  first restarting the iscsid socket, which upsets systemd
+  (bsc#1206132). This is already fixed upstream.
+
+-------------------------------------------------------------------
 Mon Jan 30 20:44:02 UTC 2023 - Lee Duncan <lduncan@suse.com>
 
 - Branched SLE-15-SP3 from Factory. No longer in sync with
