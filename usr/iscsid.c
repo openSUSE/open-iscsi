@@ -38,6 +38,7 @@
 #include <systemd/sd-daemon.h>
 #endif
 
+#include "iface.h"
 #include "iscsid.h"
 #include "mgmt_ipc.h"
 #include "event_poll.h"
@@ -49,7 +50,6 @@
 #include "idbm.h"
 #include "version.h"
 #include "iscsi_sysfs.h"
-#include "iface.h"
 #include "session_info.h"
 #include "sysdeps.h"
 #include "discoveryd.h"
@@ -287,7 +287,7 @@ retry:
 		sleep(1);
 		goto retry;
 	} else if (rc == ISCSI_ERR_SESS_EXISTS) {
-		log_debug(1, "sync session %d returned ISCSI_ERR_SESS_EXISTS", info->sid);
+		sess_log_connect(1, NULL, "sync session %d returned ISCSI_ERR_SESS_EXISTS", info->sid);
 	}
 
 	return 0;
