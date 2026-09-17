@@ -1285,12 +1285,23 @@ void uip_process(struct uip_stack *ustack, u8_t flag)
 
 	if (is_ipv6(ustack)) {
 		u16_t len = ntohs(ipv6_hdr->ip6_plen);
-		if (len > ustack->uip_len) {
+		u16_t l2_len = (u16_t)(ustack->network_layer - ustack->data_link_layer);
+		u16_t avail_payload;
+
+		if (ustack->uip_len < (u16_t)(l2_len + UIP_IPv6_H_LEN)) {
+			ILOG_DEBUG(PFX "ip: IPv6 frame too short");
+			goto drop;
+		}
+
+		avail_payload = (u16_t)(ustack->uip_len - l2_len - UIP_IPv6_H_LEN);
+		if (len > avail_payload) {
 			ILOG_DEBUG(
 			    PFX "ip: packet shorter than reported in IP header:IPv6_BUF(ustack)->len: %d ustack->uip_len: %d",
 			    len, ustack->uip_len);
 			goto drop;
 		}
+		/* Normalize to validated IPv6 packet size (without L2 header). */
+		ustack->uip_len = (u16_t)(UIP_IPv6_H_LEN + len);
 	} else {
 		if ((tcp_ipv4_hdr->len[0] << 8) +
 		    tcp_ipv4_hdr->len[1] <= ustack->uip_len) {
@@ -1479,6 +1490,12 @@ udp_input:
 	   work. If the application sets uip_slen, it has a packet to
 	   send. */
 #if UIP_UDP_CHECKSUMS
+	if (ustack->uip_len < uip_ip_udph_len) {
+		++ustack->stats.udp.drop;
+		ILOG_DEBUG(PFX "udp: invalid IPv4 total length %u (< %u).",
+		           ustack->uip_len, uip_ip_udph_len);
+		goto drop;
+	}
 	ustack->uip_len = ustack->uip_len - uip_ip_udph_len;
 	ustack->uip_appdata = ustack->network_layer + uip_ip_udph_len;
 	if (UDPBUF(ustack)->udpchksum != 0 && uip_udpchksum(ustack) != 0xffff) {
@@ -1845,6 +1862,12 @@ found:
 	/* uip_len will contain the length of the actual TCP data. This is
 	   calculated by subtracing the length of the TCP header (in
 	   c) and the length of the IP header (20 bytes). */
+	if (ustack->uip_len < (u16_t)(c + uip_iph_len)) {
+		++ustack->stats.tcp.drop;
+		ILOG_DEBUG(PFX "tcp: invalid IPv4 total length %u (hdr=%u).",
+		           ustack->uip_len, (u16_t)(c + uip_iph_len));
+		goto drop;
+	}
 	ustack->uip_len = ustack->uip_len - c - uip_iph_len;
 
 	/* First, check if the sequence number of the incoming packet is

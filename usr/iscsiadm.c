@@ -154,7 +154,7 @@ static struct option const long_options[] =
 	{"no_wait", no_argument, NULL, 'W'},
 	{NULL, 0, NULL, 0},
 };
-static char *short_options = "RlDVhm:a:b:c:C:p:P:T:H:i:I:U:k:L:d:r:n:v:o:sSt:ux:A:W";
+static char *short_options = ":RlDVhm:a:b:c:C:p:P:T:H:i:I:U:k:L:d:r:n:v:o:sSt:ux:A:W";
 
 static void usage(int status)
 {
@@ -1374,7 +1374,7 @@ verify_mode_params(int argc, char **argv, enum iscsiadm_mode mode, const char *m
 	int tmp = optind;
 
 	if (mode > MODE_FW || mode < MODE_DISCOVERY) {
-		log_error("%s mode is unkonwn/unsupported", mode_str);
+		log_error("%s mode is unknown/unsupported", mode_str);
 		return ISCSI_ERR_INVAL;
 	}
 
@@ -3055,6 +3055,7 @@ static int fill_in_default_fw_values(node_rec_t *rec, struct list_head *params)
 
 	/* must init this so we can check if user overrode them */
 	rec->session.initial_login_retry_max = -1;
+	rec->session.login_redirect_max = -1;
 	rec->conn[0].timeo.noop_out_interval = -1;
 	rec->conn[0].timeo.noop_out_timeout = -1;
 	rec->session.scan = -1;
@@ -3086,6 +3087,8 @@ static int fill_in_default_fw_values(node_rec_t *rec, struct list_head *params)
 	 */
 	if (rec->session.initial_login_retry_max == -1)
 		rec->session.initial_login_retry_max = 30;
+	if (rec->session.login_redirect_max == -1)
+		rec->session.login_redirect_max = 30;
 
 	/* firmware logins are usually used for booting, so no NOPs */
 	if (rec->conn[0].timeo.noop_out_interval == -1)
@@ -3728,7 +3731,7 @@ main(int argc, char **argv)
 
 	sysfs_init();
 
-	optopt = 0;
+	opterr = 0;
 	while ((ch = getopt_long(argc, argv, short_options,
 				 long_options, &longindex)) >= 0) {
 		switch (ch) {
@@ -3883,6 +3886,20 @@ main(int argc, char **argv)
 			break;
 		case 'h':
 			usage(0);
+			break;
+		case '?':
+			if (optopt)
+				log_error("unrecognized option '-%c'", optopt);
+			else
+				log_error("unrecognized option");
+			rc = ISCSI_ERR_INVAL;
+			goto out;
+		case ':':
+			log_error("option '-%c' requires an argument", optopt);
+			rc = ISCSI_ERR_INVAL;
+			goto out;
+		default:
+			break;
 		}
 
 		if (name && value) {
@@ -3896,12 +3913,6 @@ main(int argc, char **argv)
 			name = NULL;
 			value = NULL;
 		}
-	}
-
-	if (optopt) {
-		log_error("unrecognized character '%c'", optopt);
-		rc = ISCSI_ERR_INVAL;
-		goto out;
 	}
 
 	if (killiscsid >= 0) {
