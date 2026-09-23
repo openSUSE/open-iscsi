@@ -777,8 +777,7 @@ unknown_value:
 			goto out;
 		}
 	}
-	_error(ctx, "Unknown parameter name %s", name);
-	rc = LIBISCSI_ERR_INVAL;
+	_warn(ctx, "Ignoring unknown parameter name %s", name);
 	goto out;
 
 updated:
@@ -1053,6 +1052,9 @@ static void _idbm_node_rec_link(struct iscsi_node *node, struct idbm_rec *recs, 
 	_rec_int64(SESSION_INIT_LOGIN_RETRY, recs, node,
 		   session.initial_login_retry_max, IDBM_SHOW, num,
 		   _CAN_MODIFY);
+	_rec_int64(SESSION_LOGIN_REDIRECT_MAX, recs, node,
+		   session.login_redirect_max, IDBM_SHOW, num,
+		   _CAN_MODIFY);
 	_rec_int64(SESSION_XMIT_THREAD_PRIORITY, recs, node,
 		   session.xmit_thread_priority, IDBM_SHOW, num, _CAN_MODIFY);
 	_rec_uint16(SESSION_CMDS_MAX, recs, node, session.cmds_max, IDBM_SHOW,
@@ -1121,6 +1123,9 @@ static void _idbm_node_rec_link(struct iscsi_node *node, struct idbm_rec *recs, 
 	_rec_int64(SESSION_REOPEN_MAX, recs, node, session.reopen_max, IDBM_SHOW, num,
 		   _CAN_MODIFY);
 	_rec_int64(SESSION_REOPEN_LOG_FREQ, recs, node, session.sess_reopen_log_freq, IDBM_SHOW, num,
+		   _CAN_MODIFY);
+	/* deprecated alias for backward compatibility */
+	_rec_int64(CONN_REOPEN_LOG_FREQ, recs, node, session.sess_reopen_log_freq, IDBM_SHOW, num,
 		   _CAN_MODIFY);
 
 	_rec_str(CONN_ADDR, recs, node, conn.address, IDBM_SHOW, num,

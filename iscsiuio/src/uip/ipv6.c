@@ -852,21 +852,47 @@ static void ipv6_icmp_handle_router_adv(struct ipv6_context *context)
 	struct icmpv6_opt_hdr *icmp_opt;
 	u16_t opt_len;
 	u16_t len;
+	u16_t plen;
+	u16_t step;
 	char addr_str[INET6_ADDRSTRLEN];
 
 	if (context->flags & IPV6_FLAGS_ROUTER_ADV_RECEIVED)
 		return;
 
-	opt_len = HOST_TO_NET16(ipv6->ipv6_plen) -
-		  sizeof(struct icmpv6_router_advert);
+	plen = HOST_TO_NET16(ipv6->ipv6_plen);
+
+	/* Validate minimum payload length to prevent underflow */
+	if (plen < sizeof(struct icmpv6_router_advert)) {
+		ILOG_DEBUG("IPv6: RA payload too short (%u < %zu)",
+			   plen, sizeof(struct icmpv6_router_advert));
+		return;
+	}
+
+	opt_len = plen - sizeof(struct icmpv6_router_advert);
 
 	icmp_opt = (struct icmpv6_opt_hdr *)((u8_t *)icmp +
 				      sizeof(struct icmpv6_router_advert));
 	len = 0;
-	while (len < opt_len) {
+	/* Ensure there's space for option header before accessing it */
+	while (len + sizeof(struct icmpv6_opt_hdr) <= opt_len) {
 		icmp_opt = (struct icmpv6_opt_hdr *)((u8_t *)icmp +
 					sizeof(struct icmpv6_router_advert) +
 					len);
+
+		/* Reject zero-length options to prevent infinite loop */
+		if (icmp_opt->len == 0) {
+			ILOG_DEBUG("IPv6: RA option with zero length, stopping parse");
+			break;
+		}
+
+		/* Calculate step size (option length is in units of 8 bytes) */
+		step = icmp_opt->len * 8;
+
+		/* Validate step doesn't exceed remaining option space */
+		if (len + step > opt_len) {
+			ILOG_DEBUG("IPv6: RA option extends beyond payload");
+			break;
+		}
 
 		switch (icmp_opt->type) {
 		case IPV6_ICMP_OPTION_PREFIX:
@@ -879,7 +905,7 @@ static void ipv6_icmp_handle_router_adv(struct ipv6_context *context)
 			break;
 		}
 
-		len += icmp_opt->len * 8;
+		len += step;
 	}
 
 	if (context->flags & IPV6_FLAGS_ROUTER_ADV_RECEIVED) {
@@ -1101,6 +1127,8 @@ static void ipv6_icmp_handle_echo_request(struct ipv6_context *context)
 {
 	struct eth_hdr *eth =
 			(struct eth_hdr *)context->ustack->data_link_layer;
+	u16_t rx_total, rx_payload, hdr_plen, safe_plen;
+	u16_t l2_l3_len = sizeof(struct eth_hdr) + sizeof(struct ipv6_hdr);
 	struct ipv6_hdr *ipv6 =
 			(struct ipv6_hdr *)context->ustack->network_layer;
 	struct icmpv6_hdr *icmp = (struct icmpv6_hdr *)((u8_t *)ipv6 +
@@ -1126,8 +1154,20 @@ static void ipv6_icmp_handle_echo_request(struct ipv6_context *context)
 	icmp->icmpv6_code = 0;
 	icmp->icmpv6_cksum = 0;
 	ILOG_DEBUG("IPv6: Send echo reply");
-	ipv6_send(context, (u8_t *) icmp - (u8_t *) eth +
-		  sizeof(struct ipv6_hdr) + HOST_TO_NET16(ipv6->ipv6_plen));
+
+	rx_total = context->ustack->uip_len;
+	if (rx_total <= l2_l3_len)
+		return;
+
+	rx_payload = rx_total - l2_l3_len;
+	hdr_plen = HOST_TO_NET16(ipv6->ipv6_plen);
+	safe_plen = (hdr_plen <= rx_payload) ? hdr_plen : rx_payload;
+	if (safe_plen < sizeof(struct icmpv6_hdr))
+		return;
+
+	ipv6->ipv6_plen = HOST_TO_NET16(safe_plen);
+	ipv6_send(context, l2_l3_len + safe_plen);
+
 	return;
 }
 
@@ -1221,6 +1261,8 @@ static void ipv6_udp_rx(struct ipv6_context *context)
 	struct udp_hdr *udp = (struct udp_hdr *)((u8_t *)ipv6 +
 						sizeof(struct ipv6_hdr));
 	struct dhcpv6_context *dhcpv6c;
+	u16_t payload_len = NET_TO_HOST16(ipv6->ipv6_plen);
+	u16_t udp_length = NET_TO_HOST16(udp->length);
 
 	/*
 	 * We only care about DHCPv6 packets from the DHCPv6 server.  We drop
@@ -1229,6 +1271,14 @@ static void ipv6_udp_rx(struct ipv6_context *context)
 	if (!(context->flags & IPV6_FLAGS_DISABLE_DHCPV6)) {
 		if ((udp->src_port == HOST_TO_NET16(DHCPV6_SERVER_PORT)) &&
 		    (udp->dest_port == HOST_TO_NET16(DHCPV6_CLIENT_PORT))) {
+			/* Require minimal UDP + DHCPv6 fixed header and consistency */
+			if (payload_len < sizeof(struct udp_hdr) + sizeof(union dhcpv6_hdr))
+				return;
+			if (udp_length < sizeof(struct udp_hdr) + sizeof(union dhcpv6_hdr))
+				return;
+			if (udp_length > payload_len)
+				return;
+
 			dhcpv6c = context->dhcpv6_context;
 			dhcpv6c->eth = eth;
 			dhcpv6c->ipv6 = ipv6;

@@ -63,10 +63,9 @@ static struct iscsi_net_driver net_drivers[] = {
 int net_get_transport_name_from_netdev(char *netdev, char *transport)
 {
 	struct ethtool_drvinfo drvinfo;
-	struct ifreq ifr;
+	struct ifreq ifr = {0};
 	int err, fd, i;
 
-	memset(&ifr, 0, sizeof(ifr));
 	strcpy(ifr.ifr_name, netdev);
 
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -127,7 +126,7 @@ close_sock:
 int net_get_netdev_from_hwaddress(char *hwaddress, char *netdev)
 {
 	struct if_nameindex *ifni;
-	struct ifreq if_hwaddr;
+	struct ifreq if_hwaddr = {0};
 	int found = 0, sockfd, i = 0;
 	unsigned char *hwaddr;
 	char tmp_hwaddress[ISCSI_HWADDRESS_BUF_SIZE];
@@ -157,7 +156,7 @@ int net_get_netdev_from_hwaddress(char *hwaddress, char *netdev)
 		}
 
 		/* check for ARPHRD_ETHER (ethernet) */
-		if (if_hwaddr.ifr_hwaddr.sa_family != 1)
+		if (if_hwaddr.ifr_hwaddr.sa_family != ARPHRD_ETHER)
 			continue;
 		hwaddr = (unsigned char *)if_hwaddr.ifr_hwaddr.sa_data;
 
@@ -185,9 +184,9 @@ free_ifni:
 	return 0;
 }
 
-static char *find_vlan_dev(int vlan_id) {
-	struct ifreq if_hwaddr;
-	struct ifreq vlan_hwaddr;
+static char *find_vlan_dev(char *netdev, int vlan_id) {
+	struct ifreq if_hwaddr = {0};
+	struct ifreq vlan_hwaddr = {0};
 	struct vlan_ioctl_args vlanrq = { .cmd = GET_VLAN_VID_CMD, };
 	struct if_nameindex *ifni;
 	char *vlan = NULL;
@@ -199,7 +198,12 @@ static char *find_vlan_dev(int vlan_id) {
 		return NULL;
 	}
 
-	ioctl(sockfd, SIOCGIFHWADDR, &if_hwaddr);
+	strlcpy(if_hwaddr.ifr_name, netdev, IFNAMSIZ);
+	if (ioctl(sockfd, SIOCGIFHWADDR, &if_hwaddr) < 0) {
+		log_error("Could not match %s to netdevice.", netdev);
+		close(sockfd);
+		return NULL;
+	}
 
 	if (if_hwaddr.ifr_hwaddr.sa_family != ARPHRD_ETHER) {
 		close(sockfd);
@@ -215,7 +219,8 @@ static char *find_vlan_dev(int vlan_id) {
 
 	for (i = 0; ifni[i].if_index && ifni[i].if_name; i++) {
 		strlcpy(vlan_hwaddr.ifr_name, ifni[i].if_name, IFNAMSIZ);
-		ioctl(sockfd, SIOCGIFHWADDR, &vlan_hwaddr);
+		if (ioctl(sockfd, SIOCGIFHWADDR, &vlan_hwaddr) < 0)
+			continue;
 
 		if (vlan_hwaddr.ifr_hwaddr.sa_family != ARPHRD_ETHER)
 			continue;
@@ -257,11 +262,10 @@ int net_get_ip_version(char *ip)
 
 static int net_bringup_netdev(int sock, char *physdev, char *netdev)
 {
-	struct ifreq ifr;
 
 	if (physdev) {
 		/* Bring up interface */
-		memset(&ifr, 0, sizeof(ifr));
+		struct ifreq ifr = {0};
 		strlcpy(ifr.ifr_name, physdev, IFNAMSIZ);
 		ifr.ifr_flags = IFF_UP | IFF_RUNNING;
 		if (ioctl(sock, SIOCSIFFLAGS, &ifr) < 0) {
@@ -272,7 +276,7 @@ static int net_bringup_netdev(int sock, char *physdev, char *netdev)
 	}
 
 	/* Bring up interface */
-	memset(&ifr, 0, sizeof(ifr));
+	struct ifreq ifr = {0};
 	strlcpy(ifr.ifr_name, netdev, IFNAMSIZ);
 	ifr.ifr_flags = IFF_UP | IFF_RUNNING;
 	if (ioctl(sock, SIOCSIFFLAGS, &ifr) < 0) {
@@ -322,8 +326,8 @@ int net_setup_netdev_ipv4(char *netdev, char *local_ip, char *mask, char *gatewa
 	vlan_id = atoi(vlan);
 
 	if (vlan_id != 0) {
-		vlandev = find_vlan_dev(vlan_id);
 		physdev = targetdev;
+		vlandev = find_vlan_dev(physdev, vlan_id);
 		targetdev = vlandev;
 	}
 
@@ -480,8 +484,8 @@ int net_setup_netdev_ipv6(char *netdev, char *local_ip, int prefix, char *gatewa
 
 	vlan_id = atoi(vlan);
 	if (vlan_id) {
-		vlandev = find_vlan_dev(vlan_id);
 		physdev = targetdev;
+		vlandev = find_vlan_dev(physdev, vlan_id);
 		targetdev = vlandev;
 	}
 	if (vlan_id && !vlandev) {

@@ -31,6 +31,7 @@
 #include <sys/uio.h>
 #include <ifaddrs.h>
 #include <netinet/in.h>
+#include <net/if_arp.h>
 
 #include "iface.h"
 #include "types.h"
@@ -87,7 +88,7 @@ static int get_hwaddress_from_netdev(char *netdev, char *hwaddress)
 	struct ifaddrs *ifap, *ifa;
 	struct sockaddr_in *s4;
 	struct sockaddr_in6 *s6;
-	struct ifreq if_hwaddr;
+	struct ifreq if_hwaddr = {0};
 	int found = 0, sockfd;
 	unsigned char *hwaddr;
 	char buf[INET6_ADDRSTRLEN];
@@ -140,7 +141,7 @@ static int get_hwaddress_from_netdev(char *netdev, char *hwaddress)
 		}
 
 		/* check for ARPHRD_ETHER (ethernet) */
-		if (if_hwaddr.ifr_hwaddr.sa_family != 1)
+		if (if_hwaddr.ifr_hwaddr.sa_family != ARPHRD_ETHER)
 			continue;
 		hwaddr = (unsigned char *)if_hwaddr.ifr_hwaddr.sa_data;
 
@@ -255,7 +256,8 @@ iscsi_conn_iface_has_ip(char *iface_name, int expected_family)
 	return status;
 }
 
-static int bind_conn_to_iface(iscsi_conn_t *conn, struct iface_rec *iface, int expected_family)
+static int bind_conn_to_iface(iscsi_conn_t *conn, struct iface_rec *iface,
+			      int expected_family)
 {
 	struct iscsi_session *session = conn->session;
 
@@ -286,11 +288,10 @@ static int bind_conn_to_iface(iscsi_conn_t *conn, struct iface_rec *iface, int e
 	}
 
 	if (strlen(session->netdev)) {
-		struct ifreq ifr;
+		struct ifreq ifr = {0};
 
 		log_debug(4, "Binding session %d to %s", session->id,
 			  session->netdev);
-		memset(&ifr, 0, sizeof(ifr));
 		strlcpy(ifr.ifr_name, session->netdev, IFNAMSIZ);
 
 		if (!iscsi_conn_iface_has_ip(session->netdev, expected_family))
@@ -326,17 +327,18 @@ iscsi_io_tcp_connect(iscsi_conn_t *conn, int non_blocking)
 		return -1;
 	}
 
-	if (bind_conn_to_iface(conn, &conn->session->nrec.iface, ss->ss_family))
-		return -1;
+	if (bind_conn_to_iface(conn, &conn->session->nrec.iface,
+			       ss->ss_family)) {
+		rc = -1;
+		goto close_sock;
+	}
 
 	onearg = 1;
 	rc = setsockopt(conn->socket_fd, IPPROTO_TCP, TCP_NODELAY, &onearg,
 			sizeof (onearg));
 	if (rc < 0) {
 		log_error("cannot set TCP_NODELAY option on socket");
-		close(conn->socket_fd);
-		conn->socket_fd = -1;
-		return rc;
+		goto close_sock;
 	}
 
 	/* optionally set the window sizes */
@@ -396,6 +398,11 @@ iscsi_io_tcp_connect(iscsi_conn_t *conn, int non_blocking)
 	if (non_blocking)
 		set_non_blocking(conn->socket_fd);
 	rc = connect(conn->socket_fd, (struct sockaddr *) ss, sizeof (*ss));
+	return rc;
+
+close_sock:
+	close(conn->socket_fd);
+	conn->socket_fd = -1;
 	return rc;
 }
 
